@@ -26,15 +26,20 @@ trees = [
     ),
     ops.Normal(
         ops.Param("skills_mu", ops.Index("year_mu")),
-        ops.Constant(0.0),
-        ops.Constant(1.0)
+        ops.RealConstant(0.0),
+        ops.RealConstant(1.0)
     ),
     ops.Normal(
         ops.Param("tau"),
-        ops.Constant(0.0),
-        ops.Constant(1.0)
+        ops.RealConstant(0.0),
+        ops.RealConstant(1.0)
     )
 ]
+
+#score_diff ~ normal(skills[home_team, year] - skills[away_team, year], sigma);
+#skills[team, year] ~ normal(skills_mu[year], tau);
+#tau ~ normal(0.0, 1.0);
+#sigma ~ normal(0.0, 10.0);
 
 stan_data : typing.Dict[str, context.StanData] = {}
 stan_params : typing.Dict[str, context.StanParam] = {}
@@ -134,7 +139,13 @@ model {{
 }}
 """)
 
-#score_diff ~ normal(skills[home_team_away_team_idx] - skills[away_team_idx], sigma)
+#score_diff ~ normal(skills[home_team, year] - skills[away_team, year], sigma);
+#skills[team, year] ~ normal(skills_mu[year], tau);
+#tau ~ normal(0.0, 1.0);
+#sigma ~ normal(0.0, 10.0);
+
+
+
 
 #for index_tuple in indices:
 #    for row in df[list(index_tuple)].itertuples(index = False):
