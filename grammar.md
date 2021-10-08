@@ -11,7 +11,7 @@ We are going to follow stan's grammar, but alot of stuff stripped out
 5. `Terminate`  `;` end of statement
 6. `Special` Special semantic characters `["(", ")", ",", "[", "]", "~"]`
     - Sequencing control and order of operations `"(", ")"`
-    - expression lists `","`
+    - expression lists(called `expressions`) `","`
     - Indexing `"[", "]"`
     - Sampling `"~"`
 #### BNF
