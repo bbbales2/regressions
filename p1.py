@@ -1,5 +1,5 @@
 import pandas
-import tokens
+import ops
 
 data_df = (
     pandas.read_csv("games_small.csv")
@@ -8,29 +8,29 @@ data_df = (
 )
 
 tokenized_lines = [
-    tokens.Normal(
-        tokens.Data("score_diff"),
-        tokens.Diff(
-            tokens.Param("skills", tokens.Index(("home_team", "year"))),
-            tokens.Param("skills", tokens.Index(("away_team", "year")))
+    ops.Normal(
+        ops.Data("score_diff"),
+        ops.Diff(
+            ops.Param("skills", ops.Index(("home_team", "year"))),
+            ops.Param("skills", ops.Index(("away_team", "year")))
         ),
-        tokens.Param("sigma")
+        ops.Param("sigma")
     ),
-    tokens.Normal(
-        tokens.Param("skills", tokens.Index(("team", "year"))),
-        tokens.Param("skills_mu", tokens.Index("year")),
-        tokens.Param("tau")
+    ops.Normal(
+        ops.Param("skills", ops.Index(("team", "year"))),
+        ops.Param("skills_mu", ops.Index("year")),
+        ops.Param("tau")
     ),
-    tokens.Normal(
-        tokens.Param("skills_mu", tokens.Index("year_mu")),
-        tokens.Constant(0.0),
-        tokens.Constant(1.0)
+    ops.Normal(
+        ops.Param("skills_mu", ops.Index("year_mu")),
+        ops.Constant(0.0),
+        ops.Constant(1.0)
     ),
-    tokens.Normal(
-        tokens.Param("tau"),
-        tokens.Constant(0.0),
-        tokens.Constant(1.0)
+    ops.Normal(
+        ops.Param("tau"),
+        ops.Constant(0.0),
+        ops.Constant(1.0)
     )
 ]
 
-tree = parser.parse(data_df, tokenized_lines)
+tree = compiler.compile(data_df, tokenized_lines)
