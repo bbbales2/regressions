@@ -1,5 +1,6 @@
 import pandas
 import ops
+import compiler
 
 data_df = (
     pandas.read_csv("games_small.csv")
@@ -7,7 +8,7 @@ data_df = (
     .assign(year=lambda df: df["date"].str[0:4].astype("int"))
 )
 
-tokenized_lines = [
+parsed_lines = [
     ops.Normal(
         ops.Data("score_diff"),
         ops.Diff(
@@ -18,11 +19,11 @@ tokenized_lines = [
     ),
     ops.Normal(
         ops.Param("skills", ops.Index(("team", "year"))),
-        ops.Param("skills_mu", ops.Index("year")),
+        ops.Param("skills_mu", ops.Index(("year",))),
         ops.Param("tau")
     ),
     ops.Normal(
-        ops.Param("skills_mu", ops.Index("year_mu")),
+        ops.Param("skills_mu", ops.Index(("year_mu",))),
         ops.Constant(0.0),
         ops.Constant(1.0)
     ),
@@ -33,4 +34,4 @@ tokenized_lines = [
     )
 ]
 
-tree = compiler.compile(data_df, tokenized_lines)
+tree = compiler.compile(data_df, parsed_lines)

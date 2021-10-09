@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import numpy
 import pandas
 from typing import List, Dict, Tuple
 
@@ -13,7 +14,7 @@ class Index:
         self.df = (
             unprocessed_df
             .drop_duplicates()
-            .sort_values(columns)
+            .sort_values(list(columns))
             .reset_index(drop = True)
         )
 
@@ -33,10 +34,22 @@ class Data:
     name : str
     series : pandas.Series
 
+    def init(self, scope):
+        scope[self.code()] = self.series
+
+    def code(self):
+        return f"data__{self.name}"
+
 @dataclass
 class Param:
     name : str
     index : Index = None
+
+    def initialize(self, scope):
+        scope[self.code()] = numpy.zeros(len(self.index.levels))
+
+    def code(self):
+        return f"param__{self.name}"
 
 @dataclass
 class DataUse:
@@ -47,6 +60,9 @@ class IndexUse:
     names : Tuple[str]
     df : pandas.DataFrame
     index : Index
+
+    def code(self):
+        return f"index__{'_'.join(self.names)}"
 
 @dataclass
 class ParamUse:

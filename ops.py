@@ -18,12 +18,18 @@ class Data(Expr):
     def get_key(self):
         return self.name
 
+    def code(self):
+        return f"data__{self.name}"
+
 @dataclass(frozen = True)
 class Index(Expr):
     names : Tuple[str]
     
     def get_key(self):
         return self.names
+    
+    def code(self):
+        return f"index__{'_'.join(self.names)}"
 
 @dataclass(frozen = True)
 class Param(Expr):
@@ -40,6 +46,12 @@ class Param(Expr):
 
     def get_key(self):
         return self.name
+    
+    def code(self):
+        if self.index is not None:
+            return f"param__{self.name}[{self.index.code()}]"
+        else:
+            return f"param__{self.name}"
 
 class Distr(Expr):
     pass
@@ -51,12 +63,14 @@ class Normal(Distr):
     std : Expr
 
     def __iter__(self):
-        return iter([self.lhs, self.mean, self.std])
+        return iter([self.variate, self.mean, self.std])
+
+    def code(self):
+        return f"sum(normal_lpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
 
 @dataclass(frozen = True)
 class Constant(Expr):
-    def __init__(self, value):
-        self.value = value
+    value : float
 
     def code(self):
         return f"{self.value}"
@@ -68,6 +82,9 @@ class Diff(Expr):
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
+    
+    def code(self):
+        return f"({self.lhs.code()} - {self.rhs.code()})"
 
 def search_tree(type, expr):
     if isinstance(expr, type):
