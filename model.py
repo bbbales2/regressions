@@ -1,5 +1,4 @@
 import blackjax
-from blackjax.inference.base import HMCState
 import blackjax.nuts
 import jax
 import jax.numpy as jnp
