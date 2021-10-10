@@ -104,4 +104,4 @@ class Model:
                 series = [state.position[offset] for state in states]
                 draw_dfs[name] = pandas.DataFrame({ name : series, "draw" : draw_series })
 
-        return Fit(self, draw_dfs)
+        return Fit(draw_dfs)
