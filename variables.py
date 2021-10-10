@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import numpy
+import jax.numpy as jnp
 import pandas
 from typing import List, Dict, Tuple
 
@@ -34,8 +35,8 @@ class Data:
     name : str
     series : pandas.Series
 
-    def init(self, scope):
-        scope[self.code()] = self.series
+    def to_numpy(self):
+        return jnp.array(self.series).reshape((len(self.series), 1))
 
     def code(self):
         return f"data__{self.name}"
@@ -45,8 +46,14 @@ class Param:
     name : str
     index : Index = None
 
-    def initialize(self, scope):
-        scope[self.code()] = numpy.zeros(len(self.index.levels))
+    def scalar(self):
+        return self.index is None
+
+    def size(self):
+        if self.scalar():
+            return None
+        else:
+            return len(self.index.levels)
 
     def code(self):
         return f"param__{self.name}"
@@ -60,6 +67,12 @@ class IndexUse:
     names : Tuple[str]
     df : pandas.DataFrame
     index : Index
+
+    def to_numpy(self):
+        indices = []
+        for row in self.df.itertuples(index = False):
+            indices.append(self.index.get_index(row))
+        return jnp.array(indices, dtype = int).reshape((len(self.df.index), 1))
 
     def code(self):
         return f"index__{'_'.join(self.names)}"

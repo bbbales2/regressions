@@ -66,7 +66,7 @@ class Normal(Distr):
         return iter([self.variate, self.mean, self.std])
 
     def code(self):
-        return f"sum(normal_lpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
+        return f"normal_lpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
 
 @dataclass(frozen = True)
 class Constant(Expr):

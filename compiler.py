@@ -1,32 +1,71 @@
-from typing import List, Dict, Set
+from typing import Iterable, List, Dict, Set
 import ops
 import variables
+import numpy
 import pandas
+import jax
+import jax.numpy as jnp
+
+def normal_lpdf(y, mu, sd):
+    return -jnp.square((y - mu) / sd) - jnp.log(sd)
 
 class LineFunction:
     data_variables: List[variables.Data]
-    index_use_variables: List[variables.IndexUse]
     parameter_variables: List[variables.Param]
-    body_code : str
+    index_use_variables: List[variables.IndexUse]
+    line : ops.Expr
+    data_variable_names : List[str]
+    parameter_variable_names : List[str]
+    index_use_numpy : List[numpy.array] = []
 
-    def args(self):
-        return [variable.code() for variable in self.data_variables + self.index_use_variables + self.parameter_variables]
+    def __init__(
+        self,
+        data_variables : Iterable[str],
+        parameter_variables : Iterable[str],
+        index_use_variables : Iterable[variables.IndexUse],
+        line : ops.Expr
+    ):
+        self.data_variables = data_variables
+        self.parameter_variables = parameter_variables
+        self.data_variable_names = [data.name for data in data_variables]
+        self.parameter_variable_names = [parameter.name for parameter in parameter_variables]
+        self.index_use_variables = list(index_use_variables)
+        self.line = line
+        
+        vectorize = (
+            [0] * len(self.data_variables) +
+            [None] * len(self.parameter_variables) +
+            [0] * len(self.index_use_variables)
+        )
+        func_scope = {}
+        exec(self.code(), globals(), func_scope)
+        self.vectorize = vectorize
+        if any(x is not None for x in vectorize):
+            self.tfunc = func_scope["func"]
+            vectorized_func = jax.vmap(self.tfunc, self.vectorize, 0)
+            self.func = lambda *args: jnp.sum(vectorized_func(*args))
+        else:
+            self.func = func_scope["func"]
+
+        self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
 
     def code(self):
-        return "\n".join(
-            f"def func({','.join(self.args())}):",
-            f"  {self.body_code}"
-        )
-    
-    def call_code(self):
-        return f"func({','.join(self.args())})"
+        argument_variables = self.data_variables + self.parameter_variables + self.index_use_variables
+        args = [variable.code() for variable in argument_variables]
+        return "\n".join([
+            f"def func({','.join(args)}):",
+            f"  return {self.line.code()}"
+        ])
+
+    def __call__(self, *args):
+        return self.func(*args, *self.index_use_numpy)
 
 def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     data_variables: Dict[str, variables.Data] = {}
     parameter_variables: Dict[str, variables.Param] = {}
     index_variables: Dict[tuple, variables.Index] = {}
 
-    line_functions = []
+    line_functions : List[LineFunction] = []
 
     for line in parsed_lines:
         assert isinstance(line, ops.Distr)
@@ -100,85 +139,55 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 index_use_variables[index_key] = variables.IndexUse(index_key, index_df, index)
                 #parameter_uses[parameter_key] = variables.ParamUse(param, index_df, index)
 
+        # For each source line, create a python function for log density
+        # This will copy over index arrays to jax device
         line_function = LineFunction(
             [data_variables[name] for name in data_variables_used],
-            index_use_variables.values(),
             [parameter_variables[name] for name in parameter_variables_used],
-            line.code()
+            index_use_variables.values(),
+            line
         )
 
         line_functions.append(line_function)
     
-    for key, data in data_variables.items():
-        data.initialize(locals())
-    
-    for key, parameter in parameter_variables.items():
-        parameter.initialize(locals())
+    # Copy data to jax device
+    data_numpy_variables = {}
+    for name, data in data_variables.items():
+        data_numpy_variables[name] = data.to_numpy()
 
-    # IN WRONG SCOPE
-    for key, index in index_variables.items():
-        index.initialize(locals())
-# score_diff = df["score_diff"]
-# sigma = 0.0
-# home_team_year = computed_index
-# away_team_year = computed_index
-# skills = jnp.zeros(N)
-# def line1_lpdf(score_diff, sigma, home_team_year, away_team_year, skills)
-#     return jnp.sum(normal_lpdf(score_diff, skills[home_team_year] - skills[away_team_year], sigma))
-# line1_lpdf_vec = vmap(line1_lpdf, (0, None, 0, 0, None), 0)
-# ops.Normal(
-#         ops.Data("score_diff"),
-#         ops.Diff(
-#             ops.Param("skills", ops.Index(("home_team", "year"))),
-#             ops.Param("skills", ops.Index(("away_team", "year")))
-#         ),
-#         ops.Param("sigma")
-#     )
+    # Get parameter dimensions so can build individual arguments from
+    # unconstrained vector
+    parameter_names = []
+    parameter_offsets = []
+    parameter_sizes = []
+    unconstrained_parameter_size = 0
+    for name, parameter in parameter_variables.items():
+        parameter_names.append(name)
+        parameter_offsets.append(unconstrained_parameter_size)
+        parameter_size = parameter.size()
+        parameter_sizes.append(parameter_size)
 
-#         for expr in ops.search_tree(ops.Index, tree):
-#             expr.populate(stan_indices[expr.get_key()])
+        if parameter_size is not None:
+            unconstrained_parameter_size += parameter_size
+        else:
+            unconstrained_parameter_size += 1
 
-#         for expr in ops.search_tree(ops.Data, tree):
-#             expr.populate(stan_data[expr.get_key()])
+    # This is the likelihood function we'll expose!
+    def lpdf(unconstrained_parameter_vector):
+        parameter_numpy_variables = {}
+        for name, offset, size in zip(parameter_names, parameter_offsets, parameter_sizes):
+            if size is not None:
+                parameter_numpy_variables[name] = jnp.array(unconstrained_parameter_vector[offset:offset + size])
+            else:
+                parameter_numpy_variables[name] = unconstrained_parameter_vector[offset]
 
-#         for expr in ops.search_tree(ops.Param, tree):
-#             expr.populate(stan_params[expr.get_key()])
+        total = 0.0
+        for line_function in line_functions:
+            data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
+            parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
+            total += line_function(*data_arguments, *parameter_arguments)
+        
+        return total
 
-#         for stan_index in stan_indices.values():
-#             data_lines.append(stan_index.code())
-
-#         model_lines.append(tree.code())
-
-# for stan_datum in stan_data.values():
-#     data_lines.append(stan_datum.code())
-# for stan_param in stan_params.values():
-#     parameters_lines.append(stan_param.code())
-
-# data_block = "\n".join(data_lines)
-# parameters_block = "\n".join(parameters_lines)
-# model_block = "\n".join(model_lines)
-
-# print(f"""
-# data {{
-# {data_block}
-# }}
-# parameters {{
-# {parameters_block}
-# }}
-# model {{
-# {model_block}
-# }}
-# """)
-
-# score_diff ~ normal(skills[home_team_away_team_idx] - skills[away_team_idx], sigma)
-
-# for index_tuple in indices:
-#    for row in df[list(index_tuple)].itertuples(index = False):
-#        print(index_tuple, row, multifactors[index_tuple].get_index(row))
-
-# for column, series in df.iteritems():
-#    is_int = pandas.api.types.is_integer_dtype(series)
-#    is_float = pandas.api.types.is_integer_dtype(series)
-#    is_str = pandas.api.types.is_string_dtype(series)
-#    if is_int or is_str:
-#        factors[name] = make_factor(series.tolist())
+    print("hi")
+    return jax.jit(lpdf), jax.jit(jax.grad(lpdf)), unconstrained_parameter_size

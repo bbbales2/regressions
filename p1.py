@@ -1,6 +1,9 @@
+import numpy
 import pandas
+
 import ops
 import compiler
+
 
 data_df = (
     pandas.read_csv("games_small.csv")
@@ -34,4 +37,11 @@ parsed_lines = [
     )
 ]
 
-tree = compiler.compile(data_df, parsed_lines)
+lpdf, lpdf_grad, param_size = compiler.compile(data_df, parsed_lines)
+
+params = numpy.exp(numpy.random.rand(param_size))
+
+print(lpdf(params))
+print(lpdf_grad(params))
+
+print("foo")
