@@ -59,10 +59,6 @@ class Param:
         return f"param__{self.name}"
 
 @dataclass
-class DataUse:
-    data : Data
-
-@dataclass
 class IndexUse:
     names : Tuple[str]
     df : pandas.DataFrame
@@ -76,8 +72,3 @@ class IndexUse:
 
     def code(self):
         return f"index__{'_'.join(self.names)}"
-
-@dataclass
-class ParamUse:
-    param : Param
-    index_use : IndexUse = None
