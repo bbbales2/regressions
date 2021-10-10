@@ -18,8 +18,11 @@ class Data(Expr):
     def get_key(self):
         return self.name
 
-    def code(self):
+    def code_name(self):
         return f"data__{self.name}"
+
+    def code(self):
+        return self.code_name()
 
 @dataclass(frozen = True)
 class Index(Expr):
@@ -28,8 +31,11 @@ class Index(Expr):
     def get_key(self):
         return self.names
     
-    def code(self):
+    def code_name(self):
         return f"index__{'_'.join(self.names)}"
+
+    def code(self):
+        return self.code_name()
 
 @dataclass(frozen = True)
 class Param(Expr):
@@ -43,15 +49,21 @@ class Param(Expr):
             return iter([self.index])
         else:
             return iter([])
+    
+    def scalar(self):
+        return self.index is None
 
     def get_key(self):
         return self.name
     
+    def code_name(self):
+        return f"param__{self.name}"
+    
     def code(self):
         if self.index is not None:
-            return f"param__{self.name}[{self.index.code()}]"
+            return self.code_name() + f"[{self.index.code()}]"
         else:
-            return f"param__{self.name}"
+            return self.code_name()
 
 class Distr(Expr):
     pass

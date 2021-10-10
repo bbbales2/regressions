@@ -32,20 +32,18 @@ class LineFunction:
         self.index_use_variables = list(index_use_variables)
         self.line = line
         
-        vectorize = (
+        vectorize_arguments = (
             [0] * len(self.data_variables) +
             [None] * len(self.parameter_variables) +
             [0] * len(self.index_use_variables)
         )
-        func_scope = {}
-        exec(self.code(), globals(), func_scope)
-        self.vectorize = vectorize
-        if any(x is not None for x in vectorize):
-            self.tfunc = func_scope["func"]
-            vectorized_func = jax.vmap(self.tfunc, self.vectorize, 0)
-            self.func = lambda *args: jnp.sum(vectorized_func(*args))
-        else:
-            self.func = func_scope["func"]
+        function_local_scope = {}
+        exec(self.code(), globals(), function_local_scope)
+        compiled_function = function_local_scope["func"]
+        if any(x is not None for x in vectorize_arguments):
+            compiled_function = jax.vmap(compiled_function, vectorize_arguments, 0)
+        
+        self.func = lambda *args: jnp.sum(compiled_function(*args))
 
         self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
 
@@ -150,44 +148,5 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
         line_functions.append(line_function)
     
-    # Copy data to jax device
-    data_numpy_variables = {}
-    for name, data in data_variables.items():
-        data_numpy_variables[name] = data.to_numpy()
-
-    # Get parameter dimensions so can build individual arguments from
-    # unconstrained vector
-    parameter_names = []
-    parameter_offsets = []
-    parameter_sizes = []
-    unconstrained_parameter_size = 0
-    for name, parameter in parameter_variables.items():
-        parameter_names.append(name)
-        parameter_offsets.append(unconstrained_parameter_size)
-        parameter_size = parameter.size()
-        parameter_sizes.append(parameter_size)
-
-        if parameter_size is not None:
-            unconstrained_parameter_size += parameter_size
-        else:
-            unconstrained_parameter_size += 1
-
-    # This is the likelihood function we'll expose!
-    def lpdf(unconstrained_parameter_vector):
-        parameter_numpy_variables = {}
-        for name, offset, size in zip(parameter_names, parameter_offsets, parameter_sizes):
-            if size is not None:
-                parameter_numpy_variables[name] = jnp.array(unconstrained_parameter_vector[offset:offset + size])
-            else:
-                parameter_numpy_variables[name] = unconstrained_parameter_vector[offset]
-
-        total = 0.0
-        for line_function in line_functions:
-            data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
-            parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
-            total += line_function(*data_arguments, *parameter_arguments)
-        
-        return total
-
     print("hi")
-    return jax.jit(lpdf), jax.jit(jax.grad(lpdf)), unconstrained_parameter_size
+    return data_variables, parameter_variables, index_variables, line_functions

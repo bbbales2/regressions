@@ -1,9 +1,13 @@
 import numpy
 import pandas
+import jax
+import jax.numpy as jnp
+import blackjax
+import blackjax.nuts
 
 import ops
 import compiler
-
+from model import Model
 
 data_df = (
     pandas.read_csv("games_small.csv")
@@ -37,11 +41,12 @@ parsed_lines = [
     )
 ]
 
-lpdf, lpdf_grad, param_size = compiler.compile(data_df, parsed_lines)
+model = Model(data_df, parsed_lines)
 
-params = numpy.exp(numpy.random.rand(param_size))
+fit = model.sample(20)
 
-print(lpdf(params))
-print(lpdf_grad(params))
+tau_df = fit.draws("tau")
+skills_df = fit.draws("skills")
 
-print("foo")
+print(tau_df)
+print(skills_df)

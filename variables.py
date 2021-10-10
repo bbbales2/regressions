@@ -4,6 +4,8 @@ import jax.numpy as jnp
 import pandas
 from typing import List, Dict, Tuple
 
+import ops
+
 class Index:
     df : pandas.DataFrame
     levels : List
