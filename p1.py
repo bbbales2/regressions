@@ -8,6 +8,8 @@ import blackjax.nuts
 import ops
 import compiler
 from model import Model
+from parser import Parser
+from scanner import scanner
 
 data_df = (
     pandas.read_csv("games_small.csv")
@@ -31,15 +33,21 @@ parsed_lines = [
     ),
     ops.Normal(
         ops.Param("skills_mu", ops.Index(("year_mu",))),
-        ops.Constant(0.0),
-        ops.Constant(1.0)
+        ops.RealConstant(0.0),
+        ops.RealConstant(1.0)
     ),
     ops.Normal(
         ops.Param("tau"),
-        ops.Constant(0.0),
-        ops.Constant(1.0)
+        ops.RealConstant(0.0),
+        ops.RealConstant(1.0)
     )
 ]
+
+input_str = "score_diff~normal(skills[home_team, year]-skills[away_team, year],sigma);"
+scanned = scanner(input_str)
+parsed = Parser(scanned).statement()
+print(parsed.code())
+
 
 model = Model(data_df, parsed_lines)
 
