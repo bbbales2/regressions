@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 class Expr:
     def __iter__(self):
@@ -13,19 +13,6 @@ class Expr:
 
     def __str__(self):
         pass
-
-@dataclass(frozen = True)
-class Data(Expr):
-    name : str
-
-    def get_key(self):
-        return self.name
-
-    def code_name(self):
-        return f"data__{self.name}"
-
-    def code(self):
-        return self.code_name()
 
 @dataclass(frozen = True)
 class Index(Expr):
@@ -46,7 +33,28 @@ class Index(Expr):
     def __str__(self):
         return f"Index({', '.join(x.__str__() for x in self.names)})"
 
-@dataclass(frozen = True)
+@dataclass(frozen = False)
+class Data(Expr):
+    name : str
+    index: Index = None
+
+    def get_key(self):
+        return self.name
+
+    def code_name(self):
+        return f"data__{self.name}"
+
+    def code(self):
+        if self.index is not None:
+            return self.code_name() + f"[{self.index.code()}]"
+        else:
+            return self.code_name()
+
+    def __str__(self):
+        return f"Data({self.name}, {self.index.__str__()})"
+        #return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
+
+@dataclass(frozen = False)
 class Param(Expr):
     name : str
     index : Index = None
@@ -74,6 +82,10 @@ class Param(Expr):
         else:
             return self.code_name()
 
+    def __str__(self):
+        return f"Param({self.name}, {self.index.__str__()})"
+        #return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
+
 class Distr(Expr):
     pass
 
@@ -91,7 +103,7 @@ class Normal(Distr):
         return f"normal_lpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
 
     def __str__(self):
-        return f"Normal({self.lhs.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+        return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
 @dataclass(frozen = True)
 class RealConstant(Expr):
@@ -394,7 +406,7 @@ class DivAssignment(Expr):
 @dataclass
 class Placeholder(Expr):
     name : str
-    index : Index
+    index : Union[Index, None]
     value : float = None
 
     def __iter__(self):
