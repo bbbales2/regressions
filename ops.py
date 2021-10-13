@@ -12,7 +12,7 @@ class Expr:
         pass
 
     def __str__(self):
-        pass
+        return "Expr()"
 
 @dataclass(frozen = True)
 class Index(Expr):

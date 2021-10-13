@@ -1,6 +1,7 @@
 from typing import *
 from scanner import Token, Identifier, Operator, RealLiteral, IntLiteral, Special, NullToken
 from ops import *
+import warnings
 
 # https://mc-stan.org/docs/2_18/reference-manual/bnf-grammars.html
 # https://mc-stan.org/docs/2_28/reference-manual/arithmetic-expressions.html
@@ -183,10 +184,10 @@ class Parser:
 
         exp = Expr()
         if isinstance(token, RealLiteral):  # if just a real number, return it
-            exp = RealConstant(token.value)
+            exp = RealConstant(float(token.value))
             self.remove()  # real
         if isinstance(token, IntLiteral):  # if just a integer, return it
-            exp = IntegerConstant(token.value)
+            exp = IntegerConstant(int(token.value))
             self.remove()  # integer
 
         if isinstance(token, Identifier):  # parameter/data
@@ -213,10 +214,14 @@ class Parser:
         next_token = self.peek()  # this is for the following 2 rules, which have conditions after expression
         if isinstance(next_token, Special) and next_token.value == "[":  # identifier '[' expressions ']'
             self.remove()  # [
+            warnings.warn("Parser: Indices are assumed to be a single literal, not expression.")
             expressions = self.expressions()  # list of expression
             self.expect_token(Special, "]")
             self.remove()  # ]
-            exp.index = Index(tuple(expressions))
+
+            # Assume index is a single identifier - this is NOT GOOD
+
+            exp.index = Index(tuple(expression.name for expression in  expressions))
             next_token = self.peek()  # Update token in case we need evaluate case 2
 
         if InfixOps.check(next_token):  # expression infixOps expression
@@ -236,8 +241,7 @@ class Parser:
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.expression()
-
-        if isinstance(lhs, Placeholder):
+        if isinstance(lhs, Param) or isinstance(lhs, Data):
             op = self.peek()
             if AssignmentOps.check(op):
                 self.remove()  # assignment operator
@@ -259,10 +263,7 @@ class Parser:
             else:
                 raise Exception("Statement finished without assignment")
 
-        return lhs
-
-    def resolve_placeholders(self, parsed_line_ops: List[Expr], data_names):
-        param_names = []
+        return Expr()
 
 
 if __name__ == '__main__':
