@@ -39,6 +39,11 @@ class Terminate(Token):
         super(Terminate, self).__init__(value)
 
 
+class NullToken(Token):
+    def __init__(self):
+        super(NullToken, self).__init__(None)
+
+
 special_characters = ["(", ")", ",", "[", "]", "~"]  # symbols indicating change in semantics or control flow
 operator_strings = ["=", "+=", "-=", "/=", "*=", "%=",
                     "+", "-", "*", "/", "^", "%",
@@ -56,7 +61,8 @@ def scanner(model_code):
         if char in delimeters:
             if charstack:
                 resolved = resolve_token(charstack)
-                if resolved: result.append(resolved)
+                if resolved:
+                    result.append(resolved)
                 charstack = ""
             resolved = resolve_token(char)
             if resolved:
@@ -85,7 +91,6 @@ def scanner(model_code):
                 charstack += char
         else:
             charstack += char
-
 
     if charstack:
         resolved = resolve_token(charstack)

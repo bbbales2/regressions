@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import List, Tuple, Union
+
 class Expr:
     def __iter__(self):
         return self
@@ -9,30 +12,102 @@ class Expr:
         pass
 
     def __str__(self):
-        pass
+        return "Expr()"
+
+@dataclass(frozen = True)
+class Index(Expr):
+    names : Tuple[str]
+    
+    def get_key(self):
+        return self.names
+    
+    def code_name(self):
+        # This code runs:
+        return f"index__{'_'.join([name.__str__() for name in self.names])}"
+        # But I think it should be:
+        # return f"index__{'_'.join(self.names)}"
+
+    def code(self):
+        return self.code_name()
+    
+    def __str__(self):
+        return f"Index({', '.join(x.__str__() for x in self.names)})"
+
+@dataclass(frozen = False)
+class Data(Expr):
+    name : str
+    index: Index = None
+
+    def get_key(self):
+        return self.name
+
+    def code_name(self):
+        return f"data__{self.name}"
+
+    def code(self):
+        if self.index is not None:
+            return self.code_name() + f"[{self.index.code()}]"
+        else:
+            return self.code_name()
+
+    def __str__(self):
+        return f"Data({self.name}, {self.index.__str__()})"
+        #return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
+
+@dataclass(frozen = False)
+class Param(Expr):
+    name : str
+    index : Index = None
+    lower : float = float("-inf")
+    upper : float = float("inf")
+
+    def __iter__(self):
+        if self.index is not None:
+            return iter([self.index])
+        else:
+            return iter([])
+    
+    def scalar(self):
+        return self.index is None
+
+    def get_key(self):
+        return self.name
+    
+    def code_name(self):
+        return f"param__{self.name}"
+    
+    def code(self):
+        if self.index is not None:
+            return self.code_name() + f"[{self.index.code()}]"
+        else:
+            return self.code_name()
+
+    def __str__(self):
+        return f"Param({self.name}, {self.index.__str__()})"
+        #return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 class Distr(Expr):
     pass
 
 
+@dataclass(frozen = True)
 class Normal(Distr):
-    def __init__(self, lhs, mean, std):
-        self.lhs = lhs
-        self.mean = mean
-        self.std = std
+    variate : Expr
+    mean : Expr
+    std : Expr
 
     def __iter__(self):
-        return iter([self.lhs, self.mean, self.std])
-    
+        return iter([self.variate, self.mean, self.std])
+
     def code(self):
-        return f"{self.lhs.code()} ~ normal({self.mean.code()}, {self.std.code()})"
+        return f"normal_lpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
 
     def __str__(self):
-        return f"Normal({self.lhs.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+        return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
+@dataclass(frozen = True)
 class RealConstant(Expr):
-    def __init__(self, value):
-        self.value = value
+    value : float
 
     def code(self):
         return f"{self.value}"
@@ -40,9 +115,23 @@ class RealConstant(Expr):
     def __str__(self):
         return f"RealConstant({self.value})"
 
+@dataclass(frozen = True)
+class Diff(Expr):
+    lhs : Expr
+    rhs : Expr
+
+    def __iter__(self):
+        return iter([self.lhs, self.rhs])
+    
+    def code(self):
+        return f"({self.lhs.code()} - {self.rhs.code()})"
+
+    def __str__(self):
+        return f"Diff({self.lhs.__str__()}, {self.rhs.__str__()})"
+
+@dataclass(frozen = True)
 class IntegerConstant(Expr):
-    def __init__(self, value):
-        self.value = value
+    value : int
 
     def code(self):
         return f"{self.value}"
@@ -50,24 +139,10 @@ class IntegerConstant(Expr):
     def __str__(self):
         return f"IntegerConstant({self.value})"
 
-class Diff(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
-    def __iter__(self):
-        return iter([self.left, self.right])
-    
-    def code(self):
-        return f"{self.left.code()} - {self.right.code()}"
-
-    def __str__(self):
-        return f"Diff({self.left.__str__()}, {self.right.__str__()})"
-
+@dataclass(frozen = True)
 class Sum(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -78,10 +153,10 @@ class Sum(Expr):
     def __str__(self):
         return f"Sum({self.left.__str__()}, {self.right.__str__()})"
 
+@dataclass(frozen = True)
 class Mul(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -92,10 +167,10 @@ class Mul(Expr):
     def __str__(self):
         return f"Mul({self.left.__str__()}, {self.right.__str__()})"
 
+@dataclass(frozen = True)
 class Div(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -106,11 +181,10 @@ class Div(Expr):
     def __str__(self):
         return f"Div({self.left.__str__(), self.right.__str__()})"
 
-
+@dataclass(frozen = True)
 class Mod(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -121,10 +195,10 @@ class Mod(Expr):
     def __str__(self):
         return f"Mod({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class LogicalOR(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -135,10 +209,10 @@ class LogicalOR(Expr):
     def __str__(self):
         return f"LogicalOR({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class LogicalAND(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -149,10 +223,10 @@ class LogicalAND(Expr):
     def __str__(self):
         return f"LogicalAND({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class Equality(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -163,10 +237,10 @@ class Equality(Expr):
     def __str__(self):
         return f"Equality({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class Inequality(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -177,10 +251,10 @@ class Inequality(Expr):
     def __str__(self):
         return f"Inequality({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class LessThan(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -191,10 +265,10 @@ class LessThan(Expr):
     def __str__(self):
         return f"LessThan({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class LessThanOrEqual(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -205,10 +279,10 @@ class LessThanOrEqual(Expr):
     def __str__(self):
         return f"LessThanOrEqual({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class GreaterThan(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -219,10 +293,10 @@ class GreaterThan(Expr):
     def __str__(self):
         return f"GreaterThan({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class GreaterThanOrEqual(Expr):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    left : Expr
+    right : Expr
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -233,9 +307,9 @@ class GreaterThanOrEqual(Expr):
     def __str__(self):
         return f"GreaterThanOrEqual({self.left.__str__(), self.right.__str__()})"
 
+@dataclass(frozen = True)
 class PrefixNegation(Expr):
-    def __init__(self, subexpr):
-        self.subexpr = subexpr
+    subexpr : Expr
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -246,9 +320,9 @@ class PrefixNegation(Expr):
     def __str__(self):
         return f"PrefixNegation({self.subexpr.__str__()})"
 
+@dataclass(frozen = True)
 class PrefixLogicalNegation(Expr):
-    def __init__(self, subexpr):
-        self.subexpr = subexpr
+    subexpr : Expr
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -259,10 +333,10 @@ class PrefixLogicalNegation(Expr):
     def __str__(self):
         return f"PrefixLogicalNegation({self.subexpr.__str__()})"
 
+@dataclass(frozen = True)
 class Assignment(Expr):
-    def __init__(self, lhs, rhs):
-        self.lhs = lhs
-        self.rhs = rhs
+    lhs : Expr
+    rhs : Expr
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
@@ -273,10 +347,10 @@ class Assignment(Expr):
     def __str__(self):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+@dataclass(frozen = True)
 class AddAssignment(Expr):
-    def __init__(self, lhs, rhs):
-        self.lhs = lhs
-        self.rhs = rhs
+    lhs : Expr
+    rhs : Expr
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
@@ -287,10 +361,10 @@ class AddAssignment(Expr):
     def __str__(self):
         return f"AddAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+@dataclass(frozen = True)
 class DiffAssignment(Expr):
-    def __init__(self, lhs, rhs):
-        self.lhs = lhs
-        self.rhs = rhs
+    lhs : Expr
+    rhs : Expr
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
@@ -301,10 +375,10 @@ class DiffAssignment(Expr):
     def __str__(self):
         return f"DiffAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+@dataclass(frozen = True)
 class MulAssignment(Expr):
-    def __init__(self, lhs, rhs):
-        self.lhs = lhs
-        self.rhs = rhs
+    lhs : Expr
+    rhs : Expr
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
@@ -315,10 +389,10 @@ class MulAssignment(Expr):
     def __str__(self):
         return f"MulAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+@dataclass(frozen = True)
 class DivAssignment(Expr):
-    def __init__(self, lhs, rhs):
-        self.lhs = lhs
-        self.rhs = rhs
+    lhs : Expr
+    rhs : Expr
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
@@ -329,24 +403,11 @@ class DivAssignment(Expr):
     def __str__(self):
         return f"DivAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
-class Data(Expr):
-    def __init__(self, name):
-        self.name = name
-    
-    def get_key(self):
-        return self.name
-    
-    def populate(self, stan_data):
-        self.stan_data = stan_data
-    
-    def code(self):
-        return self.stan_data.get_stan_name()
-
+@dataclass
 class Placeholder(Expr):
-    def __init__(self, name, index, value=None):
-        self.name = name
-        self.index = index
-        self.value = value
+    name : str
+    index : Union[Index, None]
+    value : float = None
 
     def __iter__(self):
         if self.index is not None:
@@ -363,66 +424,6 @@ class Placeholder(Expr):
     def __str__(self):
         return f"Placeholder({self.name}, {self.index.__str__()})"
         #return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
-
-class Param(Expr):
-    def __init__(self, name, index = None, lower = None, upper = None):
-        self.name = name
-        self.index = index
-        self.lower = lower
-        self.upper = upper
-
-    def __iter__(self):
-        if self.index is not None:
-            return iter([self.index])
-        else:
-            return iter([])
-
-    def get_key(self):
-        return self.name
-
-    def populate(self, stan_param):
-        self.stan_param = stan_param
-    
-    def code(self):
-        stan_name = self.stan_param.get_stan_name()
-        if self.index is not None:
-            return f"{stan_name}[{self.index.code()}]"
-        else:
-            return stan_name
-
-class Index(Expr):
-    def __init__(self, *args):
-        self.args = args
-    
-    def get_key(self):
-        return self.args
-
-    def populate(self, stan_index):
-        self.stan_index = stan_index
-    
-    def code(self):
-        #return self.stan_index.get_stan_name()
-        return ", ".join(x.code() for x in self.args)
-    
-    def __str__(self):
-        return f"Index({', '.join(x.__str__() for x in self.args)})"
-
-def find_type(type, expr):
-    if isinstance(expr, type):
-        return [expr]
-    else:
-        indices = []
-        for child in expr:
-            indices.extend(find_type(type, child))
-
-        return indices
-
-def populate_type(type, expr, stan_vars):
-    if isinstance(expr, type):
-        return expr.populate(stan_vars[expr.get_key()])
-    else:
-        for child in expr:
-            populate_type(type, child, stan_vars)
 
 def search_tree(type, expr):
     if isinstance(expr, type):
