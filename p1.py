@@ -50,7 +50,7 @@ parsed_lines = [
 
 # input_str = """
 # score_diff~normal(skills[home_team, year]-skills[away_team, year],sigma);
-# skills[team, year] ~ normal(skills_mu[year], tau);
+# skills[team, year] ~ normal(skills_mu[lag(year)], tau);
 # tau<lower=0.0> ~ normal(0.0, 1.0);
 # sigma<lower=0.0> ~ normal(0.0, 10.0);
 # """
