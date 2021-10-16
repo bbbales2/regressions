@@ -22,6 +22,7 @@ class Model:
     parameter_names : List[str] = []
     parameter_offsets : List[int] = []
     parameter_sizes : List[Union[None, int]] = []
+    non_zero_arrays : List[numpy.array] = []
 
     def __init__(self, data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         data_variables, parameter_variables, index_variables, line_functions = compiler.compile(data_df, parsed_lines)
@@ -44,27 +45,40 @@ class Model:
                 unconstrained_parameter_size += parameter_size
             else:
                 unconstrained_parameter_size += 1
+            
+            self.non_zero_arrays.append(parameter.get_non_zeros())
 
         # This is the likelihood function we'll expose!
         def lpdf(unconstrained_parameter_vector):
             parameter_numpy_variables = {}
             total = 0.0
-            for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
+            for name, offset, size, non_zeros in zip(
+                self.parameter_names,
+                self.parameter_offsets,
+                self.parameter_sizes,
+                self.non_zero_arrays
+            ):
                 if size is not None:
                     parameter = unconstrained_parameter_vector[offset:offset + size]
                 else:
                     parameter = unconstrained_parameter_vector[offset]
 
-                lower = self.parameter_variables[name].lower
-                upper = self.parameter_variables[name].upper
+                variable = self.parameter_variables[name]
+                lower = variable.lower
+                upper = variable.upper
                 jacobian_adjustment = 0.0
 
                 if lower > float("-inf") and upper == float("inf"):
-                    parameter, jacobian_adjustment = constraints.lower(self.parameter_variables[name], lower)
-                elif lower == float("-inf") and upper < float("inf"):
-                    parameter, jacobian_adjustment = constraints.upper(self.parameter_variables[name], upper)
-                elif lower > float("-inf") and upper < float("inf"):
-                    parameter, jacobian_adjustment = constraints.finite(self.parameter_variables[name], lower, upper)
+                    parameter, jacobian_adjustment = constraints.lower(variable, lower)
+                elif lower == float("inf") and upper < float("inf"):
+                    parameter, jacobian_adjustment = constraints.upper(variable, upper)
+                elif lower > float("inf") and upper < float("inf"):
+                    parameter, jacobian_adjustment = constraints.finite(variable, lower, upper)
+                
+                if size is not None and size != variable.padded_size():
+                    padded_parameter = jax.numpy.zeros(variable.padded_size)
+                    padded_parameter[1:size] = parameter
+                    parameter = padded_parameter
 
                 total += jacobian_adjustment
                 parameter_numpy_variables[name] = parameter

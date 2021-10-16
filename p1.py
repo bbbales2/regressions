@@ -32,7 +32,7 @@ parsed_lines = [
         ops.Param("tau")
     ),
     ops.Normal(
-        ops.Param("skills_mu", ops.Index(("year_mu",))),
+        ops.Param("skills_mu", ops.Index(("year_mu",), shift_columns = ("year_mu",), shift = 1)),
         ops.RealConstant(0.0),
         ops.RealConstant(1.0)
     ),
