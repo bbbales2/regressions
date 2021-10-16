@@ -7,10 +7,14 @@ from typing import List, Dict, Tuple
 import ops
 
 class Index:
+    # base_df is the dataframe of the actual parameters
     base_df : pandas.DataFrame
+    # df has been extended to support shifts -- indices in
+    # here that aren't in base_df correspond to zeros (not sampled)
     df : pandas.DataFrame
     levels : List
     indices : Dict
+    # Maintain a list of all the shifts used to access a variable
     shift_columns_list : List[Tuple[str]] = []
     shift_list : List[int] = []
 
