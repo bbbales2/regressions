@@ -61,9 +61,9 @@ class Model:
 
                 if lower > float("-inf") and upper == float("inf"):
                     parameter, jacobian_adjustment = constraints.lower(self.parameter_variables[name], lower)
-                elif lower == float("inf") and upper < float("int"):
+                elif lower == float("-inf") and upper < float("inf"):
                     parameter, jacobian_adjustment = constraints.upper(self.parameter_variables[name], upper)
-                elif lower == float("inf") and upper < float("int"):
+                elif lower > float("-inf") and upper < float("inf"):
                     parameter, jacobian_adjustment = constraints.finite(self.parameter_variables[name], lower, upper)
 
                 total += jacobian_adjustment
