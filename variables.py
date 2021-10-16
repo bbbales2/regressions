@@ -47,6 +47,12 @@ class Data:
 class Param:
     name : str
     index : Index = None
+    lower : float = float("-inf")
+    upper : float = float("inf")
+
+    def set_constraints(self, lower, upper):
+        self.lower = lower
+        self.upper = upper
 
     def scalar(self):
         return self.index is None

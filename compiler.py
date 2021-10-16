@@ -74,10 +74,12 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         if isinstance(line.variate, ops.Data):
             # If the left hand side is data, the dataframe comes from input
             line_df = data_df
-        else:
+        elif isinstance(line.variate, ops.Param):
             # Otherwise, the dataframe comes from the parameter (unless it's scalar then it's none)
             parameter = parameter_variables[line.variate.get_key()]
             index = parameter.index
+            parameter.set_constraints(line.variate.lower, line.variate.upper)
+
             if index is not None:
                 line_df = index.df.copy()
                 # Rename columns to match names given on the lhs
@@ -85,6 +87,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     line_df.columns = line.variate.index.get_key()
             else:
                 line_df = None
+        else:
+            raise Exception(f"The left hand side of sampling distribution must be an ops.Data or ops.Param, found {type(line.variate)}")
 
         for data in ops.search_tree(ops.Data, line):
             data_key = data.get_key()

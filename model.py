@@ -1,7 +1,8 @@
 import blackjax
 import blackjax.nuts
 import jax
-import jax.numpy as jnp
+import jax.scipy
+import jax.numpy
 import numpy
 import pandas
 from typing import Callable, List, Dict, Union
@@ -9,6 +10,8 @@ from typing import Callable, List, Dict, Union
 import compiler
 import ops
 import variables
+
+import constraints
 from fit import Fit
 
 
@@ -45,13 +48,27 @@ class Model:
         # This is the likelihood function we'll expose!
         def lpdf(unconstrained_parameter_vector):
             parameter_numpy_variables = {}
+            total = 0.0
             for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
                 if size is not None:
-                    parameter_numpy_variables[name] = jnp.array(unconstrained_parameter_vector[offset:offset + size])
+                    parameter = unconstrained_parameter_vector[offset:offset + size]
                 else:
-                    parameter_numpy_variables[name] = unconstrained_parameter_vector[offset]
+                    parameter = unconstrained_parameter_vector[offset]
 
-            total = 0.0
+                lower = self.parameter_variables[name].lower
+                upper = self.parameter_variables[name].upper
+                jacobian_adjustment = 0.0
+
+                if lower > float("-inf") and upper == float("inf"):
+                    parameter, jacobian_adjustment = constraints.lower(self.parameter_variables[name], lower)
+                elif lower == float("inf") and upper < float("int"):
+                    parameter, jacobian_adjustment = constraints.upper(self.parameter_variables[name], upper)
+                elif lower == float("inf") and upper < float("int"):
+                    parameter, jacobian_adjustment = constraints.finite(self.parameter_variables[name], lower, upper)
+
+                total += jacobian_adjustment
+                parameter_numpy_variables[name] = parameter
+
             for line_function in line_functions:
                 data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
                 parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
@@ -71,7 +88,7 @@ class Model:
         print("foo")
 
         # Build the kernel
-        inverse_mass_matrix = jnp.exp(jnp.zeros(self.size))
+        inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
         kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
         kernel = jax.jit(kernel)  # try without to see the speedup
 
