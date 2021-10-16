@@ -43,10 +43,13 @@ class Index:
 
         grouping_columns = list(set(self.base_df.columns) - set(shift_columns))
 
-        return pandas.concat([
-            df.iloc[:, grouping_columns],
-            df.groupby(grouping_columns).shift(shift).reset_index(drop = True)
-        ], axis = 1).iloc[:, self.base_df.columns]
+        if len(grouping_columns) > 0:
+            return pandas.concat([
+                df.iloc[:, grouping_columns],
+                df.groupby(grouping_columns).shift(shift).reset_index(drop = True)
+            ], axis = 1).iloc[:, self.base_df.columns]
+        else:
+            return df.shift(shift)
 
     def rebuild_df(self):
         df_list = [self.base_df]
@@ -56,6 +59,7 @@ class Index:
             df_list.append(shifted_df)
 
         self.df = pandas.concat(df_list).drop_duplicates(keep = "first").reset_index(drop = True)
+        self.df["__index"] = range(len(self.df.index))
 
         self.levels = [row for row in self.df.itertuples(index = False)]
         self.indices = {}
@@ -65,8 +69,12 @@ class Index:
     def get_level(self, i):
         return self.levels[i]
 
-    def get_index(self, level):
-        return self.indices[level]
+    def get_numpy_indices(self, df):
+        df = df.copy()
+        df.columns = self.base_df.columns
+        return (
+            df.merge(self.df, on = list(self.base_df.columns), how = "left", validate = "many_to_one")
+        )["__index"].to_numpy(dtype = int)
 
 @dataclass
 class Data:
@@ -117,11 +125,9 @@ class IndexUse:
     shift : int = None
 
     def to_numpy(self):
-        indices = []
         shifted_df = self.index.compute_shifted_df(self.df, self.shift_columns, self.shift)
-        for row in shifted_df.itertuples(index = False):
-            indices.append(self.index.get_index(row))
-        return jnp.array(indices, dtype = int).reshape((len(self.df.index), 1))
+        indices = self.index.get_numpy_indices(shifted_df)
+        return jnp.array(indices, dtype = int).reshape((indices.shape[0], 1))
 
     def code(self):
         return f"index__{'_'.join(self.names)}"

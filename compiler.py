@@ -81,7 +81,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             parameter.set_constraints(line.variate.lower, line.variate.upper)
 
             if index is not None:
-                line_df = index.df.copy()
+                line_df = index.base_df.copy()
                 # Rename columns to match names given on the lhs
                 if line.variate.index is not None:
                     line_df.columns = line.variate.index.get_key()
