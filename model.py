@@ -62,19 +62,23 @@ class Model:
                 variable = self.parameter_variables[name]
                 lower = variable.lower
                 upper = variable.upper
-                jacobian_adjustment = 0.0
+                centered = variable.centered
+                constraints_jacobian_adjustment = 0.0
 
                 if lower > float("-inf") and upper == float("inf"):
-                    parameter, jacobian_adjustment = constraints.lower(variable, lower)
+                    parameter, constraints_jacobian_adjustment = constraints.lower(variable, lower)
                 elif lower == float("inf") and upper < float("inf"):
-                    parameter, jacobian_adjustment = constraints.upper(variable, upper)
+                    parameter, constraints_jacobian_adjustment = constraints.upper(variable, upper)
                 elif lower > float("inf") and upper < float("inf"):
-                    parameter, jacobian_adjustment = constraints.finite(variable, lower, upper)
+                    parameter, constraints_jacobian_adjustment = constraints.finite(variable, lower, upper)
                 
+                if centered == False:
+                    parameter, noncentering_jacobian_adjustment = constraints.offset_multiply(variable, mu, sd)
+
                 if size is not None and size != variable.padded_size():
                     parameter = jax.numpy.pad(parameter, (0, variable.padded_size() - size))
 
-                total += jacobian_adjustment
+                total += constraints_jacobian_adjustment + noncentering_jacobian_adjustment
                 parameter_numpy_variables[name] = parameter
 
             for line_function in line_functions:
