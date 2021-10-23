@@ -17,6 +17,8 @@ class Expr:
 @dataclass(frozen = True)
 class Index(Expr):
     names : Tuple[str]
+    shift_columns : Tuple[str] = None
+    shift : int = None
     
     def get_key(self):
         return self.names

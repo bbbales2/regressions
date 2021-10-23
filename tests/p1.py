@@ -5,11 +5,11 @@ import jax.numpy as jnp
 import blackjax
 import blackjax.nuts
 
-import ops
-import compiler
-from model import Model
-from parser import Parser
-from scanner import scanner
+from rat import ops
+from rat import compiler
+from rat.model import Model
+from rat.parser import Parser
+from rat.scanner import scanner
 
 data_df = (
     pandas.read_csv("games_small.csv")
@@ -32,31 +32,36 @@ parsed_lines = [
         ops.Param("tau")
     ),
     ops.Normal(
-        ops.Param("skills_mu", ops.Index(("year_mu",))),
+        ops.Param("skills_mu", ops.Index(("year_mu",), shift_columns = ("year_mu",), shift = 1)),
         ops.RealConstant(0.0),
         ops.RealConstant(1.0)
     ),
     ops.Normal(
-        ops.Param("tau"),
+        ops.Param("tau", lower = 0.0),
+        ops.RealConstant(0.0),
+        ops.RealConstant(1.0)
+    ),
+    ops.Normal(
+        ops.Param("sigma", lower = 0.0),
         ops.RealConstant(0.0),
         ops.RealConstant(1.0)
     )
 ]
 
-input_str = """
-score_diff~normal(skills[home_team, year]-skills[away_team, year],sigma);
-skills[team, year] ~ normal(skills_mu[year], tau);
-tau ~ normal(0.0, 1.0);
-sigma ~ normal(0.0, 10.0);
-"""
+# input_str = """
+# score_diff~normal(skills[home_team, year]-skills[away_team, year],sigma);
+# skills[team, year] ~ normal(skills_mu[lag(year)], tau);
+# tau<lower=0.0> ~ normal(0.0, 1.0);
+# sigma<lower=0.0> ~ normal(0.0, 10.0);
+# """
 
-parsed_lines = []
-for line in input_str.split("\n"):
-    if not line: continue
-    parsed_lines.append(Parser(scanner(line), data_df.columns).statement())
+# parsed_lines = []
+# for line in input_str.split("\n"):
+#     if not line: continue
+#     parsed_lines.append(Parser(scanner(line), data_df.columns).statement())
 
-import pprint
-pprint.pprint(parsed_lines)
+# import pprint
+# pprint.pprint(parsed_lines)
 
 model = Model(data_df, parsed_lines)
 fit = model.sample(20)
