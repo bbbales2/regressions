@@ -1,7 +1,8 @@
 from typing import *
-from scanner import Token, Identifier, Operator, RealLiteral, IntLiteral, Special, NullToken
-from ops import *
 import warnings
+
+from .scanner import Token, Identifier, Operator, RealLiteral, IntLiteral, Special, NullToken
+from .ops import *
 
 # https://mc-stan.org/docs/2_18/reference-manual/bnf-grammars.html
 # https://mc-stan.org/docs/2_28/reference-manual/arithmetic-expressions.html

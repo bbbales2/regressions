@@ -1,10 +1,11 @@
-from typing import Iterable, List, Dict, Set
-import ops
-import variables
 import numpy
 import pandas
 import jax
 import jax.numpy as jnp
+from typing import Iterable, List, Dict, Set
+
+from . import ops
+from . import variables
 
 def normal_lpdf(y, mu, sd):
     return -jnp.square((y - mu) / sd) - jnp.log(sd)

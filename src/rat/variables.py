@@ -1,10 +1,7 @@
 from dataclasses import dataclass
-import numpy
 import jax.numpy as jnp
 import pandas
 from typing import List, Dict, Tuple
-
-import ops
 
 class Index:
     # base_df is the dataframe of the actual parameters

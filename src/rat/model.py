@@ -7,12 +7,11 @@ import numpy
 import pandas
 from typing import Callable, List, Dict, Union
 
-import compiler
-import ops
-import variables
-
-import constraints
-from fit import Fit
+from . import compiler
+from . import ops
+from . import variables
+from . import constraints
+from .fit import Fit
 
 
 class Model:

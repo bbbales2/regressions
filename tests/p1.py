@@ -5,11 +5,11 @@ import jax.numpy as jnp
 import blackjax
 import blackjax.nuts
 
-import ops
-import compiler
-from model import Model
-from parser import Parser
-from scanner import scanner
+from rat import ops
+from rat import compiler
+from rat.model import Model
+from rat.parser import Parser
+from rat.scanner import scanner
 
 data_df = (
     pandas.read_csv("games_small.csv")
