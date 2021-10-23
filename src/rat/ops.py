@@ -62,7 +62,6 @@ class Param(Expr):
     index : Index = None
     lower : float = float("-inf")
     upper : float = float("inf")
-    centered : bool = True
 
     def __iter__(self):
         if self.index is not None:

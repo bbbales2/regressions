@@ -94,12 +94,10 @@ class Param:
     index : Index = None
     lower : float = float("-inf")
     upper : float = float("inf")
-    centered : bool = True
 
-    def set_transforms(self, lower, upper, centered):
+    def set_constraints(self, lower, upper):
         self.lower = lower
         self.upper = upper
-        self.centered = centered
 
     def scalar(self):
         return self.index is None
