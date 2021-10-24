@@ -113,9 +113,9 @@ class Model:
 
         nlpdf = lambda x: -self.lpdf(x.astype(numpy.float32))
         grad = jax.jit(jax.grad(nlpdf))
-        grad_double = lambda x: grad(x.astype(numpy.float32))
+        grad_double = lambda x: numpy.array(grad(x.astype(numpy.float32))).astype(numpy.float64)
 
-        results = scipy.optimize.minimize(nlpdf, params, jac=grad_double, tol=1e-4)
+        results = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method = "L-BFGS-B", tol=1e-4)
 
         if not results.success:
             raise Exception(f"Optimization failed: {results.message}")
