@@ -19,11 +19,7 @@ jobs:
         pip install black
     - name: Run formatter and commit
       run: |
-        black rat tests
+        black .
     - uses: EndBug/add-and-commit@v7
       with:
         default_author: github_actions
-    #- name: Check 
-    #  run: |
-    #    black --check rat tests
-      # if: failure()
