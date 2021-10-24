@@ -2,9 +2,11 @@ import blackjax
 import blackjax.nuts
 import jax
 import jax.scipy
+import jax.scipy.optimize
 import jax.numpy
 import numpy
 import pandas
+import scipy.optimize
 from typing import Callable, List, Dict, Union
 
 from . import compiler
@@ -106,12 +108,46 @@ class Model:
         self.lpdf = jax.jit(lpdf)
         self.size = unconstrained_parameter_size
 
+    def optimize(self) -> Fit:
+        params = numpy.random.rand(self.size)
+
+        nlpdf = lambda x : -self.lpdf(x.astype(numpy.float32))
+        grad = jax.jit(jax.grad(nlpdf))
+        grad_double = lambda x : grad(x.astype(numpy.float32))
+
+        results = scipy.optimize.minimize(nlpdf, params, jac = grad_double, tol = 1e-4)
+
+        if not results.success:
+            raise Exception(f"Optimization failed: {results.message}")
+
+        draw_dfs: Dict[str, pandas.DataFrame] = {}
+        for name, offset, size in zip(
+            self.parameter_names, self.parameter_offsets, self.parameter_sizes
+        ):
+            if size is not None:
+                df = self.parameter_variables[name].index.base_df.copy()
+
+                variable = self.parameter_variables[name]
+                lower = variable.lower
+                upper = variable.upper
+                values = results.x[offset : offset + size]
+
+                if lower > float("-inf") and upper == float("inf"):
+                    values, _ = constraints.lower(values, lower)
+                elif lower == float("inf") and upper < float("inf"):
+                    values, _ = constraints.upper(values, upper)
+                elif lower > float("inf") and upper < float("inf"):
+                    values, _ = constraints.finite(values, lower, upper)
+
+                df[name] = values
+                draw_dfs[name] = df
+            else:
+                draw_dfs[name] = pandas.DataFrame({name: [results.x[offset]]})
+
+        return Fit(draw_dfs)
+
     def sample(self, num_steps=200, step_size=1e-3) -> Fit:
-        params = numpy.exp(numpy.random.rand(self.size))
-
-        print(self.lpdf(params))
-
-        print("foo")
+        params = numpy.random.rand(self.size)
 
         # Build the kernel
         inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
