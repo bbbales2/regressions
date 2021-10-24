@@ -1,6 +1,9 @@
 import typing
 import re
-realnum = re.compile("^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$")  # (negative or positive) + (integer, real, scientific)
+
+realnum = re.compile(
+    "^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$"
+)  # (negative or positive) + (integer, real, scientific)
 
 
 class Token:
@@ -44,14 +47,51 @@ class NullToken(Token):
         super(NullToken, self).__init__(None)
 
 
-special_characters = ["(", ")", ",", "[", "]", "~"]  # symbols indicating change in semantics or control flow
-operator_strings = ["=", "+=", "-=", "/=", "*=", "%=",
-                    "+", "-", "*", "/", "^", "%",
-                    "!", ">=", "<=", "==", "<", ">", "&&", "||"]
+special_characters = [
+    "(",
+    ")",
+    ",",
+    "[",
+    "]",
+    "~",
+]  # symbols indicating change in semantics or control flow
+operator_strings = [
+    "=",
+    "+=",
+    "-=",
+    "/=",
+    "*=",
+    "%=",
+    "+",
+    "-",
+    "*",
+    "/",
+    "^",
+    "%",
+    "!",
+    ">=",
+    "<=",
+    "==",
+    "<",
+    ">",
+    "&&",
+    "||",
+]
 
 
 def scanner(model_code):
-    delimeters = [" ", ";", "(", ")", "{", "}", "[", "]", ",", "~"]  # characters that ALWAYS demarcate tokens
+    delimeters = [
+        " ",
+        ";",
+        "(",
+        ")",
+        "{",
+        "}",
+        "[",
+        "]",
+        ",",
+        "~",
+    ]  # characters that ALWAYS demarcate tokens
     result = []
     charstack = ""
     model_code = " ".join(model_code.split("\n"))
@@ -79,7 +119,10 @@ def scanner(model_code):
         elif charstack in operator_strings:
             if charstack == "-":
                 resolved = resolve_token(charstack + char)
-                if resolved and (isinstance(resolved, IntLiteral) or isinstance(resolved, RealLiteral)):
+                if resolved and (
+                    isinstance(resolved, IntLiteral)
+                    or isinstance(resolved, RealLiteral)
+                ):
                     charstack += char
                     continue
             if charstack + char not in operator_strings:
@@ -117,7 +160,7 @@ def resolve_token(charstack):
         return Identifier(charstack)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_code = """
 score_diff ~ normal(skills[home_team, year] - skills[away_team, year], sigma);
 skills[team, year] ~ normal(skills_mu[year], tau);

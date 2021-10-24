@@ -1,7 +1,15 @@
 from typing import *
 import warnings
 
-from .scanner import Token, Identifier, Operator, RealLiteral, IntLiteral, Special, NullToken
+from .scanner import (
+    Token,
+    Identifier,
+    Operator,
+    RealLiteral,
+    IntLiteral,
+    Special,
+    NullToken,
+)
 from .ops import *
 
 # https://mc-stan.org/docs/2_18/reference-manual/bnf-grammars.html
@@ -74,6 +82,7 @@ class InfixOps:
         else:
             raise Exception(f"InfixOps: Unknown operator type {token.value}")
 
+
 # group parsing rules for statements
 
 
@@ -127,7 +136,9 @@ class Distributions:
     def generate(dist_type: Identifier, lhs: Expr, expressions: List[Expr]):
         if dist_type.value == "normal":
             if len(expressions) != 2:
-                raise Exception(f"normal distribution needs 2 parameters, but got {len(expressions)}!")
+                raise Exception(
+                    f"normal distribution needs 2 parameters, but got {len(expressions)}!"
+                )
             return Normal(lhs, expressions[0], expressions[1])
 
 
@@ -158,7 +169,9 @@ class Parser:
                 self.remove()
             return True
 
-        raise Exception(f"Expected token type {token_type.__name__} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!")
+        raise Exception(
+            f"Expected token type {token_type.__name__} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!"
+        )
 
     def expressions(self):
         expressions = []
@@ -212,17 +225,23 @@ class Parser:
             self.remove()  # )
             exp = next_expression  # expression
 
-        next_token = self.peek()  # this is for the following 2 rules, which have conditions after expression
-        if isinstance(next_token, Special) and next_token.value == "[":  # identifier '[' expressions ']'
+        next_token = (
+            self.peek()
+        )  # this is for the following 2 rules, which have conditions after expression
+        if (
+            isinstance(next_token, Special) and next_token.value == "["
+        ):  # identifier '[' expressions ']'
             self.remove()  # [
-            warnings.warn("Parser: Indices are assumed to be a single literal, not expression.")
+            warnings.warn(
+                "Parser: Indices are assumed to be a single literal, not expression."
+            )
             expressions = self.expressions()  # list of expression
             self.expect_token(Special, "]")
             self.remove()  # ]
 
             # Assume index is a single identifier - this is NOT GOOD
 
-            exp.index = Index(tuple(expression.name for expression in  expressions))
+            exp.index = Index(tuple(expression.name for expression in expressions))
             next_token = self.peek()  # Update token in case we need evaluate case 2
 
         if InfixOps.check(next_token):  # expression infixOps expression
@@ -249,7 +268,9 @@ class Parser:
                 rhs = self.expression()
                 return AssignmentOps.generate(lhs, op, rhs)
 
-            elif isinstance(op, Special) and op.value == "~":  # distribution declaration
+            elif (
+                isinstance(op, Special) and op.value == "~"
+            ):  # distribution declaration
                 self.expect_token(Special, "~")
                 self.remove()  # ~
                 distribution = self.peek()
@@ -267,7 +288,7 @@ class Parser:
         return Expr()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from scanner import scanner
 
     teststr = """
@@ -277,13 +298,21 @@ tau += -10;
 rob = 500;
 sigma ~ normal(0.0, -10.0);"""
 
-    #teststr = "tau += -1"
+    # teststr = "tau += -1"
 
-    data_names = ["game_id","date","home_score","away_score","home_team","away_team"]
+    data_names = [
+        "game_id",
+        "date",
+        "home_score",
+        "away_score",
+        "home_team",
+        "away_team",
+    ]
     for line in teststr.split("\n"):
-        if not line: continue
+        if not line:
+            continue
         print("-" * 10)
         print(line)
         print(list(x.value for x in scanner(line)))
-        #print(Parser(scanner(line)).statement().code() + ";")
+        # print(Parser(scanner(line)).statement().code() + ";")
         print(Parser(scanner(line), data_names).statement())
