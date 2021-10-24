@@ -14,13 +14,11 @@ def test_optimize_normal_mu():
 
     parsed_lines = [
         ops.Normal(ops.Data("y"), ops.Param("mu"), ops.RealConstant(1.5)),
-        ops.Normal(
-            ops.Param("mu"), ops.RealConstant(-0.5), ops.RealConstant(0.3)
-        ),
+        ops.Normal(ops.Param("mu"), ops.RealConstant(-0.5), ops.RealConstant(0.3)),
     ]
 
     model = Model(data_df, parsed_lines)
     fit = model.optimize()
     mu_df = fit.draws("mu")
 
-    assert mu_df["mu"][0] == pytest.approx(-1.11249, rel = 1e-4)
+    assert mu_df["mu"][0] == pytest.approx(-1.11249, rel=1e-4)
