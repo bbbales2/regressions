@@ -1,5 +1,6 @@
 import blackjax
 import blackjax.nuts
+import functools
 import jax
 import jax.scipy
 import jax.scipy.optimize
@@ -52,7 +53,7 @@ class Model:
                 unconstrained_parameter_size += 1
 
         # This is the likelihood function we'll expose!
-        def lpdf(unconstrained_parameter_vector):
+        def lpdf(include_jacobian, unconstrained_parameter_vector):
             parameter_numpy_variables = {}
             total = 0.0
             for name, offset, size in zip(
@@ -88,7 +89,8 @@ class Model:
                         parameter, (0, variable.padded_size() - size)
                     )
 
-                total += constraints_jacobian_adjustment
+                if include_jacobian:
+                    total += constraints_jacobian_adjustment
                 parameter_numpy_variables[name] = parameter
 
             for line_function in line_functions:
@@ -105,13 +107,14 @@ class Model:
             return total
 
         self.parameter_variables = parameter_variables
-        self.lpdf = jax.jit(lpdf)
+        self.lpdf = jax.jit(functools.partial(lpdf, True))
+        self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
 
     def optimize(self) -> Fit:
         params = numpy.random.rand(self.size)
 
-        nlpdf = lambda x: -self.lpdf(x.astype(numpy.float32))
+        nlpdf = lambda x: -self.lpdf_no_jac(x.astype(numpy.float32))
         grad = jax.jit(jax.grad(nlpdf))
         grad_double = lambda x: numpy.array(grad(x.astype(numpy.float32))).astype(numpy.float64)
 
