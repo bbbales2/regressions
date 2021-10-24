@@ -7,64 +7,72 @@ from typing import Iterable, List, Dict, Set
 from . import ops
 from . import variables
 
+
 def normal_lpdf(y, mu, sd):
     return -jnp.square((y - mu) / sd) - jnp.log(sd)
+
 
 class LineFunction:
     data_variables: List[variables.Data]
     parameter_variables: List[variables.Param]
     index_use_variables: List[variables.IndexUse]
-    line : ops.Expr
-    data_variable_names : List[str]
-    parameter_variable_names : List[str]
-    index_use_numpy : List[numpy.array] = []
+    line: ops.Expr
+    data_variable_names: List[str]
+    parameter_variable_names: List[str]
+    index_use_numpy: List[numpy.array] = []
 
     def __init__(
         self,
-        data_variables : Iterable[str],
-        parameter_variables : Iterable[str],
-        index_use_variables : Iterable[variables.IndexUse],
-        line : ops.Expr
+        data_variables: Iterable[str],
+        parameter_variables: Iterable[str],
+        index_use_variables: Iterable[variables.IndexUse],
+        line: ops.Expr,
     ):
         self.data_variables = data_variables
         self.parameter_variables = parameter_variables
         self.data_variable_names = [data.name for data in data_variables]
-        self.parameter_variable_names = [parameter.name for parameter in parameter_variables]
+        self.parameter_variable_names = [
+            parameter.name for parameter in parameter_variables
+        ]
         self.index_use_variables = list(index_use_variables)
         self.line = line
-        
+
         vectorize_arguments = (
-            [0] * len(self.data_variables) +
-            [None] * len(self.parameter_variables) +
-            [0] * len(self.index_use_variables)
+            [0] * len(self.data_variables)
+            + [None] * len(self.parameter_variables)
+            + [0] * len(self.index_use_variables)
         )
         function_local_scope = {}
         exec(self.code(), globals(), function_local_scope)
         compiled_function = function_local_scope["func"]
         if any(x is not None for x in vectorize_arguments):
             compiled_function = jax.vmap(compiled_function, vectorize_arguments, 0)
-        
+
         self.func = lambda *args: jnp.sum(compiled_function(*args))
 
-        self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
+        self.index_use_numpy = [
+            index_use.to_numpy() for index_use in self.index_use_variables
+        ]
 
     def code(self):
-        argument_variables = self.data_variables + self.parameter_variables + self.index_use_variables
+        argument_variables = (
+            self.data_variables + self.parameter_variables + self.index_use_variables
+        )
         args = [variable.code() for variable in argument_variables]
-        return "\n".join([
-            f"def func({','.join(args)}):",
-            f"  return {self.line.code()}"
-        ])
+        return "\n".join(
+            [f"def func({','.join(args)}):", f"  return {self.line.code()}"]
+        )
 
     def __call__(self, *args):
         return self.func(*args, *self.index_use_numpy)
+
 
 def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     data_variables: Dict[str, variables.Data] = {}
     parameter_variables: Dict[str, variables.Param] = {}
     index_variables: Dict[tuple, variables.Index] = {}
 
-    line_functions : List[LineFunction] = []
+    line_functions: List[LineFunction] = []
 
     for line in parsed_lines:
         assert isinstance(line, ops.Distr)
@@ -89,7 +97,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             else:
                 line_df = None
         else:
-            raise Exception(f"The left hand side of sampling distribution must be an ops.Data or ops.Param, found {type(line.variate)}")
+            raise Exception(
+                f"The left hand side of sampling distribution must be an ops.Data or ops.Param, found {type(line.variate)}"
+            )
 
         for data in ops.search_tree(ops.Data, line):
             data_key = data.get_key()
@@ -125,29 +135,33 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 value_dfs = []
                 for index_key in index_key_list:
                     value_df = line_df.loc[:, index_key]
-                    value_df.columns = columns # columns must be the same to concat
+                    value_df.columns = columns  # columns must be the same to concat
                     value_dfs.append(value_df)
 
-                values_df = pandas.concat(value_dfs, ignore_index = True)
+                values_df = pandas.concat(value_dfs, ignore_index=True)
                 index = variables.Index(values_df)
                 index_variables[parameter_key] = index
-                parameter_variables[parameter_key] = variables.Param(parameter_key, index)
+                parameter_variables[parameter_key] = variables.Param(
+                    parameter_key, index
+                )
 
         for parameter in ops.search_tree(ops.Param, line):
             parameter_key = parameter.get_key()
             if parameter.index is not None:
                 index_key = parameter.index.get_key()
                 index = index_variables[parameter_key]
-                index.incorporate_shifts(parameter.index.shift_columns, parameter.index.shift)
+                index.incorporate_shifts(
+                    parameter.index.shift_columns, parameter.index.shift
+                )
                 index_df = line_df.loc[:, parameter.index.get_key()]
                 index_use_variables[index_key] = variables.IndexUse(
                     index_key,
                     index_df,
                     index,
                     parameter.index.shift_columns,
-                    parameter.index.shift
+                    parameter.index.shift,
                 )
-                #parameter_uses[parameter_key] = variables.ParamUse(param, index_df, index)
+                # parameter_uses[parameter_key] = variables.ParamUse(param, index_df, index)
 
         # For each source line, create a python function for log density
         # This will copy over index arrays to jax device
@@ -155,10 +169,10 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             [data_variables[name] for name in data_variables_used],
             [parameter_variables[name] for name in parameter_variables_used],
             index_use_variables.values(),
-            line
+            line,
         )
 
         line_functions.append(line_function)
-    
+
     print("hi")
     return data_variables, parameter_variables, index_variables, line_functions

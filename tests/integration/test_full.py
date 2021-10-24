@@ -11,6 +11,7 @@ from pathlib import Path
 
 test_dir = pathlib.Path(__file__).parent
 
+
 def test_full():
     data_df = (
         pandas.read_csv(os.path.join(test_dir, "games_small.csv"))
@@ -23,30 +24,29 @@ def test_full():
             ops.Data("score_diff"),
             ops.Diff(
                 ops.Param("skills", ops.Index(("home_team", "year"))),
-                ops.Param("skills", ops.Index(("away_team", "year")))
+                ops.Param("skills", ops.Index(("away_team", "year"))),
             ),
-            ops.Param("sigma")
+            ops.Param("sigma"),
         ),
         ops.Normal(
             ops.Param("skills", ops.Index(("team", "year"))),
             ops.Param("skills_mu", ops.Index(("year",))),
-            ops.Param("tau")
+            ops.Param("tau"),
         ),
         ops.Normal(
-            ops.Param("skills_mu", ops.Index(("year_mu",), shift_columns = ("year_mu",), shift = 1)),
+            ops.Param(
+                "skills_mu",
+                ops.Index(("year_mu",), shift_columns=("year_mu",), shift=1),
+            ),
             ops.RealConstant(0.0),
-            ops.RealConstant(1.0)
+            ops.RealConstant(1.0),
         ),
         ops.Normal(
-            ops.Param("tau", lower = 0.0),
-            ops.RealConstant(0.0),
-            ops.RealConstant(1.0)
+            ops.Param("tau", lower=0.0), ops.RealConstant(0.0), ops.RealConstant(1.0)
         ),
         ops.Normal(
-            ops.Param("sigma", lower = 0.0),
-            ops.RealConstant(0.0),
-            ops.RealConstant(1.0)
-        )
+            ops.Param("sigma", lower=0.0), ops.RealConstant(0.0), ops.RealConstant(1.0)
+        ),
     ]
 
     # input_str = """
