@@ -3,26 +3,26 @@ import jax.numpy as jnp
 import pandas
 from typing import List, Dict, Tuple
 
+
 class Index:
     # base_df is the dataframe of the actual parameters
-    base_df : pandas.DataFrame
+    base_df: pandas.DataFrame
     # df has been extended to support shifts -- indices in
     # here that aren't in base_df correspond to zeros (not sampled)
-    df : pandas.DataFrame
-    levels : List
-    indices : Dict
+    df: pandas.DataFrame
+    levels: List
+    indices: Dict
     # Maintain a list of all the shifts used to access a variable
-    shift_columns_list : List[Tuple[str]] = []
-    shift_list : List[int] = []
+    shift_columns_list: List[Tuple[str]] = []
+    shift_list: List[int] = []
 
-    def __init__(self, unprocessed_df : pandas.DataFrame):
+    def __init__(self, unprocessed_df: pandas.DataFrame):
         columns = unprocessed_df.columns
 
         self.base_df = (
-            unprocessed_df
-            .drop_duplicates()
+            unprocessed_df.drop_duplicates()
             .sort_values(list(columns))
-            .reset_index(drop = True)
+            .reset_index(drop=True)
         )
 
         self.df = self.base_df
@@ -45,10 +45,13 @@ class Index:
         grouping_columns = list(set(self.base_df.columns) - set(shift_columns))
 
         if len(grouping_columns) > 0:
-            return pandas.concat([
-                df.iloc[:, grouping_columns],
-                df.groupby(grouping_columns).shift(shift).reset_index(drop = True)
-            ], axis = 1).iloc[:, self.base_df.columns]
+            return pandas.concat(
+                [
+                    df.iloc[:, grouping_columns],
+                    df.groupby(grouping_columns).shift(shift).reset_index(drop=True),
+                ],
+                axis=1,
+            ).iloc[:, self.base_df.columns]
         else:
             return df.shift(shift)
 
@@ -59,10 +62,12 @@ class Index:
             shifted_df = self.compute_shifted_df(self.base_df, shift_columns, shift)
             df_list.append(shifted_df)
 
-        self.df = pandas.concat(df_list).drop_duplicates(keep = "first").reset_index(drop = True)
+        self.df = (
+            pandas.concat(df_list).drop_duplicates(keep="first").reset_index(drop=True)
+        )
         self.df["__index"] = range(len(self.df.index))
 
-        self.levels = [row for row in self.df.itertuples(index = False)]
+        self.levels = [row for row in self.df.itertuples(index=False)]
         self.indices = {}
         for i, level in enumerate(self.levels):
             self.indices[level] = i
@@ -74,13 +79,19 @@ class Index:
         df = df.copy()
         df.columns = self.base_df.columns
         return (
-            df.merge(self.df, on = list(self.base_df.columns), how = "left", validate = "many_to_one")
-        )["__index"].to_numpy(dtype = int)
+            df.merge(
+                self.df,
+                on=list(self.base_df.columns),
+                how="left",
+                validate="many_to_one",
+            )
+        )["__index"].to_numpy(dtype=int)
+
 
 @dataclass
 class Data:
-    name : str
-    series : pandas.Series
+    name: str
+    series: pandas.Series
 
     def to_numpy(self):
         return jnp.array(self.series).reshape((len(self.series), 1))
@@ -88,12 +99,13 @@ class Data:
     def code(self):
         return f"data__{self.name}"
 
+
 @dataclass
 class Param:
-    name : str
-    index : Index = None
-    lower : float = float("-inf")
-    upper : float = float("inf")
+    name: str
+    index: Index = None
+    lower: float = float("-inf")
+    upper: float = float("inf")
 
     def set_constraints(self, lower, upper):
         self.lower = lower
@@ -107,7 +119,7 @@ class Param:
             return None
         else:
             return len(self.index.base_df.index)
-    
+
     def padded_size(self):
         if self.scalar():
             return None
@@ -117,18 +129,21 @@ class Param:
     def code(self):
         return f"param__{self.name}"
 
+
 @dataclass
 class IndexUse:
-    names : Tuple[str]
-    df : pandas.DataFrame
-    index : Index
-    shift_columns : Tuple[str] = None
-    shift : int = None
+    names: Tuple[str]
+    df: pandas.DataFrame
+    index: Index
+    shift_columns: Tuple[str] = None
+    shift: int = None
 
     def to_numpy(self):
-        shifted_df = self.index.compute_shifted_df(self.df, self.shift_columns, self.shift)
+        shifted_df = self.index.compute_shifted_df(
+            self.df, self.shift_columns, self.shift
+        )
         indices = self.index.get_numpy_indices(shifted_df)
-        return jnp.array(indices, dtype = int).reshape((indices.shape[0], 1))
+        return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))
 
     def code(self):
         return f"index__{'_'.join(self.names)}"
