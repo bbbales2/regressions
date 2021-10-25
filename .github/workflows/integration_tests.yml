@@ -1,10 +1,6 @@
 name: Integration tests
 
-on:
-  workflow_run:
-    workflows: ["Check & Run formatting"]
-    types:
-      - completed
+on: [push]
 
 jobs:
   build:
