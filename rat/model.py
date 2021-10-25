@@ -15,8 +15,6 @@ from . import ops
 from . import variables
 from . import constraints
 from .fit import Fit
-
-
 class Model:
     lpdf: Callable[[numpy.array], float]
     size: int
