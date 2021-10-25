@@ -8,7 +8,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       with:
-        token: ${{ secrets.formatter }}
+        token: ${{ secrets.testtoken }}
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
