@@ -108,7 +108,7 @@ class Normal(Distr):
 
     def code(self):
         return (
-            f"normal_lpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
+            f"jax.scipy.stats.norm.logpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
         )
 
     def __str__(self):

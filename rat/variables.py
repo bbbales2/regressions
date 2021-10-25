@@ -47,11 +47,11 @@ class Index:
         if len(grouping_columns) > 0:
             return pandas.concat(
                 [
-                    df.iloc[:, grouping_columns],
+                    df[grouping_columns],
                     df.groupby(grouping_columns).shift(shift).reset_index(drop=True),
                 ],
                 axis=1,
-            ).iloc[:, self.base_df.columns]
+            )[list(self.base_df.columns)]
         else:
             return df.shift(shift)
 

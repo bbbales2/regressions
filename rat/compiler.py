@@ -2,6 +2,7 @@ import numpy
 import pandas
 import jax
 import jax.numpy as jnp
+import jax.scipy.stats
 from typing import Iterable, List, Dict, Set
 
 from . import ops
@@ -112,6 +113,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         for parameter in ops.search_tree(ops.Param, line):
             parameter_key = parameter.get_key()
             parameter_variables_used.add(parameter_key)
+
+            # Only define new parameters if the parameter is on the right hand side
+            if parameter == line.variate:
+                continue
+
             if parameter_key not in parameter_index_keys:
                 parameter_index_keys[parameter_key] = []
 
@@ -174,5 +180,4 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
         line_functions.append(line_function)
 
-    print("hi")
     return data_variables, parameter_variables, index_variables, line_functions

@@ -73,15 +73,15 @@ class Model:
 
                 if lower > float("-inf") and upper == float("inf"):
                     parameter, constraints_jacobian_adjustment = constraints.lower(
-                        variable, lower
+                        parameter, lower
                     )
                 elif lower == float("inf") and upper < float("inf"):
                     parameter, constraints_jacobian_adjustment = constraints.upper(
-                        variable, upper
+                        parameter, upper
                     )
                 elif lower > float("inf") and upper < float("inf"):
                     parameter, constraints_jacobian_adjustment = constraints.finite(
-                        variable, lower, upper
+                        parameter, lower, upper
                     )
 
                 if size is not None and size != variable.padded_size():
@@ -121,7 +121,7 @@ class Model:
         )
 
         results = scipy.optimize.minimize(
-            nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-4
+            nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-9
         )
 
         if not results.success:
@@ -133,23 +133,23 @@ class Model:
         ):
             if size is not None:
                 df = self.parameter_variables[name].index.base_df.copy()
-
-                variable = self.parameter_variables[name]
-                lower = variable.lower
-                upper = variable.upper
-                values = results.x[offset : offset + size]
-
-                if lower > float("-inf") and upper == float("inf"):
-                    values, _ = constraints.lower(values, lower)
-                elif lower == float("inf") and upper < float("inf"):
-                    values, _ = constraints.upper(values, upper)
-                elif lower > float("inf") and upper < float("inf"):
-                    values, _ = constraints.finite(values, lower, upper)
-
-                df[name] = values
-                draw_dfs[name] = df
+                df["value"] = results.x[offset : offset + size]
             else:
-                draw_dfs[name] = pandas.DataFrame({name: [results.x[offset]]})
+                df = pandas.DataFrame({"value": [results.x[offset]]})
+
+            variable = self.parameter_variables[name]
+            lower = variable.lower
+            upper = variable.upper
+            value = df["value"].to_numpy()
+            if lower > float("-inf") and upper == float("inf"):
+                value, _ = constraints.lower(value, lower)
+            elif lower == float("inf") and upper < float("inf"):
+                value, _ = constraints.upper(value, upper)
+            elif lower > float("inf") and upper < float("inf"):
+                value, _ = constraints.finite(value, lower, upper)
+            df["value"] = value
+
+            draw_dfs[name] = df
 
         return Fit(draw_dfs)
 
