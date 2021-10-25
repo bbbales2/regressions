@@ -32,7 +32,7 @@ class Model:
             index_variables,
             line_functions,
         ) = compiler.compile(data_df, parsed_lines)
-        
+
         self.parameter_names = []
         self.parameter_offsets = []
         self.parameter_sizes = []
