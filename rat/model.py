@@ -21,9 +21,9 @@ class Model:
     lpdf: Callable[[numpy.array], float]
     size: int
     parameter_variables: List[variables.Param]
-    parameter_names: List[str] = []
-    parameter_offsets: List[int] = []
-    parameter_sizes: List[Union[None, int]] = []
+    parameter_names: List[str]
+    parameter_offsets: List[int]
+    parameter_sizes: List[Union[None, int]]
 
     def __init__(self, data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         (
@@ -32,6 +32,10 @@ class Model:
             index_variables,
             line_functions,
         ) = compiler.compile(data_df, parsed_lines)
+        
+        self.parameter_names = []
+        self.parameter_offsets = []
+        self.parameter_sizes = []
 
         # Copy data to jax device
         data_numpy_variables = {}

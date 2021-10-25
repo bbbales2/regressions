@@ -9,10 +9,6 @@ from . import ops
 from . import variables
 
 
-def normal_lpdf(y, mu, sd):
-    return -jnp.square((y - mu) / sd) - jnp.log(sd)
-
-
 class LineFunction:
     data_variables: List[variables.Data]
     parameter_variables: List[variables.Param]
