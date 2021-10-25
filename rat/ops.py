@@ -107,9 +107,7 @@ class Normal(Distr):
         return iter([self.variate, self.mean, self.std])
 
     def code(self):
-        return (
-            f"jax.scipy.stats.norm.logpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
-        )
+        return f"jax.scipy.stats.norm.logpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
 
     def __str__(self):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
