@@ -35,7 +35,8 @@ def test_full():
         ),
         ops.Normal(
             ops.Param(
-                "skills_mu", ops.Index(("year",)),
+                "skills_mu",
+                ops.Index(("year",)),
             ),
             ops.RealConstant(0.0),
             ops.RealConstant(1.0),
