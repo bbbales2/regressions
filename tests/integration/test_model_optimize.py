@@ -23,7 +23,7 @@ def test_optimize_normal_mu():
 
     assert mu_df["value"][0] == pytest.approx(-1.11249, rel=1e-3)
 
-def test_optimize_normal_mu_sd():
+def test_optimize_normal_mu_sigma():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     parsed_lines = [
