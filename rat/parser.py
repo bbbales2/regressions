@@ -257,18 +257,16 @@ class Parser:
                                 n_openbrackets += 1
                             if self.peek(idx).value == ">":
                                 if n_openbrackets == 0:
-                                    self.tokens[idx] = Special(
-                                        ">"
-                                    )  # switch from Operator to Special
+                                    # switch from Operator to Special
+                                    self.tokens[idx] = Special(">")
                                     break
                                 else:
                                     n_openbrackets -= 1
                         # now actually parse the constraints
                         lower = RealConstant(float("-inf"))
                         upper = RealConstant(float("inf"))
-                        for _ in range(
-                            2
-                        ):  # loop at max 2 times, once for lower, once for upper
+                        for _ in range(2):
+                            # loop at max 2 times, once for lower, once for upper
                             if lookahead_2.value == "lower":
                                 self.remove()  # "lower"
                                 self.expect_token(Operator, token_value="=")
@@ -280,12 +278,10 @@ class Parser:
                                 self.remove()  # =
                                 upper = self.expression()
 
-                            lookahead_1 = (
-                                self.peek()
-                            )  # can be either ",", which means loop again, or ">", which breaks
-                            lookahead_2 = self.peek(
-                                1
-                            )  # either "lower", or "upper" if lookahead_1 == ","
+                            lookahead_1 = self.peek()
+                            # can be either ",", which means loop again, or ">", which breaks
+                            lookahead_2 = self.peek(1)
+                            # either "lower", or "upper" if lookahead_1 == ","
                             if lookahead_1.value == ",":
                                 self.remove()  # ,
                             elif lookahead_1.value == ">":
@@ -297,7 +293,8 @@ class Parser:
                                 )
 
                         # the for loop takes of the portion "<lower= ... >
-                        # this means the constraint part of been processed and removed from the token queue at this point
+                        # this means the constraint part of been processed and
+                        # removed from the token queue at this point
                         exp.lower = lower
                         exp.upper = upper
 
@@ -315,12 +312,10 @@ class Parser:
             self.remove()  # )
             exp = next_expression  # expression
 
-        next_token = (
-            self.peek()
-        )  # this is for the following 2 rules, which have conditions after expression
-        if (
-            isinstance(next_token, Special) and next_token.value == "["
-        ):  # identifier '[' expressions ']'
+        next_token = self.peek()
+        # this is for the following 2 rules, which have conditions after expression
+        if isinstance(next_token, Special) and next_token.value == "[":
+            # identifier '[' expressions ']'
             self.remove()  # [
             warnings.warn(
                 "Parser: Indices are assumed to be a single literal, not expression."
@@ -357,9 +352,8 @@ class Parser:
                 rhs = self.expression()
                 return AssignmentOps.generate(lhs, op, rhs)
 
-            elif (
-                isinstance(op, Special) and op.value == "~"
-            ):  # distribution declaration
+            elif isinstance(op, Special) and op.value == "~":
+                # distribution declaration
                 self.expect_token(Special, "~")
                 self.remove()  # ~
                 distribution = self.peek()
