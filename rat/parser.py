@@ -1,5 +1,13 @@
 from typing import *
-from .scanner import Token, Identifier, Operator, RealLiteral, IntLiteral, Special, NullToken
+from .scanner import (
+    Token,
+    Identifier,
+    Operator,
+    RealLiteral,
+    IntLiteral,
+    Special,
+    NullToken,
+)
 from .ops import *
 import warnings
 
@@ -75,6 +83,7 @@ class InfixOps:
         else:
             raise Exception(f"InfixOps: Unknown operator type {token.value}")
 
+
 # group parsing rules for statements
 
 
@@ -137,7 +146,9 @@ class Distributions:
     def generate(dist_type: Identifier, lhs: Expr, expressions: List[Expr]):
         if dist_type.value == "normal":
             if len(expressions) != 2:
-                raise Exception(f"normal distribution needs 2 parameters, but got {len(expressions)}!")
+                raise Exception(
+                    f"normal distribution needs 2 parameters, but got {len(expressions)}!"
+                )
             return Normal(lhs, expressions[0], expressions[1])
 
 
@@ -155,7 +166,9 @@ class Parser:
     def remove(self, index=0):
         self.tokens.pop(index)
 
-    def expect_token(self, token_type: Type[Token], token_value=None, remove=False, lookahead=0):
+    def expect_token(
+        self, token_type: Type[Token], token_value=None, remove=False, lookahead=0
+    ):
         next_token = self.peek(lookahead)
         if not token_value:
             token_value = [next_token.value]
@@ -168,7 +181,9 @@ class Parser:
                 self.remove()
             return True
 
-        raise Exception(f"Expected token type {token_type.__name__} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!")
+        raise Exception(
+            f"Expected token type {token_type.__name__} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!"
+        )
 
     def expressions(self):
         expressions = []
@@ -202,7 +217,7 @@ class Parser:
             self.remove()  # integer
 
         if isinstance(token, Identifier):  # parameter/data/function
-            if UnaryFunctions.check(token):    # unaryFunction '(' expression ')'
+            if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
                 func_name = token
                 self.remove()  # functionName
 
@@ -226,7 +241,10 @@ class Parser:
                     # 3-token lookahead: "<" + "lower" or "upper"
                     lookahead_1 = self.peek()  # <
                     lookahead_2 = self.peek(1)  # lower, upper
-                    if lookahead_1.value == "<" and lookahead_2.value in ("lower", "upper"):
+                    if lookahead_1.value == "<" and lookahead_2.value in (
+                        "lower",
+                        "upper",
+                    ):
                         self.remove()  # <
                         # the problem is that ">" is considered as an operator, but in the case of constraints, it is
                         # not an operator, but a delimeter denoting the end of the constraint region.
@@ -239,14 +257,18 @@ class Parser:
                                 n_openbrackets += 1
                             if self.peek(idx).value == ">":
                                 if n_openbrackets == 0:
-                                    self.tokens[idx] = Special(">")  # switch from Operator to Special
+                                    self.tokens[idx] = Special(
+                                        ">"
+                                    )  # switch from Operator to Special
                                     break
                                 else:
                                     n_openbrackets -= 1
                         # now actually parse the constraints
                         lower = RealConstant(float("-inf"))
                         upper = RealConstant(float("inf"))
-                        for _ in range(2):  # loop at max 2 times, once for lower, once for upper
+                        for _ in range(
+                            2
+                        ):  # loop at max 2 times, once for lower, once for upper
                             if lookahead_2.value == "lower":
                                 self.remove()  # "lower"
                                 self.expect_token(Operator, token_value="=")
@@ -258,15 +280,21 @@ class Parser:
                                 self.remove()  # =
                                 upper = self.expression()
 
-                            lookahead_1 = self.peek()  # can be either ",", which means loop again, or ">", which breaks
-                            lookahead_2 = self.peek(1)  # either "lower", or "upper" if lookahead_1 == ","
+                            lookahead_1 = (
+                                self.peek()
+                            )  # can be either ",", which means loop again, or ">", which breaks
+                            lookahead_2 = self.peek(
+                                1
+                            )  # either "lower", or "upper" if lookahead_1 == ","
                             if lookahead_1.value == ",":
                                 self.remove()  # ,
                             elif lookahead_1.value == ">":
                                 self.remove()  # >
                                 break
                             else:
-                                raise Exception(f"Found unknown token with value {lookahead_1.value} when evaluating constraints")
+                                raise Exception(
+                                    f"Found unknown token with value {lookahead_1.value} when evaluating constraints"
+                                )
 
                         # the for loop takes of the portion "<lower= ... >
                         # this means the constraint part of been processed and removed from the token queue at this point
@@ -287,10 +315,16 @@ class Parser:
             self.remove()  # )
             exp = next_expression  # expression
 
-        next_token = self.peek()  # this is for the following 2 rules, which have conditions after expression
-        if isinstance(next_token, Special) and next_token.value == "[":  # identifier '[' expressions ']'
+        next_token = (
+            self.peek()
+        )  # this is for the following 2 rules, which have conditions after expression
+        if (
+            isinstance(next_token, Special) and next_token.value == "["
+        ):  # identifier '[' expressions ']'
             self.remove()  # [
-            warnings.warn("Parser: Indices are assumed to be a single literal, not expression.")
+            warnings.warn(
+                "Parser: Indices are assumed to be a single literal, not expression."
+            )
             expressions = self.expressions()  # list of expression
             self.expect_token(Special, "]")
             self.remove()  # ]
@@ -315,7 +349,7 @@ class Parser:
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.expression()
-        #if isinstance(lhs, Param) or isinstance(lhs, Data):
+        # if isinstance(lhs, Param) or isinstance(lhs, Data):
         if isinstance(lhs, Expr):
             op = self.peek()
             if AssignmentOps.check(op):
@@ -323,7 +357,9 @@ class Parser:
                 rhs = self.expression()
                 return AssignmentOps.generate(lhs, op, rhs)
 
-            elif isinstance(op, Special) and op.value == "~":  # distribution declaration
+            elif (
+                isinstance(op, Special) and op.value == "~"
+            ):  # distribution declaration
                 self.expect_token(Special, "~")
                 self.remove()  # ~
                 distribution = self.peek()
