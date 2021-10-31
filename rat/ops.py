@@ -89,7 +89,7 @@ class Param(Expr):
             return self.code_name()
 
     def __str__(self):
-        return f"Param({self.name}, {self.index.__str__()})"
+        return f"Param({self.name}, {self.index.__str__()}, lower={self.lower}, upper={self.upper})"
         # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
@@ -180,6 +180,21 @@ class Mul(Expr):
 
     def __str__(self):
         return f"Mul({self.left.__str__()}, {self.right.__str__()})"
+
+
+@dataclass(frozen=True)
+class Pow(Expr):
+    left: Expr
+    right: Expr
+
+    def __iter__(self):
+        return iter([self.left, self.right])
+
+    def code(self):
+        return f"{self.left.code()} ^ {self.right.code()}"
+
+    def __str__(self):
+        return f"Pow({self.left.__str__()}, {self.right.__str__()})"
 
 
 @dataclass(frozen=True)
@@ -433,6 +448,76 @@ class DivAssignment(Expr):
 
     def __str__(self):
         return f"DivAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
+
+
+@dataclass(frozen=True)
+class Exp(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"exp({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Exp({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Abs(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"abs({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Abs({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Floor(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"floor({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Floor({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Ceil(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"ceil({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Ceil({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Round(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"round({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Round({self.subexpr.__str__()})"
 
 
 @dataclass
