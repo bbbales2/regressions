@@ -1,6 +1,4 @@
 from typing import *
-import warnings
-
 from .scanner import (
     Token,
     Identifier,
@@ -11,6 +9,7 @@ from .scanner import (
     NullToken,
 )
 from .ops import *
+import warnings
 
 # https://mc-stan.org/docs/2_18/reference-manual/bnf-grammars.html
 # https://mc-stan.org/docs/2_28/reference-manual/arithmetic-expressions.html
@@ -45,7 +44,7 @@ class PostfixOps:  # not used atm
 
 
 class InfixOps:
-    ops = ["+", "-", "*", "/", "%", "||", "&&", "==", "!=", "<", "<=", ">", ">="]
+    ops = ["+", "-", "*", "^", "/", "%", "||", "&&", "==", "!=", "<", "<=", ">", ">="]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -61,6 +60,8 @@ class InfixOps:
             return Diff(lhs, rhs)
         elif token.value == "*":
             return Mul(lhs, rhs)
+        elif token.value == "^":
+            return Pow(lhs, rhs)
         elif token.value == "%":
             return Mod(lhs, rhs)
         elif token.value == "||":
@@ -109,18 +110,27 @@ class AssignmentOps:
             return DivAssignment(lhs, rhs)
 
 
-class DefaultFunctions:
+class UnaryFunctions:
     names = ["exp", "abs", "floor", "ceil", "round"]
 
     @staticmethod
     def check(tok: Type[Token]):
-        if isinstance(tok, Identifier) and tok.value in DefaultFunctions.names:
+        if isinstance(tok, Identifier) and tok.value in UnaryFunctions.names:
             return True
         return False
 
     @staticmethod
-    def generate(subexpr: Expr, tok: Identifier):
-        pass
+    def generate(subexpr: Expr, func_type: Identifier):
+        if func_type.value == "exp":
+            return Exp(subexpr)
+        elif func_type.value == "abs":
+            return Abs(subexpr)
+        elif func_type.value == "floor":
+            return Floor(subexpr)
+        elif func_type.value == "ceil":
+            return Ceil(subexpr)
+        elif func_type.value == "round":
+            return Round(subexpr)
 
 
 class Distributions:
@@ -148,7 +158,7 @@ class Parser:
         self.tokens = tokens
         self.data_names = data_names
 
-    def peek(self, k=0) -> Token:
+    def peek(self, k=0) -> Type[Token]:
         if k >= len(self.tokens):
             return NullToken()
         return self.tokens[k]
@@ -156,8 +166,10 @@ class Parser:
     def remove(self, index=0):
         self.tokens.pop(index)
 
-    def expect_token(self, token_type: Type[Token], token_value=None, remove=False):
-        next_token = self.peek()
+    def expect_token(
+        self, token_type: Type[Token], token_value=None, remove=False, lookahead=0
+    ):
+        next_token = self.peek(lookahead)
         if not token_value:
             token_value = [next_token.value]
 
@@ -204,12 +216,87 @@ class Parser:
             exp = IntegerConstant(int(token.value))
             self.remove()  # integer
 
-        if isinstance(token, Identifier):  # parameter/data
-            if token.value in self.data_names:
-                exp = Data(token.value)
-            else:
-                exp = Param(token.value)
-            self.remove()  # identifier
+        if isinstance(token, Identifier):  # parameter/data/function
+            if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
+                func_name = token
+                self.remove()  # functionName
+
+                self.expect_token(Special, "(")
+                self.remove()  # (
+                argument = self.expression()
+
+                self.expect_token(Special, ")")
+                self.remove()  # )
+                exp = UnaryFunctions.generate(argument, func_name)
+
+            else:  # parameter/data
+                if token.value in self.data_names:
+                    exp = Data(token.value)
+                    self.remove()  # identifier
+                else:
+                    exp = Param(token.value)
+                    self.remove()  # identifier
+
+                    # check for constraints  param<lower = 0.0, upper = 1.0>
+                    # 3-token lookahead: "<" + "lower" or "upper"
+                    lookahead_1 = self.peek()  # <
+                    lookahead_2 = self.peek(1)  # lower, upper
+                    if lookahead_1.value == "<" and lookahead_2.value in (
+                        "lower",
+                        "upper",
+                    ):
+                        self.remove()  # <
+                        # the problem is that ">" is considered as an operator, but in the case of constraints, it is
+                        # not an operator, but a delimeter denoting the end of the constraint region.
+                        # Therefore, we need to find the matching ">" and change it from operator type to special, so
+                        # the expression parser does not think of it as a "greater than" operator. This goes away from
+                        # the ll(k) approach and therefore is a very hacky way to fix the issue.
+                        n_openbrackets = 0
+                        for idx in range(len(self.tokens)):
+                            if self.peek(idx).value == "<":
+                                n_openbrackets += 1
+                            if self.peek(idx).value == ">":
+                                if n_openbrackets == 0:
+                                    # switch from Operator to Special
+                                    self.tokens[idx] = Special(">")
+                                    break
+                                else:
+                                    n_openbrackets -= 1
+                        # now actually parse the constraints
+                        lower = RealConstant(float("-inf"))
+                        upper = RealConstant(float("inf"))
+                        for _ in range(2):
+                            # loop at max 2 times, once for lower, once for upper
+                            if lookahead_2.value == "lower":
+                                self.remove()  # "lower"
+                                self.expect_token(Operator, token_value="=")
+                                self.remove()  # =
+                                lower = self.expression()
+                            elif lookahead_2.value == "upper":
+                                self.remove()  # "upper"
+                                self.expect_token(Operator, token_value="=")
+                                self.remove()  # =
+                                upper = self.expression()
+
+                            lookahead_1 = self.peek()
+                            # can be either ",", which means loop again, or ">", which breaks
+                            lookahead_2 = self.peek(1)
+                            # either "lower", or "upper" if lookahead_1 == ","
+                            if lookahead_1.value == ",":
+                                self.remove()  # ,
+                            elif lookahead_1.value == ">":
+                                self.remove()  # >
+                                break
+                            else:
+                                raise Exception(
+                                    f"Found unknown token with value {lookahead_1.value} when evaluating constraints"
+                                )
+
+                        # the for loop takes of the portion "<lower= ... >
+                        # this means the constraint part of been processed and
+                        # removed from the token queue at this point
+                        exp.lower = lower
+                        exp.upper = upper
 
         if PrefixOps.check(token):  # prefixOp expression
             self.expect_token(Operator, PrefixOps.ops)  # operator
@@ -225,12 +312,10 @@ class Parser:
             self.remove()  # )
             exp = next_expression  # expression
 
-        next_token = (
-            self.peek()
-        )  # this is for the following 2 rules, which have conditions after expression
-        if (
-            isinstance(next_token, Special) and next_token.value == "["
-        ):  # identifier '[' expressions ']'
+        next_token = self.peek()
+        # this is for the following 2 rules, which have conditions after expression
+        if isinstance(next_token, Special) and next_token.value == "[":
+            # identifier '[' expressions ']'
             self.remove()  # [
             warnings.warn(
                 "Parser: Indices are assumed to be a single literal, not expression."
@@ -254,23 +339,21 @@ class Parser:
 
     def statement(self):
         token = self.peek()
-        if DefaultFunctions.check(token):
-            raise Exception("Cannot assign to a function name.")
         if Distributions.check(token):
             raise Exception("Cannot assign to a distribution.")
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.expression()
-        if isinstance(lhs, Param) or isinstance(lhs, Data):
+        # if isinstance(lhs, Param) or isinstance(lhs, Data):
+        if isinstance(lhs, Expr):
             op = self.peek()
             if AssignmentOps.check(op):
                 self.remove()  # assignment operator
                 rhs = self.expression()
                 return AssignmentOps.generate(lhs, op, rhs)
 
-            elif (
-                isinstance(op, Special) and op.value == "~"
-            ):  # distribution declaration
+            elif isinstance(op, Special) and op.value == "~":
+                # distribution declaration
                 self.expect_token(Special, "~")
                 self.remove()  # ~
                 distribution = self.peek()
@@ -286,33 +369,3 @@ class Parser:
                 raise Exception("Statement finished without assignment")
 
         return Expr()
-
-
-if __name__ == "__main__":
-    from scanner import scanner
-
-    teststr = """
-score_diff~normal(skills[home_team, year]-skills[away_team, year],sigma);
-skills[team, year] ~ normal(skills_mu[year], tau);
-tau += -10;
-rob = 500;
-sigma ~ normal(0.0, -10.0);"""
-
-    # teststr = "tau += -1"
-
-    data_names = [
-        "game_id",
-        "date",
-        "home_score",
-        "away_score",
-        "home_team",
-        "away_team",
-    ]
-    for line in teststr.split("\n"):
-        if not line:
-            continue
-        print("-" * 10)
-        print(line)
-        print(list(x.value for x in scanner(line)))
-        # print(Parser(scanner(line)).statement().code() + ";")
-        print(Parser(scanner(line), data_names).statement())
