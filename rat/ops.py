@@ -3,6 +3,7 @@ from typing import List, Tuple, Union
 
 from . import variables
 
+
 class Expr:
     def __iter__(self):
         return self
