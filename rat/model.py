@@ -125,7 +125,7 @@ class Model:
         )
 
         results = scipy.optimize.minimize(
-            nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-9
+            nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7
         )
 
         if not results.success:
