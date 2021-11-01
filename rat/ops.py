@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Tuple, Union
 
+from . import variables
 
 class Expr:
     def __iter__(self):
@@ -16,56 +17,51 @@ class Expr:
         return "Expr()"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Index(Expr):
     names: Tuple[str]
     shift_columns: Tuple[str] = None
     shift: int = None
+    variable: variables.Index = None
 
     def get_key(self):
         return self.names
 
-    def code_name(self):
-        # This code runs:
-        return f"index__{'_'.join([name.__str__() for name in self.names])}"
-        # But I think it should be:
-        # return f"index__{'_'.join(self.names)}"
-
     def code(self):
-        return self.code_name()
+        return self.variable.code()
 
     def __str__(self):
         return f"Index({', '.join(x.__str__() for x in self.names)})"
 
 
-@dataclass(frozen=False)
+@dataclass
 class Data(Expr):
     name: str
     index: Index = None
+    variable: variables.Data = None
 
     def get_key(self):
         return self.name
 
-    def code_name(self):
-        return f"data__{self.name}"
-
     def code(self):
+        variable_code = self.variable.code()
         if self.index is not None:
-            return self.code_name() + f"[{self.index.code()}]"
+            return variable_code + f"[{self.index.code()}]"
         else:
-            return self.code_name()
+            return variable_code
 
     def __str__(self):
         return f"Data({self.name}, {self.index.__str__()})"
         # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
-@dataclass(frozen=False)
+@dataclass
 class Param(Expr):
     name: str
     index: Index = None
     lower: float = float("-inf")
     upper: float = float("inf")
+    variable: variables.Param = None
 
     def __iter__(self):
         if self.index is not None:
@@ -79,14 +75,12 @@ class Param(Expr):
     def get_key(self):
         return self.name
 
-    def code_name(self):
-        return f"param__{self.name}"
-
     def code(self):
+        variable_code = self.variable.code()
         if self.index is not None:
-            return self.code_name() + f"[{self.index.code()}]"
+            return variable_code + f"[{self.index.code()}]"
         else:
-            return self.code_name()
+            return variable_code
 
     def __str__(self):
         return f"Param({self.name}, {self.index.__str__()}, lower={self.lower}, upper={self.upper})"

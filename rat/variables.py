@@ -146,4 +146,7 @@ class IndexUse:
         return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))
 
     def code(self):
-        return f"index__{'_'.join(self.names)}"
+        if self.shift_columns is None:
+            return f"index__{'_'.join(self.names)}"
+        else:
+            return f"index__{'_'.join(self.names)}__{'_'.join(self.shift_columns)}__{self.shift}"

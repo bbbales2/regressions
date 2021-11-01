@@ -116,7 +116,7 @@ class Model:
         self.size = unconstrained_parameter_size
 
     def optimize(self) -> Fit:
-        params = numpy.random.rand(self.size)
+        params = 4 * numpy.random.rand(self.size) - 2
 
         nlpdf = lambda x: -self.lpdf_no_jac(x.astype(numpy.float32))
         grad = jax.jit(jax.grad(nlpdf))

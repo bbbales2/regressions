@@ -75,7 +75,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         assert isinstance(line, ops.Distr)
         data_variables_used: Set[str] = set()
         parameter_variables_used: Set[str] = set()
-        index_use_variables: Dict[str, variables.IndexUse] = {}
+        index_use_variables: List[variables.IndexUse] = []
 
         if isinstance(line.variate, ops.Data):
             # If the left hand side is data, the dataframe comes from input
@@ -103,6 +103,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             data_variables_used.add(data_key)
             if data_key not in data_variables:
                 data_variables[data_key] = variables.Data(data_key, line_df[data_key])
+            data.variable = data_variables[data_key]
 
         parameter_index_keys: Dict[str, List[variables.Index]] = {}
         # Find all the ways that each parameter is indexed
@@ -156,21 +157,23 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     parameter.index.shift_columns, parameter.index.shift
                 )
                 index_df = line_df.loc[:, parameter.index.get_key()]
-                index_use_variables[index_key] = variables.IndexUse(
+                index_use_variable = variables.IndexUse(
                     index_key,
                     index_df,
                     index,
                     parameter.index.shift_columns,
                     parameter.index.shift,
                 )
-                # parameter_uses[parameter_key] = variables.ParamUse(param, index_df, index)
+                index_use_variables.append(index_use_variable)
+                parameter.index.variable = index_use_variable
+            parameter.variable = parameter_variables[parameter_key]
 
         # For each source line, create a python function for log density
         # This will copy over index arrays to jax device
         line_function = LineFunction(
             [data_variables[name] for name in data_variables_used],
             [parameter_variables[name] for name in parameter_variables_used],
-            index_use_variables.values(),
+            index_use_variables,
             line,
         )
 
