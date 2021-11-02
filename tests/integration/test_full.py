@@ -42,10 +42,10 @@ def test_full():
             ops.RealConstant(1.0),
         ),
         ops.Normal(
-            ops.Param("tau", lower=0.0), ops.RealConstant(0.0), ops.RealConstant(1.0)
+            ops.Param("tau", lower=ops.RealConstant(0.0)), ops.RealConstant(0.0), ops.RealConstant(1.0)
         ),
         ops.Normal(
-            ops.Param("sigma", lower=0.0), ops.RealConstant(0.0), ops.RealConstant(1.0)
+            ops.Param("sigma", lower=ops.RealConstant(0.0)), ops.RealConstant(0.0), ops.RealConstant(1.0)
         ),
     ]
 
