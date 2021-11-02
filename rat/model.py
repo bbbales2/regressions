@@ -14,6 +14,8 @@ from . import compiler
 from . import ops
 from . import variables
 from . import constraints
+from .scanner import scanner
+from .parser import Parser
 from .fit import Fit
 
 
@@ -25,7 +27,28 @@ class Model:
     parameter_offsets: List[int]
     parameter_sizes: List[Union[None, int]]
 
-    def __init__(self, data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
+    def __init__(
+        self,
+        data_df: pandas.DataFrame,
+        parsed_lines: List[ops.Expr] = None,
+        model_string: str = None
+    ):
+        data_names = data_df.columns
+        if model_string is not None:
+            if parsed_lines is not None:
+                raise Exception("Only one of model_string and parsed_lines can be non-None")
+            
+            parsed_lines = []
+            for line in model_string.splitlines():
+                line = line.lstrip().rstrip()
+                if not line:
+                    continue
+                parsed_line = Parser(scanner(line), data_names).statement()
+                parsed_lines.append(parsed_line)
+        else:
+            if parsed_lines is None:
+                raise Exception("At least one of model_string or parsed_lines must be non-None")
+
         (
             data_variables,
             parameter_variables,
