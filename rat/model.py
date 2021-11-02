@@ -1,10 +1,13 @@
 import blackjax
 import blackjax.nuts
+import functools
 import jax
 import jax.scipy
+import jax.scipy.optimize
 import jax.numpy
 import numpy
 import pandas
+import scipy.optimize
 from typing import Callable, List, Dict, Union
 
 from . import compiler
@@ -18,9 +21,9 @@ class Model:
     lpdf: Callable[[numpy.array], float]
     size: int
     parameter_variables: List[variables.Param]
-    parameter_names: List[str] = []
-    parameter_offsets: List[int] = []
-    parameter_sizes: List[Union[None, int]] = []
+    parameter_names: List[str]
+    parameter_offsets: List[int]
+    parameter_sizes: List[Union[None, int]]
 
     def __init__(self, data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         (
@@ -29,6 +32,10 @@ class Model:
             index_variables,
             line_functions,
         ) = compiler.compile(data_df, parsed_lines)
+
+        self.parameter_names = []
+        self.parameter_offsets = []
+        self.parameter_sizes = []
 
         # Copy data to jax device
         data_numpy_variables = {}
@@ -50,7 +57,7 @@ class Model:
                 unconstrained_parameter_size += 1
 
         # This is the likelihood function we'll expose!
-        def lpdf(unconstrained_parameter_vector):
+        def lpdf(include_jacobian, unconstrained_parameter_vector):
             parameter_numpy_variables = {}
             total = 0.0
             for name, offset, size in zip(
@@ -70,15 +77,15 @@ class Model:
 
                 if lower > float("-inf") and upper == float("inf"):
                     parameter, constraints_jacobian_adjustment = constraints.lower(
-                        variable, lower
+                        parameter, lower
                     )
                 elif lower == float("inf") and upper < float("inf"):
                     parameter, constraints_jacobian_adjustment = constraints.upper(
-                        variable, upper
+                        parameter, upper
                     )
                 elif lower > float("inf") and upper < float("inf"):
                     parameter, constraints_jacobian_adjustment = constraints.finite(
-                        variable, lower, upper
+                        parameter, lower, upper
                     )
 
                 if size is not None and size != variable.padded_size():
@@ -86,7 +93,8 @@ class Model:
                         parameter, (0, variable.padded_size() - size)
                     )
 
-                total += constraints_jacobian_adjustment
+                if include_jacobian:
+                    total += constraints_jacobian_adjustment
                 parameter_numpy_variables[name] = parameter
 
             for line_function in line_functions:
@@ -103,15 +111,54 @@ class Model:
             return total
 
         self.parameter_variables = parameter_variables
-        self.lpdf = jax.jit(lpdf)
+        self.lpdf = jax.jit(functools.partial(lpdf, True))
+        self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
 
+    def optimize(self) -> Fit:
+        params = 4 * numpy.random.rand(self.size) - 2
+
+        nlpdf = lambda x: -self.lpdf_no_jac(x.astype(numpy.float32))
+        grad = jax.jit(jax.grad(nlpdf))
+        grad_double = lambda x: numpy.array(grad(x.astype(numpy.float32))).astype(
+            numpy.float64
+        )
+
+        results = scipy.optimize.minimize(
+            nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7
+        )
+
+        if not results.success:
+            raise Exception(f"Optimization failed: {results.message}")
+
+        draw_dfs: Dict[str, pandas.DataFrame] = {}
+        for name, offset, size in zip(
+            self.parameter_names, self.parameter_offsets, self.parameter_sizes
+        ):
+            if size is not None:
+                df = self.parameter_variables[name].index.base_df.copy()
+                df["value"] = results.x[offset : offset + size]
+            else:
+                df = pandas.DataFrame({"value": [results.x[offset]]})
+
+            variable = self.parameter_variables[name]
+            lower = variable.lower
+            upper = variable.upper
+            value = df["value"].to_numpy()
+            if lower > float("-inf") and upper == float("inf"):
+                value, _ = constraints.lower(value, lower)
+            elif lower == float("inf") and upper < float("inf"):
+                value, _ = constraints.upper(value, upper)
+            elif lower > float("inf") and upper < float("inf"):
+                value, _ = constraints.finite(value, lower, upper)
+            df["value"] = value
+
+            draw_dfs[name] = df
+
+        return Fit(draw_dfs)
+
     def sample(self, num_steps=200, step_size=1e-3) -> Fit:
-        params = numpy.exp(numpy.random.rand(self.size))
-
-        print(self.lpdf(params))
-
-        print("foo")
+        params = numpy.random.rand(self.size)
 
         # Build the kernel
         inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))

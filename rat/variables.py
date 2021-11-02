@@ -47,11 +47,11 @@ class Index:
         if len(grouping_columns) > 0:
             return pandas.concat(
                 [
-                    df.iloc[:, grouping_columns],
+                    df[grouping_columns],
                     df.groupby(grouping_columns).shift(shift).reset_index(drop=True),
                 ],
                 axis=1,
-            ).iloc[:, self.base_df.columns]
+            )[list(self.base_df.columns)]
         else:
             return df.shift(shift)
 
@@ -146,4 +146,7 @@ class IndexUse:
         return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))
 
     def code(self):
-        return f"index__{'_'.join(self.names)}"
+        if self.shift_columns is None:
+            return f"index__{'_'.join(self.names)}"
+        else:
+            return f"index__{'_'.join(self.names)}__{'_'.join(self.shift_columns)}__{self.shift}"

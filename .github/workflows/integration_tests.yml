@@ -21,4 +21,4 @@ jobs:
     - name: Run integration tests
       run: |
         pip install pytest
-        pytest tests/integration --doctest-modules --junitxml=junit/test-results.xml
+        pytest tests/integration
