@@ -31,13 +31,15 @@ class Model:
         self,
         data_df: pandas.DataFrame,
         parsed_lines: List[ops.Expr] = None,
-        model_string: str = None
+        model_string: str = None,
     ):
         data_names = data_df.columns
         if model_string is not None:
             if parsed_lines is not None:
-                raise Exception("Only one of model_string and parsed_lines can be non-None")
-            
+                raise Exception(
+                    "Only one of model_string and parsed_lines can be non-None"
+                )
+
             parsed_lines = []
             for line in model_string.splitlines():
                 line = line.lstrip().rstrip()
@@ -47,7 +49,9 @@ class Model:
                 parsed_lines.append(parsed_line)
         else:
             if parsed_lines is None:
-                raise Exception("At least one of model_string or parsed_lines must be non-None")
+                raise Exception(
+                    "At least one of model_string or parsed_lines must be non-None"
+                )
 
         (
             data_variables,
