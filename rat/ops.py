@@ -18,6 +18,28 @@ class Expr:
         return "Expr()"
 
 
+@dataclass(frozen=True)
+class RealConstant(Expr):
+    value: float
+
+    def code(self):
+        return f"{self.value}"
+
+    def __str__(self):
+        return f"RealConstant({self.value})"
+
+
+@dataclass(frozen=True)
+class IntegerConstant(Expr):
+    value: int
+
+    def code(self):
+        return f"{self.value}"
+
+    def __str__(self):
+        return f"IntegerConstant({self.value})"
+
+
 @dataclass
 class Index(Expr):
     names: Tuple[str]
@@ -60,8 +82,8 @@ class Data(Expr):
 class Param(Expr):
     name: str
     index: Index = None
-    lower: float = float("-inf")
-    upper: float = float("inf")
+    lower: RealConstant = RealConstant(float("-inf"))
+    upper: RealConstant = RealConstant(float("inf"))
     variable: variables.Param = None
 
     def __iter__(self):
@@ -109,17 +131,6 @@ class Normal(Distr):
 
 
 @dataclass(frozen=True)
-class RealConstant(Expr):
-    value: float
-
-    def code(self):
-        return f"{self.value}"
-
-    def __str__(self):
-        return f"RealConstant({self.value})"
-
-
-@dataclass(frozen=True)
 class Diff(Expr):
     lhs: Expr
     rhs: Expr
@@ -132,17 +143,6 @@ class Diff(Expr):
 
     def __str__(self):
         return f"Diff({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
-class IntegerConstant(Expr):
-    value: int
-
-    def code(self):
-        return f"{self.value}"
-
-    def __str__(self):
-        return f"IntegerConstant({self.value})"
 
 
 @dataclass(frozen=True)

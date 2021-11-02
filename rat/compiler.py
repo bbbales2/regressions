@@ -84,7 +84,13 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             # Otherwise, the dataframe comes from the parameter (unless it's scalar then it's none)
             parameter = parameter_variables[line.variate.get_key()]
             index = parameter.index
-            parameter.set_constraints(line.variate.lower, line.variate.upper)
+
+            lower = line.variate.lower
+            upper = line.variate.upper
+            assert isinstance(lower, ops.RealConstant)
+            assert isinstance(upper, ops.RealConstant)
+
+            parameter.set_constraints(lower.value, upper.value)
 
             if index is not None:
                 line_df = index.base_df.copy()
