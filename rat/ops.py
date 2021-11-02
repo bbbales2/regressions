@@ -106,7 +106,7 @@ class Param(Expr):
             return variable_code
 
     def __str__(self):
-        return f"Param({self.name}, {self.index.__str__()}, lower={self.lower.value}, upper={self.upper.value})"
+        return f"Param({self.name}, {self.index.__str__()}, lower={self.lower}, upper={self.upper})"
         # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
