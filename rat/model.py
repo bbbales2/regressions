@@ -142,7 +142,7 @@ class Model:
         self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
 
-    def optimize(self, init = 2) -> Fit:
+    def optimize(self, init=2) -> Fit:
         params = 2 * init * numpy.random.rand(self.size) - init
 
         nlpdf = lambda x: -self.lpdf_no_jac(x.astype(numpy.float32))

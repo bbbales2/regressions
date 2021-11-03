@@ -74,7 +74,7 @@ def test_optimize_kalman_2():
     ]
 
     model = Model(data_df, parsed_lines)
-    fit = model.optimize(init = 0.1)
+    fit = model.optimize(init=0.1)
     skills_df = fit.draws("skills")
     sigma_df = fit.draws("sigma")
 
