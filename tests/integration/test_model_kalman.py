@@ -24,7 +24,7 @@ def test_optimize_kalman():
     ]
 
     model = Model(data_df, parsed_lines)
-    fit = model.optimize(init = 0.1)
+    fit = model.optimize(init=0.1)
     mu_df = fit.draws("mu")
 
     mu_ref = [

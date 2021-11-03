@@ -24,7 +24,7 @@ def test_optimize_normal_mu():
     # ]
 
     model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init = 0.1)
+    fit = model.optimize(init=0.1)
     mu_df = fit.draws("mu")
 
     assert mu_df["value"][0] == pytest.approx(-1.11249, rel=1e-2)
@@ -49,7 +49,7 @@ def test_optimize_normal_mu_sigma():
     # ]
 
     model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init = 0.1)
+    fit = model.optimize(init=0.1)
     mu_df = fit.draws("mu")
     sigma_df = fit.draws("sigma")
 
