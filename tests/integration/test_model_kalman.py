@@ -43,7 +43,7 @@ def test_optimize_kalman():
     assert mu_df["value"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
 
-def test_optimize_kalman():
+def test_optimize_kalman_2():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
 
     #score_diff ~ normal(skills[team1, year] - skills[team2, year], sigma);
