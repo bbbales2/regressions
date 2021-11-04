@@ -63,14 +63,33 @@ def test_incorporate_shifts(index):
         True,
     ]
 
-
     index.incorporate_shifts(("group1", "group2"), (2, 1))
     assert index.df["group1"].to_list()[:-4] == [1, 1, 1, 2, 2]
     assert index.df["group1"].to_list()[-3:-1] == [1, 2]
     assert index.df["group2"].to_list()[:-4] == [1, 2, 3, 1, 2]
     assert index.df["group2"].to_list()[-1:] == [1]
-    assert index.df["group1"].isna().to_list() == [False, False, False, False, False, True, False, False, True]
-    assert index.df["group2"].isna().to_list() == [False, False, False, False, False, True, True, True, False]
+    assert index.df["group1"].isna().to_list() == [
+        False,
+        False,
+        False,
+        False,
+        False,
+        True,
+        False,
+        False,
+        True,
+    ]
+    assert index.df["group2"].isna().to_list() == [
+        False,
+        False,
+        False,
+        False,
+        False,
+        True,
+        True,
+        True,
+        False,
+    ]
 
 
 def test_get_numpy_indices(index):

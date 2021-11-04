@@ -63,7 +63,8 @@ def test_optimize_kalman_2():
         ops.Normal(
             ops.Param("skills", ops.Index(("team", "year"))),
             ops.Param(
-                "skills", ops.Index(("team", "year"), shift_columns=("year",), shifts=(1,))
+                "skills",
+                ops.Index(("team", "year"), shift_columns=("year",), shifts=(1,)),
             ),
             ops.RealConstant(0.5),
         ),
