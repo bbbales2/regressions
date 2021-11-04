@@ -60,7 +60,7 @@ class Index:
             grouped_df = df.groupby(grouping_columns)
             shifted_columns = []
             for column in shift_columns:
-                shifted_column = grouped_df[column].shift(shift).reset_index(drop = True)
+                shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
                 shifted_columns.append(shifted_column)
             shifted_df = pandas.concat([df[grouping_columns]] + shifted_columns, axis=1)
             return shifted_df[list(self.base_df.columns)]
