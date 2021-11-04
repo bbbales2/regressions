@@ -44,7 +44,7 @@ class IntegerConstant(Expr):
 class Index(Expr):
     names: Tuple[str]
     shift_columns: Tuple[str] = None
-    shift: int = None
+    shifts: Tuple[int] = None
     variable: variables.Index = None
 
     def get_key(self):

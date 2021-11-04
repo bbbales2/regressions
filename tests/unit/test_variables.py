@@ -18,26 +18,26 @@ def test_index_constructor(index):
 
 
 def test_incorporate_shifts(index):
-    index.incorporate_shifts(("group1", "group2"), 1)
+    index.incorporate_shifts(("group1", "group2"), (1, 1))
     assert index.df["group1"].to_list()[:-1] == [1, 1, 1, 2, 2]
     assert index.df["group2"].to_list()[:-1] == [1, 2, 3, 1, 2]
     assert index.df["group1"].isna().to_list() == [False, False, False, False, False, True]
     assert index.df["group2"].isna().to_list() == [False, False, False, False, False, True]
 
-    index.incorporate_shifts(("group2",), 1)
+    index.incorporate_shifts(("group2",), (1,))
     assert index.df["group1"].to_list()[:-3] == [1, 1, 1, 2, 2]
     assert index.df["group1"].to_list()[-2:] == [1, 2]
     assert index.df["group2"].to_list()[:-3] == [1, 2, 3, 1, 2]
     assert index.df["group1"].isna().to_list() == [False, False, False, False, False, True, False, False]
     assert index.df["group2"].isna().to_list() == [False, False, False, False, False, True, True, True]
 
-def test_compute_shifted_df(index):
-    #def compute_shifted_df(self, df, shift_columns, shift):
-    pass
-
-def test_rebuild_df(index):
-    #def rebuild_df(self):
-    pass
+    index.incorporate_shifts(("group1", "group2"), (2, 1))
+    assert index.df["group1"].to_list()[:-4] == [1, 1, 1, 2, 2]
+    assert index.df["group1"].to_list()[-3:-1] == [1, 2]
+    assert index.df["group2"].to_list()[:-4] == [1, 2, 3, 1, 2]
+    assert index.df["group2"].to_list()[-1:] == [1]
+    assert index.df["group1"].isna().to_list() == [False, False, False, False, False, True, False, False, True]
+    assert index.df["group2"].isna().to_list() == [False, False, False, False, False, True, True, True, False]
 
 def test_get_numpy_indices(index):
     #def get_numpy_indices(self, df):
