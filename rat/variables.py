@@ -13,19 +13,31 @@ class Index:
     levels: List
     indices: Dict
     # Maintain a list of all the shifts used to access a variable
-    shift_columns_list: List[Tuple[str]] = []
-    shift_list: List[int] = []
+    shift_columns_list: List[Tuple[str]]
+    shift_list: List[int]
 
     def __init__(self, unprocessed_df: pandas.DataFrame):
+        # Rows of unprocessed_df are considered to be indexes into
+        # another variable.
+        #
+        # Every column of unprocessed_df is considered a different
+        # dimension.
         columns = unprocessed_df.columns
 
-        self.base_df = (
+        base_df = (
             unprocessed_df.drop_duplicates()
             .sort_values(list(columns))
             .reset_index(drop=True)
         )
 
+        for column, dtype in zip(base_df.columns, base_df.dtypes):
+            if pandas.api.types.is_integer_dtype(dtype):
+                base_df[column] = base_df[column].astype(pandas.Int64Dtype())
+
+        self.base_df = base_df
         self.df = self.base_df
+        self.shift_columns_list = []
+        self.shift_list = []
 
         self.rebuild_df()
 
@@ -45,13 +57,13 @@ class Index:
         grouping_columns = list(set(self.base_df.columns) - set(shift_columns))
 
         if len(grouping_columns) > 0:
-            return pandas.concat(
-                [
-                    df[grouping_columns],
-                    df.groupby(grouping_columns).shift(shift).reset_index(drop=True),
-                ],
-                axis=1,
-            )[list(self.base_df.columns)]
+            grouped_df = df.groupby(grouping_columns)
+            shifted_columns = []
+            for column in shift_columns:
+                shifted_column = grouped_df[column].shift(shift).reset_index(drop = True)
+                shifted_columns.append(shifted_column)
+            shifted_df = pandas.concat([df[grouping_columns]] + shifted_columns, axis=1)
+            return shifted_df[list(self.base_df.columns)]
         else:
             return df.shift(shift)
 
@@ -71,9 +83,6 @@ class Index:
         self.indices = {}
         for i, level in enumerate(self.levels):
             self.indices[level] = i
-
-    def get_level(self, i):
-        return self.levels[i]
 
     def get_numpy_indices(self, df):
         df = df.copy()

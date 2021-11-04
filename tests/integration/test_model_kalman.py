@@ -2,6 +2,7 @@ import os
 import pathlib
 import pandas
 import pytest
+import time
 
 from rat import ops
 from rat.model import Model
