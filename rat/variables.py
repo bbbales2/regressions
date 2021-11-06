@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import jax.numpy as jnp
 import pandas
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union
 
 
 class Index:
@@ -13,8 +13,7 @@ class Index:
     levels: List
     indices: Dict
     # Maintain a list of all the shifts used to access a variable
-    shift_columns_list: List[Tuple[str]]
-    shifts_list: List[Tuple[int]]
+    shifts_list: List[Tuple[Union[str, None]]]
 
     def __init__(self, unprocessed_df: pandas.DataFrame):
         # Rows of unprocessed_df are considered to be indexes into
@@ -36,25 +35,33 @@ class Index:
 
         self.base_df = base_df
         self.df = self.base_df
-        self.shift_columns_list = []
         self.shifts_list = []
 
         self.rebuild_df()
 
-    def incorporate_shifts(self, shift_columns, shifts):
-        if shift_columns is None:
+    def incorporate_shifts(self, shifts):
+        if shifts is None:
             return
 
-        self.shift_columns_list.append(shift_columns)
         self.shifts_list.append(shifts)
 
         self.rebuild_df()
 
-    def compute_shifted_df(self, df, shift_columns, shifts):
-        if shift_columns is None:
+    def compute_shifted_df(self, df, shifts):
+        if shifts is None:
             return df
 
-        grouping_columns = list(set(self.base_df.columns) - set(shift_columns))
+        columns = self.base_df.columns
+
+        shift_columns = []
+        shift_values = []
+        grouping_columns = []
+        for column, shift in zip(columns, shifts):
+            if shift is None:
+                grouping_columns.append(column)
+            else:
+                shift_columns.append(column)
+                shift_values.append(shift)
 
         if len(grouping_columns) > 0:
             grouped_df = df.groupby(grouping_columns)
@@ -62,7 +69,7 @@ class Index:
             grouped_df = df
         
         shifted_columns = []
-        for column, shift in zip(shift_columns, shifts):
+        for column, shift in zip(shift_columns, shift_values):
             shifted_column = grouped_df[column].shift(shift).reset_index(drop = True)
             shifted_columns.append(shifted_column)
         if len(grouping_columns) > 0:
@@ -70,13 +77,13 @@ class Index:
         else:
             shifted_df = pandas.concat(shifted_columns, axis = 1)
 
-        return shifted_df[list(self.base_df.columns)]
+        return shifted_df[columns]
 
     def rebuild_df(self):
         df_list = [self.base_df]
 
-        for shift_columns, shifts in zip(self.shift_columns_list, self.shifts_list):
-            shifted_df = self.compute_shifted_df(self.base_df, shift_columns, shifts)
+        for shifts in self.shifts_list:
+            shifted_df = self.compute_shifted_df(self.base_df, shifts)
             df_list.append(shifted_df)
 
         self.df = (
@@ -149,18 +156,15 @@ class IndexUse:
     names: Tuple[str]
     df: pandas.DataFrame
     index: Index
-    shift_columns: Tuple[str] = None
-    shifts: Tuple[int] = None
+    shifts: Tuple[Union[str, None]] = None
 
     def to_numpy(self):
-        shifted_df = self.index.compute_shifted_df(
-            self.df, self.shift_columns, self.shifts
-        )
+        shifted_df = self.index.compute_shifted_df(self.df, self.shifts)
         indices = self.index.get_numpy_indices(shifted_df)
         return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))
 
     def code(self):
-        if self.shift_columns is None:
+        if self.shifts is None:
             return f"index__{'_'.join(self.names)}"
         else:
-            return f"index__{'_'.join(self.names)}__{'_'.join(self.shift_columns)}__{'_'.join([str(shift) for shift in self.shifts])}"
+            return f"index__{'_'.join(self.names)}__{'_'.join([str(shift) for shift in self.shifts])}"
