@@ -67,7 +67,7 @@ class Index:
             grouped_df = df.groupby(grouping_columns)
         else:
             grouped_df = df
-        
+
         shifted_columns = []
         for column, shift in zip(shift_columns, shift_values):
             shifted_column = grouped_df[column].shift(shift).reset_index(drop = True)
@@ -75,7 +75,7 @@ class Index:
         if len(grouping_columns) > 0:
             shifted_df = pandas.concat([df[grouping_columns]] + shifted_columns, axis=1)
         else:
-            shifted_df = pandas.concat(shifted_columns, axis = 1)
+            shifted_df = pandas.concat(shifted_columns, axis=1)
 
         return shifted_df[columns]
 
