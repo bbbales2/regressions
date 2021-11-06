@@ -159,16 +159,13 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             if parameter.index is not None:
                 index_key = parameter.index.get_key()
                 index = index_variables[parameter_key]
-                index.incorporate_shifts(
-                    parameter.index.shift_columns, parameter.index.shift
-                )
+                index.incorporate_shifts(parameter.index.shifts)
                 index_df = line_df.loc[:, parameter.index.get_key()]
                 index_use_variable = variables.IndexUse(
                     index_key,
                     index_df,
                     index,
-                    parameter.index.shift_columns,
-                    parameter.index.shift,
+                    parameter.index.shifts,
                 )
                 index_use_variables.append(index_use_variable)
                 parameter.index.variable = index_use_variable

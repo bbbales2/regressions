@@ -2,6 +2,7 @@ import os
 import pathlib
 import pandas
 import pytest
+import time
 
 from rat import ops
 from rat.model import Model
@@ -18,7 +19,7 @@ def test_optimize_kalman():
         ),
         ops.Normal(
             ops.Param("mu", ops.Index(("i",))),
-            ops.Param("mu", ops.Index(("i",), shift_columns=("i",), shift=1)),
+            ops.Param("mu", ops.Index(("i",), shifts=(1,))),
             ops.RealConstant(0.3),
         ),
     ]
@@ -61,9 +62,7 @@ def test_optimize_kalman_2():
         ),
         ops.Normal(
             ops.Param("skills", ops.Index(("team", "year"))),
-            ops.Param(
-                "skills", ops.Index(("team", "year"), shift_columns=("year",), shift=1)
-            ),
+            ops.Param("skills", ops.Index(("team", "year"), shifts=(None, 1))),
             ops.RealConstant(0.5),
         ),
         ops.Normal(
