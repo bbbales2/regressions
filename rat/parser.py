@@ -134,7 +134,7 @@ class UnaryFunctions:
 
 
 class Distributions:
-    names = ["normal"]
+    names = ["normal", "bernoulli_logit"]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -150,6 +150,12 @@ class Distributions:
                     f"normal distribution needs 2 parameters, but got {len(expressions)}!"
                 )
             return Normal(lhs, expressions[0], expressions[1])
+        elif dist_type.value == "bernoulli_logit":
+            if len(expressions) != 1:
+                raise Exception(
+                    f"bernoulli_logit distribution needs 1 parameters, but got {len(expressions)}!"
+                )
+            return BernoulliLogit(lhs, expressions[0])
 
 
 class Parser:

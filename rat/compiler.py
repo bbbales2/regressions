@@ -9,6 +9,11 @@ from . import ops
 from . import variables
 
 
+def bernoulli_logit(y, logit_p):
+    log_p = -jax.numpy.log1p(jax.numpy.exp(-logit_p))
+    log1m_p = -logit_p + log_p
+    return jax.numpy.where(y == 0, log1m_p, log_p)
+
 class LineFunction:
     data_variables: List[variables.Data]
     parameter_variables: List[variables.Param]
