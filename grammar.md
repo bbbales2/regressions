@@ -44,7 +44,7 @@ an observation. Typically R data and pandas dataframes are represented in this f
  array broadcasting going wrong.
 
 Rat models are defined in the context of the data dataframe. That is, without specifying the data, Rat cannot identify
-parameters from the data. In short: dataframe in, dataframe out. Here's an example by Ben, who came up with the syntax:
+parameters from the data. In short: dataframe in, dataframe out. Here's an example:
 
 Initially the user gives the following data dataframe:
 

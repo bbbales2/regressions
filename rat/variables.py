@@ -40,7 +40,7 @@ class Index:
         self.rebuild_df()
 
     def incorporate_shifts(self, shifts):
-        if shifts is None:
+        if all(shift is None for shift in shifts):
             return
 
         self.shifts_list.append(shifts)
@@ -48,7 +48,7 @@ class Index:
         self.rebuild_df()
 
     def compute_shifted_df(self, df, shifts):
-        if shifts is None:
+        if all(shift is None for shift in shifts):
             return df
 
         columns = self.base_df.columns
@@ -70,7 +70,7 @@ class Index:
 
         shifted_columns = []
         for column, shift in zip(shift_columns, shift_values):
-            shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
+            shifted_column = grouped_df[column].shift(int(shift)).reset_index(drop=True)
             shifted_columns.append(shifted_column)
         if len(grouping_columns) > 0:
             shifted_df = pandas.concat([df[grouping_columns]] + shifted_columns, axis=1)
@@ -164,7 +164,7 @@ class IndexUse:
         return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))
 
     def code(self):
-        if self.shifts is None:
+        if all(shift is None for shift in self.shifts):
             return f"index__{'_'.join(self.names)}"
         else:
             return f"index__{'_'.join(self.names)}__{'_'.join([str(shift) for shift in self.shifts])}"
