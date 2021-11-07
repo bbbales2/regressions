@@ -142,6 +142,7 @@ def scanner(model_code):
 
     return result
 
+
 def casts_to_int(val):
     try:
         int(val)
