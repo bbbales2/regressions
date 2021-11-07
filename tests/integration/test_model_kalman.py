@@ -18,7 +18,7 @@ def test_optimize_kalman():
     mu[i] ~ normal(mu[shift(i, 1)], 0.3);
     """
 
-    #parsed_lines = [
+    # parsed_lines = [
     #    ops.Normal(
     #        ops.Data("y"), ops.Param("mu", ops.Index(("i",))), ops.RealConstant(0.1)
     #    ),
@@ -27,9 +27,9 @@ def test_optimize_kalman():
     #        ops.Param("mu", ops.Index(("i",), shifts=(1,))),
     #        ops.RealConstant(0.3),
     #    ),
-    #]
+    # ]
 
-    model = Model(data_df, model_string = model_string)
+    model = Model(data_df, model_string=model_string)
     fit = model.optimize(init=0.1)
     mu_df = fit.draws("mu")
 
@@ -58,7 +58,7 @@ def test_optimize_kalman_2():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    #parsed_lines = [
+    # parsed_lines = [
     #    ops.Normal(
     #        ops.Data("score_diff"),
     #        ops.Diff(
@@ -77,9 +77,9 @@ def test_optimize_kalman_2():
     #        ops.RealConstant(0.0),
     #        ops.RealConstant(1.0),
     #    ),
-    #]
+    # ]
 
-    model = Model(data_df, model_string = model_string)
+    model = Model(data_df, model_string=model_string)
     fit = model.optimize(init=0.1)
     skills_df = fit.draws("skills")
     sigma_df = fit.draws("sigma")
