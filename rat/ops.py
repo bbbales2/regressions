@@ -127,7 +127,8 @@ class Normal(Distr):
 
     def __str__(self):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
-        
+
+
 @dataclass(frozen=True)
 class BernoulliLogit(Distr):
     variate: Expr
