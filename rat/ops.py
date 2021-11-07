@@ -53,7 +53,7 @@ class Index(Expr):
         return self.variable.code()
 
     def __str__(self):
-        return f"Index({', '.join(x.__str__() for x in self.names)})"
+        return f"Index(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
 
 @dataclass

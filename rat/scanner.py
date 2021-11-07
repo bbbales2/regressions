@@ -142,13 +142,21 @@ def scanner(model_code):
 
     return result
 
+def casts_to_int(val):
+    try:
+        int(val)
+    except ValueError:
+        return False
+    else:
+        return True
+
 
 def resolve_token(charstack):
     if charstack == " " or not charstack:
         return None
     elif charstack == ";":
         return Terminate(charstack)
-    elif charstack.isdecimal():
+    elif casts_to_int(charstack):
         return IntLiteral(charstack)
     elif realnum.match(charstack):
         return RealLiteral(charstack)
