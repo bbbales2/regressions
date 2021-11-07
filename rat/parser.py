@@ -251,7 +251,7 @@ class Parser:
                 self.expect_token(Special, ",")
                 self.remove()  # character ,
                 self.expect_token(IntLiteral)  # shift amount
-                shift_amount = self.peek().value
+                shift_amount = int(self.peek().value)
                 self.remove()  # shift integer
                 self.expect_token(Special, ")")
                 self.remove()  # character )
