@@ -43,7 +43,7 @@ class IntegerConstant(Expr):
 @dataclass
 class Index(Expr):
     names: Tuple[str]
-    shifts: Tuple[Union[str, None]] = (None, )
+    shifts: Tuple[Union[str, None]] = (None,)
     variable: variables.Index = None
 
     def get_key(self):
