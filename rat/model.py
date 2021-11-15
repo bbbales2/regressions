@@ -67,7 +67,7 @@ class Model:
         # Copy data to jax device
         data_numpy_variables = {}
         for name, data in data_variables.items():
-            data_numpy_variables[name] = data.to_numpy()
+            data_numpy_variables[name] = jax.device_put(data.to_numpy())
 
         # Get parameter dimensions so can build individual arguments from
         # unconstrained vector
@@ -142,31 +142,53 @@ class Model:
         self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
 
-    def optimize(self, init=2) -> Fit:
+    def optimize(self, init=2, chains=4, retries=5) -> Fit:
         params = 2 * init * numpy.random.rand(self.size) - init
 
-        nlpdf = lambda x: -self.lpdf_no_jac(x.astype(numpy.float32))
+        def nlpdf(x):
+            return -self.lpdf_no_jac(x.astype(numpy.float32))
+
         grad = jax.jit(jax.grad(nlpdf))
-        grad_double = lambda x: numpy.array(grad(x.astype(numpy.float32))).astype(
-            numpy.float64
-        )
 
-        results = scipy.optimize.minimize(
-            nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7
-        )
+        def grad_double(x):
+            grad_device_array = grad(x)
+            return numpy.array(grad_device_array).astype(numpy.float64)
 
-        if not results.success:
-            raise Exception(f"Optimization failed: {results.message}")
+        solutions = []
+        for chain in range(chains):
+            for retry in range(retries):
+                solution = scipy.optimize.minimize(
+                    nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7
+                )
 
+                if solution.success:
+                    solutions.append(solution.x)
+                    break
+            else:
+                raise Exception(f"Optimization failed on chain {chain} with message: {solutions.message}")
+
+        draw_dfs = self.build_draw_dfs(solutions)
+
+        return Fit(draw_dfs)
+
+    def build_draw_dfs(self, states : List[numpy.array]):
         draw_dfs: Dict[str, pandas.DataFrame] = {}
+        draw_series = list(range(len(states)))
         for name, offset, size in zip(
             self.parameter_names, self.parameter_offsets, self.parameter_sizes
         ):
+
             if size is not None:
-                df = self.parameter_variables[name].index.base_df.copy()
-                df["value"] = results.x[offset : offset + size]
+                dfs = []
+                for draw, state in enumerate(states):
+                    df = self.parameter_variables[name].index.base_df.copy()
+                    df["value"] = state[offset : offset + size]
+                    df["draw"] = draw
+                    dfs.append(df)
+                df = pandas.concat(dfs, ignore_index=True)
             else:
-                df = pandas.DataFrame({"value": [results.x[offset]]})
+                series = [state[offset] for state in states]
+                df = pandas.DataFrame({ "value": series, "draw": draw_series })
 
             variable = self.parameter_variables[name]
             lower = variable.lower
@@ -181,8 +203,7 @@ class Model:
             df["value"] = value
 
             draw_dfs[name] = df
-
-        return Fit(draw_dfs)
+        return draw_dfs
 
     def sample(self, num_steps=200, step_size=1e-3) -> Fit:
         params = numpy.random.rand(self.size)
