@@ -130,6 +130,21 @@ class Normal(Distr):
 
 
 @dataclass(frozen=True)
+class BernoulliLogit(Distr):
+    variate: Expr
+    logit_p: Expr
+
+    def __iter__(self):
+        return iter([self.variate, self.logit_p])
+
+    def code(self):
+        return f"bernoulli_logit({self.variate.code()}, {self.logit_p.code()})"
+
+    def __str__(self):
+        return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+
+
+@dataclass(frozen=True)
 class Diff(Expr):
     lhs: Expr
     rhs: Expr
