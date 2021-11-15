@@ -173,7 +173,11 @@ class Parser:
         self.tokens.pop(index)
 
     def expect_token(
-        self, token_type: Type[Token], token_value=None, remove=False, lookahead=0
+        self,
+        token_types: Union[Type[Token], List[Type[Token]]],
+        token_value=None,
+        remove=False,
+        lookahead=0,
     ):
         next_token = self.peek(lookahead)
         if not token_value:
@@ -182,36 +186,89 @@ class Parser:
         if isinstance(token_value, str):
             token_value = [token_value]
 
-        if isinstance(next_token, token_type) and next_token.value in token_value:
-            if remove:
-                self.remove()
-            return True
+        if not isinstance(token_types, tuple):
+            token_types = (token_types,)
+
+        for token_type in token_types:
+            if isinstance(next_token, token_type) and next_token.value in token_value:
+                if remove:
+                    self.remove()
+                return True
 
         raise Exception(
-            f"Expected token type {token_type.__name__} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!"
+            f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!"
         )
 
-    def expressions(self):
+    def expressions(
+        self, entry_token_value, allow_shift=False
+    ) -> Tuple[List[Expr], Tuple[int]]:
+        if entry_token_value == "[":
+            exit_value = "]"
+        elif entry_token_value == "(":
+            exit_value = ")"
+        else:
+            raise Exception(
+                f"expresions() received invalid entry token value with value {entry_token_value}, but expected '[' or ']'"
+            )
         expressions = []
+        shift_amounts = []  # integer specifying the amount to shift for each index
+        # while True:
+        #     token = self.peek()
+        #     if isinstance(token, Special):
+        #         if token.value == "]" or token.value == ")":
+        #             break
+        #         elif token.value == ",":
+        #             self.remove()  # character ,
+        #             continue
+        #         elif token.value == "[":
+        #             self.remove()  # character [
+        #             expression = self.expressions()  # nested expressions ex: a[b[1], 2]
+        #         else:
+        #             expression = self.expression()
+        #     else:
+        #         expression = self.expression()
+        #     expressions.append(expression)
         while True:
             token = self.peek()
+            shift_amount = None
             if isinstance(token, Special):
-                if token.value == "]" or token.value == ")":
+                if token.value == exit_value:
                     break
                 elif token.value == ",":
                     self.remove()  # character ,
                     continue
-                elif token.value == "[":
-                    self.remove()  # character [
-                    expression = self.expressions()  # nested expressions ex: a[b[1], 2]
-                else:
-                    expression = self.expression()
+            elif isinstance(token, Identifier) and token.value == "shift":
+                if not allow_shift:
+                    raise Exception(
+                        "shift() has been used in a position that is not allowed."
+                    )
+                # parse lag(index, integer)
+                self.remove()  # identifier "lag"
+                self.expect_token(Special, "(")
+                self.remove()  # character )
+                self.expect_token(Identifier)  # index name
+                subscript_name = self.peek()
+                if subscript_name.value not in self.data_names:
+                    raise Exception(
+                        "index specified with shift() must be in data columns."
+                    )
+                expression = Data(subscript_name.value)
+                self.remove()  # index name
+                self.expect_token(Special, ",")
+                self.remove()  # character ,
+                self.expect_token(IntLiteral)  # shift amount
+                shift_amount = int(self.peek().value)
+                self.remove()  # shift integer
+                self.expect_token(Special, ")")
+                self.remove()  # character )
             else:
                 expression = self.expression()
             expressions.append(expression)
-        return expressions
+            shift_amounts.append(shift_amount)
 
-    def expression(self):
+        return expressions, shift_amounts
+
+    def expression(self, allow_subscripts=False):
         token = self.peek()
 
         exp = Expr()
@@ -321,18 +378,21 @@ class Parser:
         next_token = self.peek()
         # this is for the following 2 rules, which have conditions after expression
         if isinstance(next_token, Special) and next_token.value == "[":
-            # identifier '[' expressions ']'
+            # identifier '[' subscript_expressions ']'
             self.remove()  # [
             warnings.warn(
-                "Parser: Indices are assumed to be a single literal, not expression."
+                "Parser: subscripts are assumed to be a single literal, not expression."
             )
-            expressions = self.expressions()  # list of expression
+            expressions, shift_amount = self.expressions(
+                "[", allow_shift=True
+            )  # list of expression
             self.expect_token(Special, "]")
             self.remove()  # ]
-
             # Assume index is a single identifier - this is NOT GOOD
-
-            exp.index = Index(tuple(expression.name for expression in expressions))
+            exp.index = Index(
+                names=tuple(expression.name for expression in expressions),
+                shifts=shift_amount,
+            )
             next_token = self.peek()  # Update token in case we need evaluate case 2
 
         if InfixOps.check(next_token):  # expression infixOps expression
@@ -368,7 +428,9 @@ class Parser:
 
                 self.expect_token(Special, "(")
                 self.remove()  # (
-                expressions = self.expressions()  # list of expression
+                expressions, _ = self.expressions("(")  # list of expression
+                self.expect_token(Special, ")")
+                self.remove()  # )
                 return Distributions.generate(distribution, lhs, expressions)
 
             else:

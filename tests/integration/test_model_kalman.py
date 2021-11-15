@@ -13,18 +13,23 @@ test_dir = pathlib.Path(__file__).parent
 def test_optimize_kalman():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman.csv"))
 
-    parsed_lines = [
-        ops.Normal(
-            ops.Data("y"), ops.Param("mu", ops.Index(("i",))), ops.RealConstant(0.1)
-        ),
-        ops.Normal(
-            ops.Param("mu", ops.Index(("i",))),
-            ops.Param("mu", ops.Index(("i",), shifts=(1,))),
-            ops.RealConstant(0.3),
-        ),
-    ]
+    model_string = """
+    y ~ normal(mu[i], 0.1);
+    mu[i] ~ normal(mu[shift(i, 1)], 0.3);
+    """
 
-    model = Model(data_df, parsed_lines)
+    # parsed_lines = [
+    #    ops.Normal(
+    #        ops.Data("y"), ops.Param("mu", ops.Index(("i",))), ops.RealConstant(0.1)
+    #    ),
+    #    ops.Normal(
+    #        ops.Param("mu", ops.Index(("i",))),
+    #        ops.Param("mu", ops.Index(("i",), shifts=(1,))),
+    #        ops.RealConstant(0.3),
+    #    ),
+    # ]
+
+    model = Model(data_df, model_string=model_string)
     fit = model.optimize(init=0.1)
     mu_df = fit.draws("mu")
 
@@ -47,32 +52,34 @@ def test_optimize_kalman():
 def test_optimize_kalman_2():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
 
-    # score_diff ~ normal(skills[team1, year] - skills[team2, year], sigma);
-    # skills[team, year] ~ normal(skills[team, lag(year)], 0.5);
-    # sigma<lower = 0.0> ~ normal(0, 1.0);
+    model_string = """
+    score_diff ~ normal(skills[team1, year] - skills[team2, year], sigma);
+    skills[team, year] ~ normal(skills[team, shift(year, 1)], 0.5);
+    sigma<lower = 0.0> ~ normal(0, 1.0);
+    """
 
-    parsed_lines = [
-        ops.Normal(
-            ops.Data("score_diff"),
-            ops.Diff(
-                ops.Param("skills", ops.Index(("team1", "year"))),
-                ops.Param("skills", ops.Index(("team2", "year"))),
-            ),
-            ops.Param("sigma"),
-        ),
-        ops.Normal(
-            ops.Param("skills", ops.Index(("team", "year"))),
-            ops.Param("skills", ops.Index(("team", "year"), shifts=(None, 1))),
-            ops.RealConstant(0.5),
-        ),
-        ops.Normal(
-            ops.Param("sigma", lower=ops.RealConstant(0.0)),
-            ops.RealConstant(0.0),
-            ops.RealConstant(1.0),
-        ),
-    ]
+    # parsed_lines = [
+    #    ops.Normal(
+    #        ops.Data("score_diff"),
+    #        ops.Diff(
+    #            ops.Param("skills", ops.Index(("team1", "year"))),
+    #            ops.Param("skills", ops.Index(("team2", "year"))),
+    #        ),
+    #        ops.Param("sigma"),
+    #    ),
+    #    ops.Normal(
+    #        ops.Param("skills", ops.Index(("team", "year"))),
+    #        ops.Param("skills", ops.Index(("team", "year"), shifts=(None, 1))),
+    #        ops.RealConstant(0.5),
+    #    ),
+    #    ops.Normal(
+    #        ops.Param("sigma", lower=ops.RealConstant(0.0)),
+    #        ops.RealConstant(0.0),
+    #        ops.RealConstant(1.0),
+    #    ),
+    # ]
 
-    model = Model(data_df, parsed_lines)
+    model = Model(data_df, model_string=model_string)
     fit = model.optimize(init=0.1)
     skills_df = fit.draws("skills")
     sigma_df = fit.draws("sigma")
