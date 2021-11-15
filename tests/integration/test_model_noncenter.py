@@ -49,12 +49,19 @@ def test_optimize_noncenter():
     tau_df = fit.draws("sigma")
 
     ref_z = [
-        0.03839950, 0.01248300, -0.01099810, 0.00726588,
-        -0.02560940, -0.01104690, 0.04940930, 0.00841920
+        0.03839950,
+        0.01248300,
+        -0.01099810,
+        0.00726588,
+        -0.02560940,
+        -0.01104690,
+        0.04940930,
+        0.00841920,
     ]
-    assert mu_df["value"][0] == pytest.approx(4.61934000, rel = 1e-2)
-    assert tau_df["value"][0] == pytest.approx(0.36975800, rel = 1e-2)
-    assert z_df["value"].to_list() == pytest.approx(ref_z, rel = 1e-2)
+    assert mu_df["value"][0] == pytest.approx(4.61934000, rel=1e-2)
+    assert tau_df["value"][0] == pytest.approx(0.36975800, rel=1e-2)
+    assert z_df["value"].to_list() == pytest.approx(ref_z, rel=1e-2)
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
