@@ -165,13 +165,15 @@ class Model:
                     solutions.append(solution.x)
                     break
             else:
-                raise Exception(f"Optimization failed on chain {chain} with message: {solutions.message}")
+                raise Exception(
+                    f"Optimization failed on chain {chain} with message: {solutions.message}"
+                )
 
         draw_dfs = self.build_draw_dfs(solutions)
 
         return OptimizationFit(draw_dfs)
 
-    def build_draw_dfs(self, states : List[numpy.array]):
+    def build_draw_dfs(self, states: List[numpy.array]):
         draw_dfs: Dict[str, pandas.DataFrame] = {}
         draw_series = list(range(len(states)))
         for name, offset, size in zip(
@@ -188,7 +190,7 @@ class Model:
                 df = pandas.concat(dfs, ignore_index=True)
             else:
                 series = [state[offset] for state in states]
-                df = pandas.DataFrame({ "value": series, "draw": draw_series })
+                df = pandas.DataFrame({"value": series, "draw": draw_series})
 
             variable = self.parameter_variables[name]
             lower = variable.lower
