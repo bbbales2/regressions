@@ -16,7 +16,7 @@ from . import variables
 from . import constraints
 from .scanner import scanner
 from .parser import Parser
-from .fit import Fit
+from .fit import OptimizationFit, Fit
 
 
 class Model:
@@ -169,7 +169,7 @@ class Model:
 
         draw_dfs = self.build_draw_dfs(solutions)
 
-        return Fit(draw_dfs)
+        return OptimizationFit(draw_dfs)
 
     def build_draw_dfs(self, states : List[numpy.array]):
         draw_dfs: Dict[str, pandas.DataFrame] = {}
