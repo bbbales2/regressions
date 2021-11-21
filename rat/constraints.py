@@ -1,7 +1,5 @@
 import jax.numpy
 import jax.scipy
-
-
 def lower(y, lower):
     return jax.numpy.exp(y) + lower, jax.numpy.sum(y)
 
