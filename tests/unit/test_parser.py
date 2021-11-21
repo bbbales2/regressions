@@ -83,9 +83,7 @@ def test_parser_rhs_index_shift():
 
 
 def test_parser_rhs_index_shift_multiple():
-    input_str = (
-        "tau<lower=0.0> ~ normal(skills_mu[shift(year, 1), shift(team, -1)], 1.0);"
-    )
+    input_str = "tau<lower=0.0> ~ normal(skills_mu[shift(year, 1), shift(team, -1)], 1.0);"
     data_names = ["year", "team"]
     print([(x.__class__.__name__, x.value) for x in scanner(input_str)])
     statement = Parser(scanner(input_str), data_names).statement()
