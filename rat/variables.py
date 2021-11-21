@@ -23,11 +23,7 @@ class Index:
         # dimension.
         columns = unprocessed_df.columns
 
-        base_df = (
-            unprocessed_df.drop_duplicates()
-            .sort_values(list(columns))
-            .reset_index(drop=True)
-        )
+        base_df = unprocessed_df.drop_duplicates().sort_values(list(columns)).reset_index(drop=True)
 
         for column, dtype in zip(base_df.columns, base_df.dtypes):
             if pandas.api.types.is_integer_dtype(dtype):
@@ -86,9 +82,7 @@ class Index:
             shifted_df = self.compute_shifted_df(self.base_df, shifts)
             df_list.append(shifted_df)
 
-        self.df = (
-            pandas.concat(df_list).drop_duplicates(keep="first").reset_index(drop=True)
-        )
+        self.df = pandas.concat(df_list).drop_duplicates(keep="first").reset_index(drop=True)
         self.df["__index"] = range(len(self.df.index))
 
         self.levels = [row for row in self.df.itertuples(index=False)]
@@ -99,14 +93,9 @@ class Index:
     def get_numpy_indices(self, df):
         df = df.copy()
         df.columns = self.base_df.columns
-        return (
-            df.merge(
-                self.df,
-                on=list(self.base_df.columns),
-                how="left",
-                validate="many_to_one",
-            )
-        )["__index"].to_numpy(dtype=int)
+        return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
+            "__index"
+        ].to_numpy(dtype=int)
 
 
 @dataclass
