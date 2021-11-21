@@ -3,7 +3,6 @@ import jax.numpy as jnp
 import pandas
 from typing import List, Dict, Tuple, Union
 
-
 class Index:
     # base_df is the dataframe of the actual parameters
     base_df: pandas.DataFrame
@@ -107,6 +106,22 @@ class Index:
                 validate="many_to_one",
             )
         )["__index"].to_numpy(dtype=int)
+
+
+@dataclass
+class AssignedParam:
+    name: str
+    rhs: None
+    index: Index = None
+
+    def size(self):
+        if not self.index:
+            return None
+        else:
+            return len(self.index.base_df.index)
+
+    def code(self):
+        return f"assigned_param__{self.name}"
 
 
 @dataclass

@@ -17,6 +17,13 @@ class Expr:
     def __str__(self):
         return "Expr()"
 
+    def dependencies(self):
+        """
+        Returns all dependencies which are expressions that's required to evaluate the expressions
+        :return: A tuple of expressions
+        """
+        return ()
+
 
 @dataclass(frozen=True)
 class RealConstant(Expr):
@@ -42,9 +49,9 @@ class IntegerConstant(Expr):
 
 @dataclass
 class Index(Expr):
-    names: Tuple[str]
+    names: Tuple[str] = None
     shifts: Tuple[Union[str, None]] = (None,)
-    variable: variables.Index = None
+    variable: variables.IndexUse = None
 
     def get_key(self):
         return self.names
@@ -52,8 +59,14 @@ class Index(Expr):
     def code(self):
         return self.variable.code()
 
+    def __bool__(self):
+        return True if self.names else False
+
     def __str__(self):
-        return f"Index(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
+        if self.names:
+            return f"Index(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
+        else:
+            return f"Index(None)"
 
 
 @dataclass
@@ -80,7 +93,7 @@ class Data(Expr):
 @dataclass
 class Param(Expr):
     name: str
-    index: Index = None
+    index: Index = Index()
     lower: RealConstant = RealConstant(float("-inf"))
     upper: RealConstant = RealConstant(float("inf"))
     variable: variables.Param = None
@@ -92,20 +105,20 @@ class Param(Expr):
             return iter([])
 
     def scalar(self):
-        return self.index is None
+        return True if self.index else False
 
     def get_key(self):
         return self.name
 
     def code(self):
         variable_code = self.variable.code()
-        if self.index is not None:
+        if self.index:
             return variable_code + f"[{self.index.code()}]"
         else:
             return variable_code
 
     def __str__(self):
-        return f"Param({self.name}, {self.index.__str__()}, lower={self.lower}, upper={self.upper})"
+        return f"Param({self.name}, {self.index.__str__()}, lower={self.lower}, upper={self.upper}, variable={self.variable})"
         # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
@@ -128,6 +141,9 @@ class Normal(Distr):
     def __str__(self):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
+    def dependencies(self):
+        return self.mean, self.std
+
 
 @dataclass(frozen=True)
 class BernoulliLogit(Distr):
@@ -141,7 +157,10 @@ class BernoulliLogit(Distr):
         return f"bernoulli_logit({self.variate.code()}, {self.logit_p.code()})"
 
     def __str__(self):
-        return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+        return f"bernoulli_logit({self.variate.__str__()}, {self.logit_p.__str__()})"
+
+    def dependencies(self):
+        return self.logit_p,
 
 
 @dataclass(frozen=True)
@@ -158,6 +177,8 @@ class Diff(Expr):
     def __str__(self):
         return f"Diff({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+    def dependencies(self):
+        return self.lhs, self.rhs
 
 @dataclass(frozen=True)
 class Sum(Expr):
@@ -173,6 +194,8 @@ class Sum(Expr):
     def __str__(self):
         return f"Sum({self.left.__str__()}, {self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class Mul(Expr):
@@ -188,6 +211,8 @@ class Mul(Expr):
     def __str__(self):
         return f"Mul({self.left.__str__()}, {self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class Pow(Expr):
@@ -203,6 +228,8 @@ class Pow(Expr):
     def __str__(self):
         return f"Pow({self.left.__str__()}, {self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class Div(Expr):
@@ -218,6 +245,8 @@ class Div(Expr):
     def __str__(self):
         return f"Div({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class Mod(Expr):
@@ -233,6 +262,8 @@ class Mod(Expr):
     def __str__(self):
         return f"Mod({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class LogicalOR(Expr):
@@ -248,6 +279,8 @@ class LogicalOR(Expr):
     def __str__(self):
         return f"LogicalOR({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class LogicalAND(Expr):
@@ -263,6 +296,8 @@ class LogicalAND(Expr):
     def __str__(self):
         return f"LogicalAND({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class Equality(Expr):
@@ -278,6 +313,8 @@ class Equality(Expr):
     def __str__(self):
         return f"Equality({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class Inequality(Expr):
@@ -293,6 +330,8 @@ class Inequality(Expr):
     def __str__(self):
         return f"Inequality({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class LessThan(Expr):
@@ -308,6 +347,8 @@ class LessThan(Expr):
     def __str__(self):
         return f"LessThan({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class LessThanOrEqual(Expr):
@@ -323,6 +364,8 @@ class LessThanOrEqual(Expr):
     def __str__(self):
         return f"LessThanOrEqual({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class GreaterThan(Expr):
@@ -338,6 +381,8 @@ class GreaterThan(Expr):
     def __str__(self):
         return f"GreaterThan({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class GreaterThanOrEqual(Expr):
@@ -353,6 +398,8 @@ class GreaterThanOrEqual(Expr):
     def __str__(self):
         return f"GreaterThanOrEqual({self.left.__str__(), self.right.__str__()})"
 
+    def dependencies(self):
+        return self.left, self.right
 
 @dataclass(frozen=True)
 class PrefixNegation(Expr):
@@ -367,6 +414,8 @@ class PrefixNegation(Expr):
     def __str__(self):
         return f"PrefixNegation({self.subexpr.__str__()})"
 
+    def dependencies(self):
+        return self.subexpr,
 
 @dataclass(frozen=True)
 class PrefixLogicalNegation(Expr):
@@ -381,6 +430,8 @@ class PrefixLogicalNegation(Expr):
     def __str__(self):
         return f"PrefixLogicalNegation({self.subexpr.__str__()})"
 
+    def dependencies(self):
+        return self.subexpr,
 
 @dataclass(frozen=True)
 class Assignment(Expr):
@@ -396,6 +447,8 @@ class Assignment(Expr):
     def __str__(self):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+    def dependencies(self):
+        return self.rhs,
 
 @dataclass(frozen=True)
 class AddAssignment(Expr):
@@ -411,6 +464,8 @@ class AddAssignment(Expr):
     def __str__(self):
         return f"AddAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+    def dependencies(self):
+        return self.rhs,
 
 @dataclass(frozen=True)
 class DiffAssignment(Expr):
@@ -426,6 +481,8 @@ class DiffAssignment(Expr):
     def __str__(self):
         return f"DiffAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+    def dependencies(self):
+        return self.rhs,
 
 @dataclass(frozen=True)
 class MulAssignment(Expr):
@@ -441,6 +498,8 @@ class MulAssignment(Expr):
     def __str__(self):
         return f"MulAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+    def dependencies(self):
+        return self.rhs,
 
 @dataclass(frozen=True)
 class DivAssignment(Expr):
@@ -456,6 +515,8 @@ class DivAssignment(Expr):
     def __str__(self):
         return f"DivAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+    def dependencies(self):
+        return self.rhs,
 
 @dataclass(frozen=True)
 class Exp(Expr):
@@ -470,6 +531,8 @@ class Exp(Expr):
     def __str__(self):
         return f"Exp({self.subexpr.__str__()})"
 
+    def dependencies(self):
+        return self.subexpr,
 
 @dataclass(frozen=True)
 class Abs(Expr):
@@ -484,6 +547,8 @@ class Abs(Expr):
     def __str__(self):
         return f"Abs({self.subexpr.__str__()})"
 
+    def dependencies(self):
+        return self.subexpr,
 
 @dataclass(frozen=True)
 class Floor(Expr):
@@ -498,6 +563,8 @@ class Floor(Expr):
     def __str__(self):
         return f"Floor({self.subexpr.__str__()})"
 
+    def dependencies(self):
+        return self.subexpr,
 
 @dataclass(frozen=True)
 class Ceil(Expr):
@@ -512,6 +579,8 @@ class Ceil(Expr):
     def __str__(self):
         return f"Ceil({self.subexpr.__str__()})"
 
+    def dependencies(self):
+        return self.subexpr,
 
 @dataclass(frozen=True)
 class Round(Expr):
@@ -526,6 +595,8 @@ class Round(Expr):
     def __str__(self):
         return f"Round({self.subexpr.__str__()})"
 
+    def dependencies(self):
+        return self.subexpr,
 
 @dataclass
 class Placeholder(Expr):

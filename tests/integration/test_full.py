@@ -19,6 +19,9 @@ def test_full():
         .assign(year=lambda df: df["date"].str[0:4].astype("int"))
     )
 
+    print(data_df)
+    print(data_df.columns)
+
     parsed_lines = [
         ops.Normal(
             ops.Data("score_diff"),
@@ -74,5 +77,5 @@ def test_full():
     tau_df = fit.draws("tau")
     skills_df = fit.draws("skills")
 
-    print(tau_df)
-    print(skills_df)
+    #print(tau_df)
+    #print(skills_df)

@@ -57,6 +57,7 @@ class Model:
             data_variables,
             parameter_variables,
             index_variables,
+            assigned_parameter_variables,
             line_functions,
         ) = compiler.compile(data_df, parsed_lines)
 
@@ -82,6 +83,7 @@ class Model:
                 unconstrained_parameter_size += parameter_size
             else:
                 unconstrained_parameter_size += 1
+
 
         # This is the likelihood function we'll expose!
         def lpdf(include_jacobian, unconstrained_parameter_vector):
@@ -123,6 +125,8 @@ class Model:
                 if include_jacobian:
                     total += constraints_jacobian_adjustment
                 parameter_numpy_variables[name] = parameter
+
+            print(parameter_numpy_variables)
 
             for line_function in line_functions:
                 data_arguments = [
