@@ -1,6 +1,9 @@
-name: Check & Run formatting
+name: Check & Run formatting on merge to main
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
@@ -17,7 +20,7 @@ jobs:
         pip install black
     - name: Run formatter and commit
       run: |
-        black .
+        black --line-length 140 .
     - uses: EndBug/add-and-commit@v7
       with:
         default_author: github_actions
