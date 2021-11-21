@@ -146,15 +146,11 @@ class Distributions:
     def generate(dist_type: Identifier, lhs: Expr, expressions: List[Expr]):
         if dist_type.value == "normal":
             if len(expressions) != 2:
-                raise Exception(
-                    f"normal distribution needs 2 parameters, but got {len(expressions)}!"
-                )
+                raise Exception(f"normal distribution needs 2 parameters, but got {len(expressions)}!")
             return Normal(lhs, expressions[0], expressions[1])
         elif dist_type.value == "bernoulli_logit":
             if len(expressions) != 1:
-                raise Exception(
-                    f"bernoulli_logit distribution needs 1 parameters, but got {len(expressions)}!"
-                )
+                raise Exception(f"bernoulli_logit distribution needs 1 parameters, but got {len(expressions)}!")
             return BernoulliLogit(lhs, expressions[0])
 
 
@@ -199,17 +195,13 @@ class Parser:
             f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!"
         )
 
-    def expressions(
-        self, entry_token_value, allow_shift=False
-    ) -> Tuple[List[Expr], Tuple[int]]:
+    def expressions(self, entry_token_value, allow_shift=False) -> Tuple[List[Expr], Tuple[int]]:
         if entry_token_value == "[":
             exit_value = "]"
         elif entry_token_value == "(":
             exit_value = ")"
         else:
-            raise Exception(
-                f"expresions() received invalid entry token value with value {entry_token_value}, but expected '[' or ']'"
-            )
+            raise Exception(f"expresions() received invalid entry token value with value {entry_token_value}, but expected '[' or ']'")
         expressions = []
         shift_amounts = []  # integer specifying the amount to shift for each index
         # while True:
@@ -239,9 +231,7 @@ class Parser:
                     continue
             elif isinstance(token, Identifier) and token.value == "shift":
                 if not allow_shift:
-                    raise Exception(
-                        "shift() has been used in a position that is not allowed."
-                    )
+                    raise Exception("shift() has been used in a position that is not allowed.")
                 # parse lag(index, integer)
                 self.remove()  # identifier "lag"
                 self.expect_token(Special, "(")
@@ -249,9 +239,7 @@ class Parser:
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise Exception(
-                        "index specified with shift() must be in data columns."
-                    )
+                    raise Exception("index specified with shift() must be in data columns.")
                 expression = Data(subscript_name.value)
                 self.remove()  # index name
                 self.expect_token(Special, ",")
@@ -351,9 +339,7 @@ class Parser:
                                 self.remove()  # >
                                 break
                             else:
-                                raise Exception(
-                                    f"Found unknown token with value {lookahead_1.value} when evaluating constraints"
-                                )
+                                raise Exception(f"Found unknown token with value {lookahead_1.value} when evaluating constraints")
 
                         # the for loop takes of the portion "<lower= ... >
                         # this means the constraint part of been processed and
@@ -380,12 +366,8 @@ class Parser:
         if isinstance(next_token, Special) and next_token.value == "[":
             # identifier '[' subscript_expressions ']'
             self.remove()  # [
-            warnings.warn(
-                "Parser: subscripts are assumed to be a single literal, not expression."
-            )
-            expressions, shift_amount = self.expressions(
-                "[", allow_shift=True
-            )  # list of expression
+            warnings.warn("Parser: subscripts are assumed to be a single literal, not expression.")
+            expressions, shift_amount = self.expressions("[", allow_shift=True)  # list of expression
             self.expect_token(Special, "]")
             self.remove()  # ]
             # Assume index is a single identifier - this is NOT GOOD

@@ -34,17 +34,11 @@ class LineFunction:
         self.data_variables = data_variables
         self.parameter_variables = parameter_variables
         self.data_variable_names = [data.name for data in data_variables]
-        self.parameter_variable_names = [
-            parameter.name for parameter in parameter_variables
-        ]
+        self.parameter_variable_names = [parameter.name for parameter in parameter_variables]
         self.index_use_variables = list(index_use_variables)
         self.line = line
 
-        vectorize_arguments = (
-            [0] * len(self.data_variables)
-            + [None] * len(self.parameter_variables)
-            + [0] * len(self.index_use_variables)
-        )
+        vectorize_arguments = [0] * len(self.data_variables) + [None] * len(self.parameter_variables) + [0] * len(self.index_use_variables)
         function_local_scope = {}
         exec(self.code(), globals(), function_local_scope)
         compiled_function = function_local_scope["func"]
@@ -53,18 +47,12 @@ class LineFunction:
 
         self.func = lambda *args: jnp.sum(compiled_function(*args))
 
-        self.index_use_numpy = [
-            index_use.to_numpy() for index_use in self.index_use_variables
-        ]
+        self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
 
     def code(self):
-        argument_variables = (
-            self.data_variables + self.parameter_variables + self.index_use_variables
-        )
+        argument_variables = self.data_variables + self.parameter_variables + self.index_use_variables
         args = [variable.code() for variable in argument_variables]
-        return "\n".join(
-            [f"def func({','.join(args)}):", f"  return {self.line.code()}"]
-        )
+        return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
 
     def __call__(self, *args):
         return self.func(*args, *self.index_use_numpy)
@@ -106,9 +94,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             else:
                 line_df = None
         else:
-            raise Exception(
-                f"The left hand side of sampling distribution must be an ops.Data or ops.Param, found {type(line.variate)}"
-            )
+            raise Exception(f"The left hand side of sampling distribution must be an ops.Data or ops.Param, found {type(line.variate)}")
 
         for data in ops.search_tree(ops.Data, line):
             data_key = data.get_key()
@@ -156,9 +142,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 values_df = pandas.concat(value_dfs, ignore_index=True)
                 index = variables.Index(values_df)
                 index_variables[parameter_key] = index
-                parameter_variables[parameter_key] = variables.Param(
-                    parameter_key, index
-                )
+                parameter_variables[parameter_key] = variables.Param(parameter_key, index)
 
         for parameter in ops.search_tree(ops.Param, line):
             parameter_key = parameter.get_key()
