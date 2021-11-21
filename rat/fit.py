@@ -25,31 +25,17 @@ class OptimizationFit(Fit):
             group_columns = list(set(draw_df.columns) - set(["value", "draw"]))
             if len(group_columns) > 0:
                 grouped_df = draw_df.groupby(group_columns)
-                median_df = grouped_df.agg({"value": numpy.median}).rename(
-                    columns={"value": "median"}
-                )
+                median_df = grouped_df.agg({"value": numpy.median}).rename(columns={"value": "median"})
                 converged_df = (
                     draw_df.merge(median_df, on=group_columns, how="left")
-                    .assign(
-                        absolute_difference=lambda df: (
-                            df["value"] - df["median"]
-                        ).abs()
-                    )
-                    .assign(
-                        tolerance=lambda df: numpy.maximum(
-                            tolerance, tolerance * df["value"].abs()
-                        )
-                    )
-                    .assign(
-                        converged=lambda df: df["absolute_difference"] < df["tolerance"]
-                    )
+                    .assign(absolute_difference=lambda df: (df["value"] - df["median"]).abs())
+                    .assign(tolerance=lambda df: numpy.maximum(tolerance, tolerance * df["value"].abs()))
+                    .assign(converged=lambda df: df["absolute_difference"] < df["tolerance"])
                 )
                 not_converged = ~converged_df["converged"]
                 if sum(not_converged) > 0:
                     row = converged_df[not_converged].iloc[0]
-                    raise Exception(
-                        f"Difference optimizations [] didn't converge to within tolerance"
-                    )
+                    raise Exception(f"Difference optimizations [] didn't converge to within tolerance")
             else:
                 values = draw_df["value"]
                 median = numpy.median(values)
@@ -57,12 +43,8 @@ class OptimizationFit(Fit):
                 thresholds = numpy.maximum(tolerance, tolerance * numpy.abs(values))
                 if any(absolute_differences > thresholds):
                     values_string = ",".join(str(value) for value in values)
-                    differences_string = ",".join(
-                        str(difference) for difference in absolute_differences
-                    )
-                    thresholds_string = ",".join(
-                        str(threshold) for threshold in thresholds
-                    )
+                    differences_string = ",".join(str(difference) for difference in absolute_differences)
+                    thresholds_string = ",".join(str(threshold) for threshold in thresholds)
                     raise Exception(
                         f"For {name} [{values_string}], absolute differences [{differences_string}] exceed thresholds [{thresholds_string}]"
                     )

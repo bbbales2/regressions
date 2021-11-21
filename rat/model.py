@@ -139,17 +139,13 @@ class Model:
         solutions = []
         for chain in range(chains):
             for retry in range(retries):
-                solution = scipy.optimize.minimize(
-                    nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7
-                )
+                solution = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7)
 
                 if solution.success:
                     solutions.append(solution.x)
                     break
             else:
-                raise Exception(
-                    f"Optimization failed on chain {chain} with message: {solutions.message}"
-                )
+                raise Exception(f"Optimization failed on chain {chain} with message: {solutions.message}")
 
         draw_dfs = self.build_draw_dfs(solutions)
 
@@ -158,9 +154,7 @@ class Model:
     def build_draw_dfs(self, states: List[numpy.array]):
         draw_dfs: Dict[str, pandas.DataFrame] = {}
         draw_series = list(range(len(states)))
-        for name, offset, size in zip(
-            self.parameter_names, self.parameter_offsets, self.parameter_sizes
-        ):
+        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
             if size is not None:
                 dfs = []
                 for draw, state in enumerate(states):
