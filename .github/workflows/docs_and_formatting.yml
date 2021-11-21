@@ -1,4 +1,4 @@
-name: Update docs and formatting 
+name: Update docs and formatting for merge to main branch
 
 on: [push]
 
