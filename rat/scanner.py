@@ -1,9 +1,7 @@
 import typing
 import re
 
-realnum = re.compile(
-    "^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$"
-)  # (negative or positive) + (integer, real, scientific)
+realnum = re.compile("^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$")  # (negative or positive) + (integer, real, scientific)
 
 
 class Token:
@@ -119,10 +117,7 @@ def scanner(model_code):
         elif charstack in operator_strings:
             if charstack == "-":
                 resolved = resolve_token(charstack + char)
-                if resolved and (
-                    isinstance(resolved, IntLiteral)
-                    or isinstance(resolved, RealLiteral)
-                ):
+                if resolved and (isinstance(resolved, IntLiteral) or isinstance(resolved, RealLiteral)):
                     charstack += char
                     continue
             if charstack + char not in operator_strings:

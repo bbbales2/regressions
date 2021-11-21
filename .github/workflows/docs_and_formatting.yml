@@ -1,9 +1,6 @@
-name: Check & Run formatting on merge to main
+name: Update docs and formatting for merge to main branch
 
-on:
-  push:
-    branches:
-      - main
+on: [push]
 
 jobs:
   build:
@@ -14,13 +11,14 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '3.7'
-    - name: Upgrade pip & install Black
+    - name: Upgrade pip & install pdoc
       run: |
         python -m pip install --upgrade pip
-        pip install black
-    - name: Run formatter and commit
+        pip install pdoc black
+    - name: Run pdoc and black and commit
       run: |
         black --line-length 140 .
+        pdoc --math -o docs rat
     - uses: EndBug/add-and-commit@v7
       with:
         default_author: github_actions

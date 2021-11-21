@@ -36,9 +36,7 @@ class Model:
         data_names = data_df.columns
         if model_string is not None:
             if parsed_lines is not None:
-                raise Exception(
-                    "Only one of model_string and parsed_lines can be non-None"
-                )
+                raise Exception("Only one of model_string and parsed_lines can be non-None")
 
             parsed_lines = []
             for line in model_string.splitlines():
@@ -49,9 +47,7 @@ class Model:
                 parsed_lines.append(parsed_line)
         else:
             if parsed_lines is None:
-                raise Exception(
-                    "At least one of model_string or parsed_lines must be non-None"
-                )
+                raise Exception("At least one of model_string or parsed_lines must be non-None")
 
         (
             data_variables,
@@ -103,36 +99,22 @@ class Model:
                 constraints_jacobian_adjustment = 0.0
 
                 if lower > float("-inf") and upper == float("inf"):
-                    parameter, constraints_jacobian_adjustment = constraints.lower(
-                        parameter, lower
-                    )
+                    parameter, constraints_jacobian_adjustment = constraints.lower(parameter, lower)
                 elif lower == float("inf") and upper < float("inf"):
-                    parameter, constraints_jacobian_adjustment = constraints.upper(
-                        parameter, upper
-                    )
+                    parameter, constraints_jacobian_adjustment = constraints.upper(parameter, upper)
                 elif lower > float("inf") and upper < float("inf"):
-                    parameter, constraints_jacobian_adjustment = constraints.finite(
-                        parameter, lower, upper
-                    )
+                    parameter, constraints_jacobian_adjustment = constraints.finite(parameter, lower, upper)
 
                 if size is not None and size != variable.padded_size():
-                    parameter = jax.numpy.pad(
-                        parameter, (0, variable.padded_size() - size)
-                    )
+                    parameter = jax.numpy.pad(parameter, (0, variable.padded_size() - size))
 
                 if include_jacobian:
                     total += constraints_jacobian_adjustment
                 parameter_numpy_variables[name] = parameter
 
             for line_function in line_functions:
-                data_arguments = [
-                    data_numpy_variables[name]
-                    for name in line_function.data_variable_names
-                ]
-                parameter_arguments = [
-                    parameter_numpy_variables[name]
-                    for name in line_function.parameter_variable_names
-                ]
+                data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
+                parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
                 total += line_function(*data_arguments, *parameter_arguments)
 
             return total
@@ -147,21 +129,15 @@ class Model:
 
         nlpdf = lambda x: -self.lpdf_no_jac(x.astype(numpy.float32))
         grad = jax.jit(jax.grad(nlpdf))
-        grad_double = lambda x: numpy.array(grad(x.astype(numpy.float32))).astype(
-            numpy.float64
-        )
+        grad_double = lambda x: numpy.array(grad(x.astype(numpy.float32))).astype(numpy.float64)
 
-        results = scipy.optimize.minimize(
-            nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7
-        )
+        results = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7)
 
         if not results.success:
             raise Exception(f"Optimization failed: {results.message}")
 
         draw_dfs: Dict[str, pandas.DataFrame] = {}
-        for name, offset, size in zip(
-            self.parameter_names, self.parameter_offsets, self.parameter_sizes
-        ):
+        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
             if size is not None:
                 df = self.parameter_variables[name].index.base_df.copy()
                 df["value"] = results.x[offset : offset + size]
@@ -207,9 +183,7 @@ class Model:
 
         draw_dfs: Dict[str, pandas.DataFrame] = {}
         draw_series = list(range(num_steps))
-        for name, offset, size in zip(
-            self.parameter_names, self.parameter_offsets, self.parameter_sizes
-        ):
+        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
             if size is not None:
                 dfs = []
                 for draw, state in enumerate(states):
