@@ -1,6 +1,9 @@
-name: Check & Run formatting
+name: Check & Run formatting on merge to main
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
