@@ -1,9 +1,9 @@
 name: Update docs on merge to main branch
 
-on: [push]
-#  push:
-#    branches:
-#      - main
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
