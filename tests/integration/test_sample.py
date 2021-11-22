@@ -13,6 +13,7 @@ from pathlib import Path
 
 test_dir = pathlib.Path(__file__).parent
 
+
 def test_sample_normal_mu():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
@@ -26,15 +27,14 @@ def test_sample_normal_mu():
     mu_df = fit.draws("mu")
 
     import plotnine
-    (
-        plotnine.ggplot(mu_df) +
-        plotnine.geom_point(plotnine.aes("draw", "value", color = "chain"))
-    ).draw(show = True)
 
-    print(mu_df.agg({"value" : [numpy.mean, numpy.std]}))
+    (plotnine.ggplot(mu_df) + plotnine.geom_point(plotnine.aes("draw", "value", color="chain"))).draw(show=True)
+
+    print(mu_df.agg({"value": [numpy.mean, numpy.std]}))
     print(fit.ess("mu"))
     print(fit.rhat("mu"))
-    #assert mu_df["value"][0] == pytest.approx(-1.11249, rel=1e-2)
+    # assert mu_df["value"][0] == pytest.approx(-1.11249, rel=1e-2)
+
 
 def adsftest_full():
     data_df = (
@@ -93,7 +93,7 @@ def adsftest_full():
     # pprint.pprint(parsed_lines)
 
     model = Model(data_df, parsed_lines)
-    fit = model.sample(num_draws = 20)
+    fit = model.sample(num_draws=20)
 
     tau_df = fit.draws("tau")
     skills_df = fit.draws("skills")

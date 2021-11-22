@@ -80,7 +80,7 @@ def test_optimize_kalman_2():
     # ]
 
     model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=0.1, tolerance = 5e-2)
+    fit = model.optimize(init=0.1, tolerance=5e-2)
     skills_df = fit.draws("skills")
     sigma_df = fit.draws("sigma")
 

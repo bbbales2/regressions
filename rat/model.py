@@ -125,7 +125,7 @@ class Model:
         self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
 
-    def optimize(self, init=2, chains=4, retries=5, tolerance = 1e-2):
+    def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
         def nlpdf(x):
             return -self.lpdf_no_jac(x.astype(numpy.float32))
 
@@ -137,33 +137,29 @@ class Model:
 
         unconstrained_draws = numpy.zeros((chains, 1, self.size))
         for chain in range(chains):
-            params = 2 * init * numpy.random.uniform(size = self.size) - init
+            params = 2 * init * numpy.random.uniform(size=self.size) - init
 
             for retry in range(retries):
-                solution = scipy.optimize.minimize(
-                    nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7
-                )
+                solution = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7)
 
                 if solution.success:
                     unconstrained_draws[chain, 0] = solution.x
                     break
             else:
-                raise Exception(
-                    f"Optimization failed on chain {chain} with message: {solution.message}"
-                )
+                raise Exception(f"Optimization failed on chain {chain} with message: {solution.message}")
 
-        return fit.OptimizationFit(self, unconstrained_draws, tolerance = tolerance)
+        return fit.OptimizationFit(self, unconstrained_draws, tolerance=tolerance)
 
     def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1e-2):
-        initial_positions = 2 * init * numpy.random.uniform(size = (chains, self.size)) - init
+        initial_positions = 2 * init * numpy.random.uniform(size=(chains, self.size)) - init
 
         # Build the kernel
         def kernel_generator(step_size, inverse_mass_matrix):
             return blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
 
         inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
-        #kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
-        #kernel = jax.jit(kernel)
+        # kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
+        # kernel = jax.jit(kernel)
 
         # Initialize the state
         states: List[blackjax.inference.base.HMCState] = []
@@ -195,5 +191,5 @@ class Model:
                 key, subkey = jax.random.split(key)
                 states[chain], info = kernels[chain](key, states[chain])
                 unconstrained_draws[chain, draw] = states[chain].position
-        
+
         return fit.SampleFit(self, unconstrained_draws)
