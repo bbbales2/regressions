@@ -10,6 +10,7 @@ from . import ops
 from . import variables
 import warnings
 
+
 def bernoulli_logit(y, logit_p):
     log_p = -jax.numpy.log1p(jax.numpy.exp(-logit_p))
     log1m_p = -logit_p + log_p
@@ -23,6 +24,7 @@ class LineFunction:
     Attributes:
         data_variables:
     """
+
     data_variables: List[variables.Data]
     parameter_variables: List[variables.Param]
     index_use_variables: List[variables.IndexUse]
@@ -49,7 +51,9 @@ class LineFunction:
         ]
         self.index_use_variables = list(index_use_variables)
         self.assigned_parameter_variables = assigned_parameter_variables
-        self.assigned_parameter_variable_names = [ap.name for ap in assigned_parameter_variables]
+        self.assigned_parameter_variable_names = [
+            ap.name for ap in assigned_parameter_variables
+        ]
         self.line = line
 
         vectorize_arguments = (
@@ -73,7 +77,10 @@ class LineFunction:
 
     def code(self):
         argument_variables = (
-            self.data_variables + self.parameter_variables + self.index_use_variables + self.assigned_parameter_variables
+            self.data_variables
+            + self.parameter_variables
+            + self.index_use_variables
+            + self.assigned_parameter_variables
         )
         args = [variable.code() for variable in argument_variables]
         return "\n".join(
@@ -91,9 +98,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     indexuse_variables: List[variables.IndexUse] = []
     assigned_parameter_variables: Dict[str, variables.AssignedVariable] = {}
 
-    variable_index_keys: Dict[str, Tuple[str]] = defaultdict(lambda : None)
+    variable_index_keys: Dict[str, Tuple[str]] = defaultdict(lambda: None)
     variable_index_df: Dict[str, pandas.DataFrame] = {}
-
 
     line_functions: List[LineFunction] = []
 
@@ -114,14 +120,18 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 parameter_variables[parameter_key] = parameter
 
         elif isinstance(line, ops.Assignment):
-            assert isinstance(line.lhs, ops.Param), "lhs of assignemnt must be an Identifier denoting a variable name"
+            assert isinstance(
+                line.lhs, ops.Param
+            ), "lhs of assignemnt must be an Identifier denoting a variable name"
             # assignment lhs are aset as assignedparam, since they're not subject for sampling
             parameter_key = line.lhs.get_key()
             parameter = variables.AssignedParam(parameter_key, line.rhs)
             assigned_parameter_variables[parameter_key] = parameter
 
         else:
-            raise Exception(f"Don't know how to handle type of expression {line.__class__.__name__} in a statement.")
+            raise Exception(
+                f"Don't know how to handle type of expression {line.__class__.__name__} in a statement."
+            )
 
         # add data variables
         for data in ops.search_tree(ops.Data, line):
@@ -144,17 +154,18 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 index_key = tuple(parameter.index.get_key())
 
                 value_df = data_df.loc[:, tuple(parameter.index.get_key())]
-                if isinstance(value_df, pandas.Series): value_df = value_df.to_frame()
+                if isinstance(value_df, pandas.Series):
+                    value_df = value_df.to_frame()
                 if parameter_key not in variable_index_df:
                     variable_index_df[parameter_key] = value_df
                 else:
                     value_df.columns = variable_index_df[parameter_key].columns
-                    variable_index_df[parameter_key] = pandas.concat([variable_index_df[parameter_key], value_df], ignore_index=True)
-
+                    variable_index_df[parameter_key] = pandas.concat(
+                        [variable_index_df[parameter_key], value_df], ignore_index=True
+                    )
 
     for variable_name, unprocessed_df in variable_index_df.items():
         index_variables[variable_name] = variables.Index(unprocessed_df)
-
 
     for line in parsed_lines:
         for parameter in ops.search_tree(ops.Param, line):
@@ -165,7 +176,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 index_key = tuple(parameter.index.get_key())
                 value_df = data_df.loc[:, index_key]
                 if parameter_key not in index_variables:
-                    raise Exception(f"Subscript mismatch error - parameter '{parameter_key}' is being used with and without subscripts.")
+                    raise Exception(
+                        f"Subscript mismatch error - parameter '{parameter_key}' is being used with and without subscripts."
+                    )
                 var_index = index_variables[parameter_key]
                 index_use_variable = variables.IndexUse(
                     index_key,
@@ -173,7 +186,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     var_index,
                     parameter.index.shifts,
                 )
-                if(index_key not in [ik.names for ik in indexuse_variables]):
+                if index_key not in [ik.names for ik in indexuse_variables]:
                     indexuse_variables.append(index_use_variable)
                 if parameter_key in parameter_variables:
                     parameter_variables[parameter_key].index = var_index
@@ -184,17 +197,18 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
             else:
                 if parameter_key in index_variables:
-                    raise Exception(f"Subscript mismatch error - parameter '{parameter_key}' is being used with and without subscripts.")
+                    raise Exception(
+                        f"Subscript mismatch error - parameter '{parameter_key}' is being used with and without subscripts."
+                    )
 
             if parameter_key in parameter_variables:
                 parameter.variable = parameter_variables[parameter_key]
             else:
                 parameter.variable = assigned_parameter_variables[parameter_key]
 
-
     # generate function for each line
     for line in parsed_lines:
-        if(isinstance(line, ops.Distr)):
+        if isinstance(line, ops.Distr):
             data_variables_used: Set[str] = set()
             parameter_variables_used: Set[str] = set()
             assigned_parameter_variables_used: Set[str] = set()
@@ -214,11 +228,23 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             line_function = LineFunction(
                 [data_variables[name] for name in data_variables_used],
                 [parameter_variables[name] for name in parameter_variables_used],
-                [indexuse for indexuse in indexuse_variables if indexuse.names in index_key_used],
-                [assigned_parameter_variables[name] for name in assigned_parameter_variables_used],
+                [
+                    indexuse
+                    for indexuse in indexuse_variables
+                    if indexuse.names in index_key_used
+                ],
+                [
+                    assigned_parameter_variables[name]
+                    for name in assigned_parameter_variables_used
+                ],
                 line,
             )
             line_functions.append(line_function)
 
-    return data_variables, parameter_variables, index_variables, assigned_parameter_variables, line_functions
-
+    return (
+        data_variables,
+        parameter_variables,
+        index_variables,
+        assigned_parameter_variables,
+        line_functions,
+    )

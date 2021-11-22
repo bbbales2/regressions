@@ -77,5 +77,5 @@ def test_full():
     tau_df = fit.draws("tau")
     skills_df = fit.draws("skills")
 
-    #print(tau_df)
-    #print(skills_df)
+    # print(tau_df)
+    # print(skills_df)

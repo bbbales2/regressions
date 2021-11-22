@@ -84,7 +84,6 @@ class Model:
             else:
                 unconstrained_parameter_size += 1
 
-
         # This is the likelihood function we'll expose!
         def lpdf(include_jacobian, unconstrained_parameter_vector):
             parameter_numpy_variables = {}

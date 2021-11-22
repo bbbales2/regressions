@@ -102,10 +102,9 @@ def test_parser_rhs_index_shift_multiple():
 
     assert statement.__str__() == expected.__str__()
 
+
 def test_parser_assignment():
-    input_str = (
-        "myVar = eta + mu;"
-    )
+    input_str = "myVar = eta + mu;"
     data_names = ["year", "team"]
     print([(x.__class__.__name__, x.value) for x in scanner(input_str)])
     statement = Parser(scanner(input_str), data_names).statement()
@@ -122,13 +121,12 @@ def test_parser_assignment():
 
     print(statement)
 
+
 def test_parser_lhs_lag():
-    input_str = (
-        """
+    input_str = """
         x ~ normal(5.0, b);
         b ~ normal(0.0, 1.0);
         """
-    )
     data_names = ["year", "team"]
     print([(x.__class__.__name__, x.value) for x in scanner(input_str)])
     statement = Parser(scanner(input_str), data_names).statement()
