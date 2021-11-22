@@ -8,7 +8,7 @@ def test_assignment_compiler():
     input_str = """
     x ~ normal(mean[year], a);
     mean[year] ~ normal(0, 1);
-    a = mean[year] + 1;
+    a = 1;
     b ~ normal(0.0, 1.0);
     """
     data_names = [
