@@ -1,5 +1,5 @@
-import arviz
 import blackjax
+import blackjax.stan_warmup
 import blackjax.nuts
 import functools
 import jax
@@ -17,7 +17,7 @@ from . import variables
 from . import constraints
 from .scanner import scanner
 from .parser import Parser
-from .fit import OptimizationFit, Fit
+from . import fit
 
 
 class Model:
@@ -125,9 +125,7 @@ class Model:
         self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
 
-    def optimize(self, init=2, chains=4, retries=5) -> Fit:
-        params = 2 * init * numpy.random.rand(self.size) - init
-
+    def optimize(self, init=2, chains=4, retries=5, tolerance = 1e-2):
         def nlpdf(x):
             return -self.lpdf_no_jac(x.astype(numpy.float32))
 
@@ -137,120 +135,65 @@ class Model:
             grad_device_array = grad(x)
             return numpy.array(grad_device_array).astype(numpy.float64)
 
-        solutions = []
+        unconstrained_draws = numpy.zeros((chains, 1, self.size))
         for chain in range(chains):
+            params = 2 * init * numpy.random.uniform(size = self.size) - init
+
             for retry in range(retries):
                 solution = scipy.optimize.minimize(
                     nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7
                 )
 
                 if solution.success:
-                    solutions.append(solution.x)
+                    unconstrained_draws[chain, 0] = solution.x
                     break
             else:
                 raise Exception(
-                    f"Optimization failed on chain {chain} with message: {solutions.message}"
+                    f"Optimization failed on chain {chain} with message: {solution.message}"
                 )
 
-        draw_dfs = self.build_draw_dfs(solutions)
+        return fit.OptimizationFit(self, unconstrained_draws, tolerance = tolerance)
 
-        return OptimizationFit(draw_dfs)
-
-    def build_draw_dfs(self, states: List[numpy.array]):
-        draw_dfs: Dict[str, pandas.DataFrame] = {}
-        draw_series = list(range(len(states)))
-        for name, offset, size in zip(
-            self.parameter_names, self.parameter_offsets, self.parameter_sizes
-        ):
-            if size is not None:
-                dfs = []
-                for draw, state in enumerate(states):
-                    df = self.parameter_variables[name].index.base_df.copy()
-                    df["value"] = state[offset : offset + size]
-                    df["draw"] = draw
-                    dfs.append(df)
-                df = pandas.concat(dfs, ignore_index=True)
-            else:
-                series = [state[offset] for state in states]
-                df = pandas.DataFrame({"value": series, "draw": draw_series})
-
-            variable = self.parameter_variables[name]
-            lower = variable.lower
-            upper = variable.upper
-            value = df["value"].to_numpy()
-            if lower > float("-inf") and upper == float("inf"):
-                value, _ = constraints.lower(value, lower)
-            elif lower == float("inf") and upper < float("inf"):
-                value, _ = constraints.upper(value, upper)
-            elif lower > float("inf") and upper < float("inf"):
-                value, _ = constraints.finite(value, lower, upper)
-            df["value"] = value
-
-            draw_dfs[name] = df
-        return draw_dfs
-
-    def sample(self, chains=4, init=2, num_draws=200, step_size=1e-3) -> Fit:
-        initial_positions = 2 * init * numpy.random.rand((chains, self.size)) - init
+    def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1e-2):
+        initial_positions = 2 * init * numpy.random.uniform(size = (chains, self.size)) - init
 
         # Build the kernel
+        def kernel_generator(step_size, inverse_mass_matrix):
+            return blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
+
         inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
-        kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
-        kernel = jax.jit(kernel)
+        #kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
+        #kernel = jax.jit(kernel)
 
         # Initialize the state
         states: List[blackjax.inference.base.HMCState] = []
         for initial_position in initial_positions:
             states.append(blackjax.nuts.new_state(initial_position, self.lpdf))
 
+        # Do warmup for each chain
+        key = jax.random.PRNGKey(0)
+        # states = []
+        kernels = []
+        for chain in range(chains):
+            key, subkey = jax.random.split(key)
+            state, (step_size, inverse_mass_matrix), info = blackjax.stan_warmup.run(
+                key,
+                kernel_generator,
+                initial_states[chain],
+                num_warmup,
+            )
+            states.append(state)
+            kernels.append(jax.jit(kernel_generator(step_size, inverse_mass_matrix)))
+
         # Initialize storage for draws
         unconstrained_draws = numpy.zeros((chains, num_draws, self.size))
 
         # Iterate
-        key = jax.random.PRNGKey(0)
-        for c in range(0, chains):
-            unconstrained_draws[c, 0] = states[c].position
-            for d in range(1, num_draws):
+        for chain in range(0, chains):
+            unconstrained_draws[chain, 0] = states[chain].position
+            for draw in range(1, num_draws):
                 key, subkey = jax.random.split(key)
-                states[c], info = kernel(key, states[c])
-                unconstrained_draws[c, d] = states[c].position
+                states[chain], info = kernels[chain](key, states[chain])
+                unconstrained_draws[chain, draw] = states[chain].position
         
-        # Constrain the draws
-        draws = numpy.zeros((chains, num_draws, self.size))
-        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
-            filled_size = size if size is not None else 1
-            
-            value = unconstrained_draws[:, :, offset : offset + filled_size]
-
-            variable = self.parameter_variables[name]
-            lower = variable.lower
-            upper = variable.upper
-            if lower > float("-inf") and upper == float("inf"):
-                value, _ = constraints.lower(value, lower)
-            elif lower == float("inf") and upper < float("inf"):
-                value, _ = constraints.upper(value, upper)
-            elif lower > float("inf") and upper < float("inf"):
-                value, _ = constraints.finite(value, lower, upper)
-            
-            draws[:, :, offset : offset + filled_size] = value
-
-        x_draws = arviz.convert_to_dataset(draws)
-        ess = arviz.ess(x_draws)["x"].to_numpy()
-        rhat = arviz.rhat(x_draws)["x"].to_numpy()
-
-        draw_dfs: Dict[str, pandas.DataFrame] = {}
-        draw_series = list(range(num_steps))
-        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
-            if size is not None:
-                dfs = []
-                df = self.parameter_variables[name].index.base_df.copy()
-                for draw, state in enumerate(states):
-                    df["value"] = extract_and_constrain(self.parameter_variables[name], offset, size)
-                    df["draw"] = draw
-                    dfs.append(df)
-                draw_dfs[name] = pandas.concat(dfs, ignore_index=True)
-            else:
-                extract_and_constrain(self.parameter_variables[name], offset, size)
-                series = [state.position[offset] for state in states]
-                draw_dfs[name] = pandas.DataFrame({ "value" : series, "draw": draw_series})
-
-        return Fit(draw_dfs)
+        return fit.SampleFit(self, unconstrained_draws)
