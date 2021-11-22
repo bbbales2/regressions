@@ -95,6 +95,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     # evaluation_order is the list of topologically sorted vertices
     evaluation_order = []
     topsort_visited = set()
+
     def recursive_order_search(current):
         topsort_visited.add(current)
         for child in dependency_graph[current]:
@@ -181,7 +182,6 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 # since parameter subscripts can't change, we can break after filling once
                 break
 
-
     """Now transpose the dependency graph(lhs -> rhs, or lhs | rhs), which means traversing the graph in reverse 
     evaluation order. Because we're not trying to evaluate lhs given rhs, this is the canonical dependency graph
     representation for DAGs"""
@@ -221,27 +221,24 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     parameter_variables[lhs_key] = parameter
                     if lhs.index:
                         parameter_variables[lhs_key].index = variable_indexes[lhs_key]
-                        index_use = variables.IndexUse(lhs.index.get_key(),
-                                                       parameter_subsetted_dfs[lhs_key],
-                                                       variable_indexes[lhs_key],
-                                                       lhs.index.shifts)
+                        index_use = variables.IndexUse(
+                            lhs.index.get_key(), parameter_subsetted_dfs[lhs_key], variable_indexes[lhs_key], lhs.index.shifts
+                        )
                         variable_indexes[lhs_key].incorporate_shifts(lhs.index.shifts)
                         lhs.index.variable = index_use
                         index_use_vars_used.append(index_use)
                     lhs.variable = parameter_variables[lhs_key]
 
             elif isinstance(line, ops.Assignment):
-                assert isinstance(line.lhs,
-                                  ops.Param), "lhs of assignment must be an Identifier denoting a variable name"
+                assert isinstance(line.lhs, ops.Param), "lhs of assignment must be an Identifier denoting a variable name"
                 # assignment lhs are set as variables.AssignedParam, since they're not subject for sampling
 
                 parameter = variables.AssignedParam(lhs_key, line.rhs)
                 assigned_parameter_variables[lhs_key] = parameter
                 if lhs.index:
-                    index_use = variables.IndexUse(lhs.index.get_key(),
-                                                   parameter_subsetted_dfs[lhs_key],
-                                                   variable_indexes[lhs_key],
-                                                   lhs.index.shifts)
+                    index_use = variables.IndexUse(
+                        lhs.index.get_key(), parameter_subsetted_dfs[lhs_key], variable_indexes[lhs_key], lhs.index.shifts
+                    )
                     variable_indexes[lhs_key].incorporate_shifts(lhs.index.shifts)
                     lhs.index.variable = index_use
                     index_use_vars_used.append(index_use)
@@ -272,10 +269,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     parameter_vars_used.add(var_key)
                     var.variable = parameter_variables[var_key]
                 if var.index:
-                    index_use = variables.IndexUse(var.index.get_key(),
-                                                   parameter_subsetted_dfs[var_key],
-                                                   variable_indexes[var_key],
-                                                   var.index.shifts)
+                    index_use = variables.IndexUse(
+                        var.index.get_key(), parameter_subsetted_dfs[var_key], variable_indexes[var_key], var.index.shifts
+                    )
                     variable_indexes[var_key].incorporate_shifts(var.index.shifts)
                     var.index.variable = index_use
                     index_use_vars_used.append(index_use)
