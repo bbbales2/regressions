@@ -56,6 +56,8 @@ class LineFunction:
 
     def __call__(self, *args):
         print("--------")
+        for arg in args:
+            print(arg.shape)
         for val in self.index_use_variables:
             print(val.names, val.to_numpy().shape)
         print(self.code())
@@ -176,6 +178,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     value_dfs.append(value_df)
 
                 parameter_base_dfs[target_var_name] = pandas.concat(value_dfs, ignore_index=True)
+
                 parameter_subsetted_dfs[target_var_name] = line_df.loc[:, tuple(parameter_base_dfs[target_var_name].columns)]
                 variable_indexes[target_var_name] = variables.Index(parameter_base_dfs[target_var_name])
 
