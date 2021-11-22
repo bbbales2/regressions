@@ -222,14 +222,6 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     parameter = variables.Param(lhs_key)
                     parameter.set_constraints(lower.value, upper.value)
                     parameter_variables[lhs_key] = parameter
-                    if lhs.index:
-                        parameter_variables[lhs_key].index = variable_indexes[lhs_key]
-                        index_use = variables.IndexUse(
-                            lhs.index.get_key(), parameter_subsetted_dfs[lhs_key], variable_indexes[lhs_key], lhs.index.shifts
-                        )
-                        variable_indexes[lhs_key].incorporate_shifts(lhs.index.shifts)
-                        lhs.index.variable = index_use
-                        index_use_vars_used.append(index_use)
                     lhs.variable = parameter_variables[lhs_key]
 
             elif isinstance(line, ops.Assignment):
@@ -238,14 +230,6 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
                 parameter = variables.AssignedParam(lhs_key, line.rhs)
                 assigned_parameter_variables[lhs_key] = parameter
-                if lhs.index:
-                    index_use = variables.IndexUse(
-                        lhs.index.get_key(), parameter_subsetted_dfs[lhs_key], variable_indexes[lhs_key], lhs.index.shifts
-                    )
-                    variable_indexes[lhs_key].incorporate_shifts(lhs.index.shifts)
-                    lhs.index.variable = index_use
-                    index_use_vars_used.append(index_use)
-                lhs.variable = assigned_parameter_variables[lhs_key]
 
             # once variable/parameter lhs declarations/sampling are handled, we process rhs
             for var in ops.search_tree(line, ops.Data):
@@ -262,8 +246,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     assigned_parameter_vars_used.add(var_key)
                 else:
                     parameter_vars_used.add(var_key)
-                if var_key == lhs_key:
-                    continue
+                # if var_key == lhs_key:
+                #     continue
 
                 if var_key in assigned_parameter_variables:
                     assigned_parameter_vars_used.add(var_key)
