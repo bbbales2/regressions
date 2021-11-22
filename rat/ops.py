@@ -550,10 +550,11 @@ class Placeholder(Expr):
         # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
-def search_tree(type, expr):
-    if isinstance(expr, type):
-        yield expr
+def search_tree(expr, *types):
+    for _type in types:
+        if isinstance(expr, _type):
+            yield expr
     else:
         for child in expr:
-            for child_expr in search_tree(type, child):
+            for child_expr in search_tree(child, *types):
                 yield child_expr

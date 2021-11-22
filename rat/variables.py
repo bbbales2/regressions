@@ -38,7 +38,6 @@ class Index:
     def incorporate_shifts(self, shifts):
         if all(shift is None for shift in shifts):
             return
-
         self.shifts_list.append(shifts)
 
         self.rebuild_df()
@@ -138,6 +137,21 @@ class Param:
 
     def code(self):
         return f"param__{self.name}"
+
+@dataclass
+class AssignedParam:
+    name: str
+    rhs: None
+    index: Index = None
+
+    def size(self):
+        if not self.index:
+            return None
+        else:
+            return len(self.index.base_df.index)
+
+    def code(self):
+        return f"assigned_param__{self.name}"
 
 
 @dataclass
