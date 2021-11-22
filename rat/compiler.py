@@ -187,7 +187,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     representation for DAGs"""
     evaluation_order = evaluation_order[::-1]
 
-    # since the statements are topographically sorted, a KeyError means a variable was undefined by the user.
+    # since the statements are topologically sorted, a KeyError means a variable was undefined by the user.
     # we now iterate over the statements, assigning actual variables with variables.X
     for target_var_name in evaluation_order:  # current parameter/data name
         for line in parsed_lines:
