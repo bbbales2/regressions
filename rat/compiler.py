@@ -42,7 +42,12 @@ class LineFunction:
         self.index_use_variables = list(index_use_variables)
         self.line = line
 
-        vectorize_arguments = [0] * len(self.data_variables) + [None] * len(self.parameter_variables)+ [None] * len(self.assigned_parameter_variables) + [0] * len(self.index_use_variables)
+        vectorize_arguments = (
+            [0] * len(self.data_variables)
+            + [None] * len(self.parameter_variables)
+            + [None] * len(self.assigned_parameter_variables)
+            + [0] * len(self.index_use_variables)
+        )
         function_local_scope = {}
         exec(self.code(), globals(), function_local_scope)
         compiled_function = function_local_scope["func"]

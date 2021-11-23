@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import pandas
 from typing import List, Dict, Tuple, Union
 
+
 class Index:
     # base_df is the dataframe of the actual parameters
     base_df: pandas.DataFrame

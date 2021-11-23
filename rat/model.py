@@ -95,7 +95,11 @@ class Model:
                     else:
                         dependant_param.add(expr.get_key())
 
-            assigned_param_dependencies[name] = {"param": tuple(dependant_param), "data": tuple(dependant_data), "assigned_param": tuple(dependant_assigned_param)}
+            assigned_param_dependencies[name] = {
+                "param": tuple(dependant_param),
+                "data": tuple(dependant_data),
+                "assigned_param": tuple(dependant_assigned_param),
+            }
 
         # This is the likelihood function we'll expose!
         def lpdf(include_jacobian, unconstrained_parameter_vector):
@@ -160,16 +164,19 @@ class Model:
                 # this assumes all variables share the same subscripts
                 if param.index:
                     print(f'code for {name}: {param.rhs.code().replace(f"[{param.ops_param.index.code()}]", "")}')
-                    assigned_parameter_numpy_variables[name] = eval(param.rhs.code().replace(f"[{param.ops_param.index.code()}]", ""), globals(), local_vars)
+                    assigned_parameter_numpy_variables[name] = eval(
+                        param.rhs.code().replace(f"[{param.ops_param.index.code()}]", ""), globals(), local_vars
+                    )
                 else:
-                    print(f'code for {name}: {param.rhs.code()}')
+                    print(f"code for {name}: {param.rhs.code()}")
                     assigned_parameter_numpy_variables[name] = eval(param.rhs.code(), globals(), local_vars)
-
 
             for line_function in line_functions:
                 data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
                 parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
-                assigned_parameter_arguments = [assigned_parameter_numpy_variables[name] for name in line_function.assigned_parameter_variables_names]
+                assigned_parameter_arguments = [
+                    assigned_parameter_numpy_variables[name] for name in line_function.assigned_parameter_variables_names
+                ]
                 total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
 
             return total
