@@ -44,7 +44,7 @@ class IntegerConstant(Expr):
 class Index(Expr):
     names: Tuple[str]
     shifts: Tuple[Union[str, None]] = (None,)
-    variable: variables.Index = None
+    variable: variables.IndexUse = None
 
     def get_key(self):
         return self.names
@@ -99,7 +99,7 @@ class Param(Expr):
 
     def code(self):
         variable_code = self.variable.code()
-        if self.index is not None:
+        if self.index:
             return variable_code + f"[{self.index.code()}]"
         else:
             return variable_code

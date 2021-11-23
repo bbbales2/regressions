@@ -155,7 +155,7 @@ class Param:
 
 @dataclass
 class AssignedParam:
-    name: str
+    var_param: None
     rhs: None
     index: Index = None
 
@@ -166,7 +166,7 @@ class AssignedParam:
             return len(self.index.base_df.index)
 
     def code(self):
-        return f"assigned_param__{self.name}"
+        return f"assigned_param__{self.var_param.name}"
 
 
 @dataclass
