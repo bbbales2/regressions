@@ -168,7 +168,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                         #         parameter_base_df[lhs.get_key()] = parameter_base_df[subexpr_key]
                         #         target_var_index_key = lhs.index.get_key()
                         target_var_index_key = lhs.index.get_key()
-                        #variable_indexes[lhs.get_key()] = variables.Index(parameter_base_df[lhs.get_key()])
+                        # variable_indexes[lhs.get_key()] = variables.Index(parameter_base_df[lhs.get_key()])
                     break
 
             if not lhs.get_key() == target_var_name:
@@ -278,7 +278,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
                 if lhs_key in variable_indexes:
                     subexpr = variables.AssignedParam(lhs, line.rhs, variable_indexes[lhs_key])
-                    subexpr.var_param.index.variable = variables.IndexUse(lhs.index.get_key(), parameter_base_df[lhs.get_key()], variable_indexes[lhs_key])
+                    subexpr.var_param.index.variable = variables.IndexUse(
+                        lhs.index.get_key(), parameter_base_df[lhs.get_key()], variable_indexes[lhs_key]
+                    )
                 else:
                     subexpr = variables.AssignedParam(lhs, line.rhs)
                 assigned_parameter_variables[lhs_key] = subexpr

@@ -57,7 +57,7 @@ class Model:
             line_functions,
         ) = compiler.compile(data_df, parsed_lines)
         for key, val in assigned_parameter_variables.items():
-            print(val.code(),val.var_param.index, val.index, val.rhs.code())
+            print(val.code(), val.var_param.index, val.index, val.rhs.code())
         for f in line_functions:
             print(f.code())
 
