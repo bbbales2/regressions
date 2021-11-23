@@ -76,7 +76,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     # rat doesn't allow control flow(yet), I'm certain a cycle would mean that it's a mis-specified program
 
     # Iterate over the rhs variables, and store them in the graph
-    def generate_dependency_graph(reversed = True):
+    def generate_dependency_graph(reversed=True):
         out_graph = {}
         for line in parsed_lines:
             if isinstance(line, ops.Distr):
@@ -99,7 +99,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     if reversed:
                         out_graph[rhs_var_key].add(lhs_var_key)
                     else:
-                        #if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
+                        # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
                         out_graph[lhs_var_key].add(rhs_var_key)
                 else:
                     out_graph[lhs_var_key].add(rhs_var_key)
@@ -129,7 +129,6 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     # assignments need to be treated opposite
 
     # evaluation_order is the list of topologically sorted vertices
-
 
     print(dependency_graph)
     print(evaluation_order)
@@ -200,10 +199,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     v_df = line_df.loc[:, subexpr.index.get_key()]
                     if subexpr_key in parameter_base_df:
                         v_df.columns = tuple(parameter_base_df[subexpr_key].columns)
-                        parameter_base_df[subexpr_key] = pandas.concat([parameter_base_df[subexpr_key], v_df]).drop_duplicates().reset_index(drop=True)
+                        parameter_base_df[subexpr_key] = (
+                            pandas.concat([parameter_base_df[subexpr_key], v_df]).drop_duplicates().reset_index(drop=True)
+                        )
                     else:
                         parameter_base_df[subexpr_key] = v_df.drop_duplicates().reset_index(drop=True)
-
 
         if target_var_name in parameter_base_df:
             parameter_base_df[target_var_name].columns = tuple(target_var_index_key)
@@ -290,7 +290,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     assigned_parameter_vars_used.add(var_key)
                 else:
                     parameter_vars_used.add(var_key)
-                #if var_key == lhs_key:
+                # if var_key == lhs_key:
                 #    continue
 
                 if var_key in assigned_parameter_variables:

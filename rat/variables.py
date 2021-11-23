@@ -100,9 +100,14 @@ class Index:
         print("df:")
         print(df)
         print("merged:")
-        print(df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",)[
-            "__index"
-        ])
+        print(
+            df.merge(
+                self.df,
+                on=list(self.base_df.columns),
+                how="left",
+                validate="many_to_one",
+            )["__index"]
+        )
         df.columns = self.base_df.columns
         return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
             "__index"
