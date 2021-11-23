@@ -42,7 +42,7 @@ class LineFunction:
         self.index_use_variables = list(index_use_variables)
         self.line = line
 
-        vectorize_arguments = [0] * len(self.data_variables) + [None] * len(self.parameter_variables) + [0] * len(self.index_use_variables)# + [None] * len(self.assigned_parameter_variables)
+        vectorize_arguments = [0] * len(self.data_variables) + [None] * len(self.parameter_variables)+ [None] * len(self.assigned_parameter_variables) + [0] * len(self.index_use_variables)
         function_local_scope = {}
         exec(self.code(), globals(), function_local_scope)
         compiled_function = function_local_scope["func"]
@@ -51,21 +51,20 @@ class LineFunction:
 
         self.func = lambda *args: jnp.sum(compiled_function(*args))
 
-        print("hello from linefunction")
         self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
 
     def code(self):
-        argument_variables = self.data_variables + self.parameter_variables + self.index_use_variables + self.assigned_parameter_variables
+        argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.index_use_variables
         args = [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
 
     def __call__(self, *args):
-        print("--------")
-        for arg in args:
-            print(arg.shape)
-        for val in self.index_use_variables:
-            print(val.names, val.to_numpy().shape)
-        print(self.code())
+        # print("--------")
+        # for arg in args:
+        #     print(arg.shape)
+        # for val in self.index_use_variables:
+        #     print(val.names, val.to_numpy().shape)
+        # print(self.code())
         return self.func(*args, *self.index_use_numpy)
 
 

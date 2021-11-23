@@ -56,11 +56,6 @@ class Model:
             index_variables,
             line_functions,
         ) = compiler.compile(data_df, parsed_lines)
-        print("@@@@@@@\noutput from model init")
-        for key, val in assigned_parameter_variables.items():
-            print(val.code(), val.ops_param.index, val.index, val.rhs.code())
-        for f in line_functions:
-            print(f.code())
 
         self.parameter_names = []
         self.parameter_offsets = []
@@ -85,9 +80,27 @@ class Model:
             else:
                 unconstrained_parameter_size += 1
 
+        # identify which values are needed for each assigned_param
+        assigned_param_dependencies = {}
+        for name, param in assigned_parameter_variables.items():
+            dependant_data = set()
+            dependant_param = set()
+            dependant_assigned_param = set()
+            for expr in ops.search_tree(param.rhs, ops.Data, ops.Param):
+                if isinstance(expr, ops.Data):
+                    dependant_data.add(expr.get_key())
+                elif isinstance(expr, ops.Param):
+                    if expr.get_key() in assigned_parameter_variables:
+                        dependant_assigned_param.add(expr.get_key())
+                    else:
+                        dependant_param.add(expr.get_key())
+
+            assigned_param_dependencies[name] = {"param": tuple(dependant_param), "data": tuple(dependant_data), "assigned_param": tuple(dependant_assigned_param)}
+
         # This is the likelihood function we'll expose!
         def lpdf(include_jacobian, unconstrained_parameter_vector):
             parameter_numpy_variables = {}
+            assigned_parameter_numpy_variables = {}
             total = 0.0
             for name, offset, size in zip(
                 self.parameter_names,
@@ -118,10 +131,44 @@ class Model:
                     total += constraints_jacobian_adjustment
                 parameter_numpy_variables[name] = parameter
 
+            # evaluate assigned_parameters
+            for name, param in assigned_parameter_variables.items():
+                size = param.size()
+                if size:
+                    assigned_param_array = jax.numpy.zeros(size)
+                else:
+                    assigned_param_array = jax.numpy.zeros(1)
+
+                local_vars = {}  # this will hold the rhs variables for evaluation
+                # if assigned_param_dependencies[name]["param"]:
+                #     print(assigned_param_array.shape)
+                #     print(param.ops_param.index.code())
+
+                for val in assigned_param_dependencies[name]["param"]:
+                    par = parameter_variables[val]
+                    local_vars[par.code()] = parameter_numpy_variables[val]
+
+                for val in assigned_param_dependencies[name]["data"]:
+                    par = data_variables[val]
+                    local_vars[par.code()] = data_variables[val]
+
+                for val in assigned_param_dependencies[name]["assigned_param"]:
+                    par = data_variables[val]
+                    local_vars[par.code()] = assigned_parameter_variables[val]
+
+                # this is such a horrible method I'm not even joking
+                # this assumes all variables share the same subscripts
+                if param.index:
+                    assigned_parameter_numpy_variables[name] = eval(param.rhs.code().replace(f"[{param.ops_param.index.code()}]", ""), globals(), local_vars)
+                else:
+                    assigned_parameter_numpy_variables[name] = eval(param.rhs.code(), globals(), local_vars)
+
+
             for line_function in line_functions:
                 data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
                 parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
-                total += line_function(*data_arguments, *parameter_arguments)
+                assigned_parameter_arguments = [assigned_parameter_numpy_variables[name] for name in line_function.assigned_parameter_variables_names]
+                total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
 
             return total
 
@@ -203,19 +250,3 @@ class Model:
                 draw_dfs[name] = pandas.DataFrame({name: series, "draw": draw_series})
 
         return Fit(draw_dfs)
-
-    def test_sample(self):
-        params = numpy.random.rand(self.size)
-        print(params)
-        draw_dfs: Dict[str, pandas.DataFrame] = {}
-        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
-            if size is not None:
-                dfs = []
-                df = self.parameter_variables[name].index.base_df.copy()
-                df[name] = params[offset : offset + size]
-                dfs.append(df)
-                draw_dfs[name] = pandas.concat(dfs, ignore_index=True)
-            else:
-                series = [params[offset]]
-                draw_dfs[name] = pandas.DataFrame({name: series})
-        print(draw_dfs)
