@@ -92,22 +92,22 @@ class Index:
     def get_numpy_indices(self, df):
         df = df.copy()
         df.columns = self.base_df.columns
-        print("------")
-        print("self.base_df")
-        print(self.base_df)
-        print("self.df:")
-        print(self.df)
-        print("df:")
-        print(df)
-        print("merged:")
-        print(
-            df.merge(
-                self.df,
-                on=list(self.base_df.columns),
-                how="left",
-                validate="many_to_one",
-            )["__index"]
-        )
+        # print("------")
+        # print("self.base_df")
+        # print(self.base_df)
+        # print("self.df:")
+        # print(self.df)
+        # print("df:")
+        # print(df)
+        # print("merged:")
+        # print(
+        #     df.merge(
+        #         self.df,
+        #         on=list(self.base_df.columns),
+        #         how="left",
+        #         validate="many_to_one",
+        #     )["__index"]
+        # )
         df.columns = self.base_df.columns
         return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
             "__index"
