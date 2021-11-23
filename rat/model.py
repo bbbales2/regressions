@@ -150,17 +150,19 @@ class Model:
 
                 for val in assigned_param_dependencies[name]["data"]:
                     par = data_variables[val]
-                    local_vars[par.code()] = data_variables[val]
+                    local_vars[par.code()] = data_numpy_variables[val]
 
                 for val in assigned_param_dependencies[name]["assigned_param"]:
-                    par = data_variables[val]
-                    local_vars[par.code()] = assigned_parameter_variables[val]
+                    par = assigned_parameter_variables[val]
+                    local_vars[par.code()] = assigned_parameter_numpy_variables[val]
 
                 # this is such a horrible method I'm not even joking
                 # this assumes all variables share the same subscripts
                 if param.index:
+                    print(f'code for {name}: {param.rhs.code().replace(f"[{param.ops_param.index.code()}]", "")}')
                     assigned_parameter_numpy_variables[name] = eval(param.rhs.code().replace(f"[{param.ops_param.index.code()}]", ""), globals(), local_vars)
                 else:
+                    print(f'code for {name}: {param.rhs.code()}')
                     assigned_parameter_numpy_variables[name] = eval(param.rhs.code(), globals(), local_vars)
 
 
