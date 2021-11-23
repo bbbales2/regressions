@@ -47,6 +47,7 @@ class LineFunction:
 
         self.func = lambda *args: jnp.sum(compiled_function(*args))
 
+        print("hello from linefunction")
         self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
 
     def code(self):
@@ -55,12 +56,12 @@ class LineFunction:
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
 
     def __call__(self, *args):
-        print("--------")
-        for arg in args:
-            print(arg.shape)
-        for val in self.index_use_variables:
-            print(val.names, val.to_numpy().shape)
-        print(self.code())
+        # print("--------")
+        # for arg in args:
+        #     print(arg.shape)
+        # for val in self.index_use_variables:
+        #     print(val.names, val.to_numpy().shape)
+        # print(self.code())
         return self.func(*args, *self.index_use_numpy)
 
 
@@ -213,6 +214,13 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             parameter_base_df[target_var_name].columns = tuple(target_var_index_key)
             variable_indexes[target_var_name] = variables.Index(parameter_base_df[target_var_name])
 
+    # # convert to pands.Int64Dtype() to potentially allow NA
+    # for key in parameter_base_df.keys():
+    #     df = parameter_base_df[key]
+    #     for column, dtype in zip(df.columns, df.dtypes):
+    #         if pandas.api.types.is_integer_dtype(dtype):
+    #             parameter_base_df[key][column] = parameter_base_df[key][column].astype(pandas.Int64Dtype())
+
     print("first pas finished")
     print("now printing variable_indexes")
     for key, val in variable_indexes.items():
@@ -222,7 +230,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     print("now printing parameter_Base_df")
     for key, val in parameter_base_df.items():
         print(key)
-        print(val)
+        print(val.dtypes)
+        #print(val)
     print("done printing parameter_base_df")
 
 
@@ -280,8 +289,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 assert isinstance(line.lhs, ops.Param), "lhs of assignment must be an Identifier denoting a variable name"
                 # assignment lhs are set as variables.AssignedParam, since they're not subject for sampling
 
-                if lhs_key in variable_indexes:
+                if lhs.index:
                     subexpr = variables.AssignedParam(lhs, line.rhs, variable_indexes[lhs_key])
+                    variable_indexes[lhs.get_key()].incorporate_shifts(lhs.index.shifts)
                     subexpr.var_param.index.variable = variables.IndexUse(
                         lhs.index.get_key(), parameter_base_df[lhs.get_key()], variable_indexes[lhs_key]
                     )
@@ -319,13 +329,13 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                         lhs_df = data_df
                     else:
                         lhs_df = parameter_base_df[lhs.get_key()]
+                    variable_indexes[var_key].incorporate_shifts(var.index.shifts)
                     index_use = variables.IndexUse(
                         var.index.get_key(), lhs_df.loc[:, var.index.get_key()], variable_indexes[var_key], var.index.shifts
                     )
-                    variable_indexes[var_key].incorporate_shifts(var.index.shifts)
+
                     var.index.variable = index_use
                     index_use_vars_used.append(index_use)
-                    print("appended", var_key)
 
             if isinstance(line, ops.Distr):
                 line_function = LineFunction(

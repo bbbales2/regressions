@@ -24,10 +24,10 @@ class Index:
         columns = unprocessed_df.columns
 
         base_df = unprocessed_df.drop_duplicates().sort_values(list(columns)).reset_index(drop=True)
-
         for column, dtype in zip(base_df.columns, base_df.dtypes):
             if pandas.api.types.is_integer_dtype(dtype):
-                base_df[column] = base_df[column].astype(pandas.Int64Dtype())
+                pass
+                #base_df[column] = base_df[column].astype(pandas.Int64Dtype())
 
         self.base_df = base_df
         self.df = self.base_df
@@ -82,7 +82,7 @@ class Index:
             df_list.append(shifted_df)
 
         self.df = pandas.concat(df_list).drop_duplicates(keep="first").reset_index(drop=True)
-        self.df["__index"] = range(len(self.df.index))
+        self.df["__index"] = pandas.Series(range(len(self.df.index)), dtype=pandas.Int64Dtype)
 
         self.levels = [row for row in self.df.itertuples(index=False)]
         self.indices = {}
@@ -92,23 +92,13 @@ class Index:
     def get_numpy_indices(self, df):
         df = df.copy()
         df.columns = self.base_df.columns
-        # print("------")
-        # print("self.base_df")
-        # print(self.base_df)
-        # print("self.df:")
-        # print(self.df)
-        # print("df:")
-        # print(df)
-        # print("merged:")
-        # print(
-        #     df.merge(
-        #         self.df,
-        #         on=list(self.base_df.columns),
-        #         how="left",
-        #         validate="many_to_one",
-        #     )["__index"]
-        # )
-        df.columns = self.base_df.columns
+        # print("@" * 10)
+        # print(self.df.dtypes)
+        # print(pandas.api.types.is_integer_dtype(self.df.dtypes))
+        # print("-----")
+        # print(df.dtypes)
+        #print(pandas.api.types.is_int64_dtype(df["__index"]))
+        # print("@" * 10)
         return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
             "__index"
         ].to_numpy(dtype=int)
@@ -184,6 +174,10 @@ class IndexUse:
     def to_numpy(self):
         self.df = self.df.loc[:, self.names]
         shifted_df = self.index.compute_shifted_df(self.df, self.shifts)
+        # print("shifts", self.shifts)
+        # print(shifted_df)
+        # print(pandas.api.types.is_int64_dtype(shifted_df.i))
+        # print("-----")
         indices = self.index.get_numpy_indices(shifted_df)
         return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))
 
