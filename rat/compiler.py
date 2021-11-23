@@ -19,6 +19,7 @@ class LineFunction:
     data_variables: List[variables.Data]
     parameter_variables: List[variables.Param]
     index_use_variables: List[variables.IndexUse]
+    assigned_parameter_variables: List[variables.AssignedParam]
     line: ops.Expr
     data_variable_names: List[str]
     parameter_variable_names: List[str]
@@ -28,6 +29,7 @@ class LineFunction:
         self,
         data_variables: Iterable[str],
         parameter_variables: Iterable[str],
+        assigned_parameter_variables: Iterable[str],
         index_use_variables: Iterable[variables.IndexUse],
         line: ops.Expr,
     ):
@@ -35,10 +37,12 @@ class LineFunction:
         self.parameter_variables = parameter_variables
         self.data_variable_names = [data.name for data in data_variables]
         self.parameter_variable_names = [parameter.name for parameter in parameter_variables]
+        self.assigned_parameter_variables = assigned_parameter_variables
+        self.assigned_parameter_variables_names = [parameter.ops_param.name for parameter in assigned_parameter_variables]
         self.index_use_variables = list(index_use_variables)
         self.line = line
 
-        vectorize_arguments = [0] * len(self.data_variables) + [None] * len(self.parameter_variables) + [0] * len(self.index_use_variables)
+        vectorize_arguments = [0] * len(self.data_variables) + [None] * len(self.parameter_variables) + [0] * len(self.index_use_variables)# + [None] * len(self.assigned_parameter_variables)
         function_local_scope = {}
         exec(self.code(), globals(), function_local_scope)
         compiled_function = function_local_scope["func"]
@@ -51,17 +55,17 @@ class LineFunction:
         self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
 
     def code(self):
-        argument_variables = self.data_variables + self.parameter_variables + self.index_use_variables
+        argument_variables = self.data_variables + self.parameter_variables + self.index_use_variables + self.assigned_parameter_variables
         args = [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
 
     def __call__(self, *args):
-        # print("--------")
-        # for arg in args:
-        #     print(arg.shape)
-        # for val in self.index_use_variables:
-        #     print(val.names, val.to_numpy().shape)
-        # print(self.code())
+        print("--------")
+        for arg in args:
+            print(arg.shape)
+        for val in self.index_use_variables:
+            print(val.names, val.to_numpy().shape)
+        print(self.code())
         return self.func(*args, *self.index_use_numpy)
 
 
@@ -291,7 +295,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 if lhs.index:
                     subexpr = variables.AssignedParam(lhs, line.rhs, variable_indexes[lhs_key])
                     variable_indexes[lhs.get_key()].incorporate_shifts(lhs.index.shifts)
-                    subexpr.var_param.index.variable = variables.IndexUse(
+                    subexpr.ops_param.index.variable = variables.IndexUse(
                         lhs.index.get_key(), parameter_base_df[lhs.get_key()], variable_indexes[lhs_key]
                     )
                 else:
@@ -314,8 +318,6 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     assigned_parameter_vars_used.add(var_key)
                 else:
                     parameter_vars_used.add(var_key)
-                # if var_key == lhs_key:
-                #    continue
 
                 if var_key in assigned_parameter_variables:
                     assigned_parameter_vars_used.add(var_key)
@@ -340,6 +342,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 line_function = LineFunction(
                     [data_variables[name] for name in data_vars_used],
                     [parameter_variables[name] for name in parameter_vars_used],
+                    [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
                     index_use_vars_used,
                     line,
                 )

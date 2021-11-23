@@ -24,10 +24,9 @@ class Index:
         columns = unprocessed_df.columns
 
         base_df = unprocessed_df.drop_duplicates().sort_values(list(columns)).reset_index(drop=True)
-        for column, dtype in zip(base_df.columns, base_df.dtypes):
-            if pandas.api.types.is_integer_dtype(dtype):
-                pass
-                # base_df[column] = base_df[column].astype(pandas.Int64Dtype())
+        # for column, dtype in zip(base_df.columns, base_df.dtypes):
+        #     if pandas.api.types.is_integer_dtype(dtype):
+        #         base_df[column] = base_df[column].astype(pandas.Int64Dtype())
 
         self.base_df = base_df
         self.df = self.base_df
@@ -92,13 +91,6 @@ class Index:
     def get_numpy_indices(self, df):
         df = df.copy()
         df.columns = self.base_df.columns
-        # print("@" * 10)
-        # print(self.df.dtypes)
-        # print(pandas.api.types.is_integer_dtype(self.df.dtypes))
-        # print("-----")
-        # print(df.dtypes)
-        # print(pandas.api.types.is_int64_dtype(df["__index"]))
-        # print("@" * 10)
         return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
             "__index"
         ].to_numpy(dtype=int)
@@ -150,7 +142,7 @@ class Param:
 
 @dataclass
 class AssignedParam:
-    var_param: None
+    ops_param: None  # this is ops.Param
     rhs: None
     index: Index = None
 
@@ -161,7 +153,7 @@ class AssignedParam:
             return len(self.index.base_df.index)
 
     def code(self):
-        return f"assigned_param__{self.var_param.name}"
+        return f"assigned_param__{self.ops_param.name}"
 
 
 @dataclass
@@ -174,10 +166,6 @@ class IndexUse:
     def to_numpy(self):
         self.df = self.df.loc[:, self.names]
         shifted_df = self.index.compute_shifted_df(self.df, self.shifts)
-        # print("shifts", self.shifts)
-        # print(shifted_df)
-        # print(pandas.api.types.is_int64_dtype(shifted_df.i))
-        # print("-----")
         indices = self.index.get_numpy_indices(shifted_df)
         return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))
 
