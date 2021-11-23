@@ -42,7 +42,8 @@ class IntegerConstant(Expr):
 
 @dataclass
 class Index(Expr):
-    names: Tuple[str]
+    names: Tuple[str, Tuple[str]]
+    """string denotes single column. a nested tuple inside means union of columns in the nested tuple"""
     shifts: Tuple[Union[str, None]] = (None,)
     variable: variables.Index = None
 
@@ -53,12 +54,18 @@ class Index(Expr):
         return self.variable.code()
 
     def __str__(self):
-        return f"Index(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
+        index_names = []
+        for x in self.names:
+            if isinstance(x, tuple):
+                index_names.append(f"union({','.join(x)})")
+            else:
+                index_names.append(x)
+        return f"Index(names=({', '.join(index_names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
 
 @dataclass
 class Data(Expr):
-    name: str
+    name: Tuple[str] = (None, )
     index: Index = None
     variable: variables.Data = None
 
