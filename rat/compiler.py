@@ -112,11 +112,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
     print(evaluation_order)
 
-    # this is the dataframe that goes into variables.Index
-    parameter_base_dfs: Dict[str, pandas.DataFrame] = {}
+    # this is the dataframe that goes into variables.Index. Each row is a unique combination of indexes
+    parameter_base_df: Dict[str, pandas.DataFrame] = {}
 
     # this is the dataframe that goes into variables.IndexUse
-    parameter_subsetted_dfs: Dict[str, pandas.DataFrame] = {}
+    parameter_subscripted_df: Dict[str, pandas.DataFrame] = {}
 
     # this set keep track of variable names that are not parameters, i.e. assigned by assignment
     assigned_parameter_keys: Set[str] = set()
@@ -130,6 +130,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
     # first pass : fill param_base_dfs of all parameters
     for target_var_name in evaluation_order:
+        print("------starting for", target_var_name)
         for line in parsed_lines:
             if isinstance(line, ops.Distr):
                 lhs = line.variate
@@ -143,10 +144,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     data_variables[lhs.get_key()] = variables.Data(lhs.get_key(), data_df[lhs.get_key()])
             elif isinstance(lhs, ops.Param):
                 # Otherwise, the dataframe comes from the parameter (unless it's scalar then it's none)
-
-                if lhs.get_key() in parameter_base_dfs:
-                    if parameter_base_dfs[lhs.get_key()] is not None:
-                        line_df = parameter_base_dfs[lhs.get_key()].copy()
+                if lhs.get_key() in parameter_subscripted_df:
+                    if parameter_subscripted_df[lhs.get_key()] is not None:
+                        line_df = parameter_subscripted_df[lhs.get_key()].copy()
                         line_df.columns = lhs.index.get_key()
                     else:
                         line_df = None
@@ -177,13 +177,27 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     value_df.columns = columns  # columns must be the same to concat
                     value_dfs.append(value_df)
 
-                parameter_base_dfs[target_var_name] = pandas.concat(value_dfs, ignore_index=True)
+                # parameter_subscripted_df[target_var_name] = pandas.concat(value_dfs, ignore_index=True).drop_duplicates().reset_index(drop=True)
+                # parameter_base_df[target_var_name] = line_df.loc[:,tuple(parameter_subscripted_df[target_var_name].columns)]
 
-                parameter_subsetted_dfs[target_var_name] = line_df.loc[:, tuple(parameter_base_dfs[target_var_name].columns)]
-                variable_indexes[target_var_name] = variables.Index(parameter_base_dfs[target_var_name])
+                subscripted_df = pandas.concat(value_dfs,ignore_index=True).drop_duplicates().reset_index(drop=True)
+
+                parameter_subscripted_df[target_var_name] = pandas.concat(value_dfs,ignore_index=True).reset_index(drop=True)
+                parameter_base_df[target_var_name] = line_df.loc[:, tuple(subscripted_df.columns)].drop_duplicates().reset_index(drop=True)
+                print("base_df:")
+                print(parameter_base_df[target_var_name])
+                print("subscripted_df:")
+                print(parameter_subscripted_df[target_var_name])
+                variable_indexes[target_var_name] = variables.Index(parameter_base_df[target_var_name])
 
                 # since parameter subscripts can't change, we can break after filling once
                 break
+
+    # print("now printing")
+    # for key, val in parameter_base_df.items():
+    #     print(key)
+    #     print(val)
+    # print("done printing")
 
     """Now transpose the dependency graph(lhs -> rhs, or lhs | rhs), which means traversing the graph in reverse 
     evaluation order. Because we're not trying to evaluate lhs given rhs, this is the canonical dependency graph
@@ -257,11 +271,12 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     var.variable = parameter_variables[var_key]
                 if var.index:
                     index_use = variables.IndexUse(
-                        var.index.get_key(), parameter_subsetted_dfs[var_key], variable_indexes[var_key], var.index.shifts
+                        var.index.get_key(), parameter_subscripted_df[lhs.get_key()], variable_indexes[var_key], var.index.shifts
                     )
                     variable_indexes[var_key].incorporate_shifts(var.index.shifts)
                     var.index.variable = index_use
                     index_use_vars_used.append(index_use)
+                    print("appended", var_key)
 
             line_function = LineFunction(
                 [data_variables[name] for name in data_vars_used],
@@ -270,4 +285,5 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 line,
             )
             line_functions.append(line_function)
+            print("-------------------")
     return data_variables, parameter_variables, assigned_parameter_variables, variable_indexes, line_functions
