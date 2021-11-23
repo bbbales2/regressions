@@ -7,7 +7,7 @@ from rat.ops import *
 def test_parser_multiple():
     input_str = """
     score_diff~normal(skills[home_team, year]-skills[away_team, year],sigma);
-    skills[team, year] ~ normal(skills_mu[year], tau);
+    skills[union(home_team, away_team), year] ~ normal(skills_mu[year], tau);
     tau<lower=0.0 + 5.0> ~ normal(0.0, 1.0);
     sigma<lower=0.0> ~ normal(0.0, 10.0);
     """
@@ -98,4 +98,17 @@ def test_parser_rhs_index_shift_multiple():
         RealConstant(1.0),
     )
 
+    assert statement.__str__() == expected.__str__()
+
+
+def test_parser_lhs_subscript_union():
+    input_str = "tau<lower = 0.0>[union(home_team, away_team), year] ~ normal(0.0, 1.0);"
+    data_names = ["home_team", "away_team", "year"]
+    statement = Parser(scanner(input_str), data_names).statement()
+
+    expected = Normal(
+        Param(name="tau", index=Index((("home_team", "away_team"), "year"), shifts=(None, None)), lower=RealConstant("0.0")),
+        RealConstant("0.0"),
+        RealConstant("1.0"),
+    )
     assert statement.__str__() == expected.__str__()
