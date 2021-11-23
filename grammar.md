@@ -88,7 +88,6 @@ expressions ::= expression % ','
 ; subscript formats, which define dimensions and indexing of parameters/data
 subscript_expressions ::= identifier % ','
                         | shift(identifier, integer) % ','
-                        | union(identifier % ',')
 
 ; binary operations, just arithmetic and logical
 infixOps ::= ("+", "-", "*", "/", "%",

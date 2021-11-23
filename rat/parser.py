@@ -195,7 +195,7 @@ class Parser:
             f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!"
         )
 
-    def expressions(self, entry_token_value, is_subscript=False) -> Tuple[List[Expr], Tuple[int]]:
+    def expressions(self, entry_token_value, allow_shift=False) -> Tuple[List[Expr], Tuple[int]]:
         if entry_token_value == "[":
             exit_value = "]"
         elif entry_token_value == "(":
@@ -230,7 +230,7 @@ class Parser:
                     self.remove()  # character ,
                     continue
             elif isinstance(token, Identifier) and token.value == "shift":
-                if not is_subscript:
+                if not allow_shift:
                     raise Exception("shift() has been used in a position that is not allowed.")
                 # parse lag(index, integer)
                 self.remove()  # identifier "lag"
@@ -249,20 +249,6 @@ class Parser:
                 self.remove()  # shift integer
                 self.expect_token(Special, ")")
                 self.remove()  # character )
-            elif isinstance(token, Identifier) and token.value == "union":
-                if not is_subscript:
-                    raise Exception("union() has been used in a position that is not allowed.")
-                self.remove()  # identifier "union"
-                self.expect_token(Special, "(")
-                self.remove()  # special (
-                subscript_names, _ = self.expressions("(")
-                for name in subscript_names:
-                    assert isinstance(name, Data), "subscripts in shift() must be a data column"
-                    if name.name not in self.data_names:
-                        raise Exception("subscript specified with union() must be in data columns.")
-                expression = Data(tuple([s.name for s in subscript_names]))
-                self.expect_token(Special, ")")
-                self.remove()  # special )
             else:
                 expression = self.expression()
             expressions.append(expression)
@@ -381,7 +367,7 @@ class Parser:
             # identifier '[' subscript_expressions ']'
             self.remove()  # [
             warnings.warn("Parser: subscripts are assumed to be a single literal, not expression.")
-            expressions, shift_amount = self.expressions("[", is_subscript=True)  # list of expression
+            expressions, shift_amount = self.expressions("[", allow_shift=True)  # list of expression
             self.expect_token(Special, "]")
             self.remove()  # ]
             # Assume index is a single identifier - this is NOT GOOD
