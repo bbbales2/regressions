@@ -70,9 +70,9 @@ def test_full():
     # pprint.pprint(parsed_lines)
 
     model = Model(data_df, parsed_lines)
-    # fit = model.sample(20)
+    fit = model.sample(20)
 
-    # tau_df = fit.draws("tau")
+    tau_df = fit.draws("tau")
     # skills_df = fit.draws("skills")
 
     # print(tau_df)

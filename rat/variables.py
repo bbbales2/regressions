@@ -91,9 +91,13 @@ class Index:
 
     def get_numpy_indices(self, df):
         df = df.copy()
+        df.columns = self.base_df.columns
+        print("------")
+        print("self.base_df")
+        print(self.base_df)
         print("self.df:")
         print(self.df)
-        print("----")
+        print("df:")
         print(df)
         print("merged:")
         print(df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",)[
@@ -129,7 +133,9 @@ class Param:
         self.upper = upper
 
     def scalar(self):
-        return self.index is None
+        if self.index:
+            return False
+        return True
 
     def size(self):
         if self.scalar():
@@ -171,6 +177,7 @@ class IndexUse:
     shifts: Tuple[Union[str, None]] = None
 
     def to_numpy(self):
+        self.df = self.df.loc[:, self.names]
         shifted_df = self.index.compute_shifted_df(self.df, self.shifts)
         indices = self.index.get_numpy_indices(shifted_df)
         return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))

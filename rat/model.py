@@ -198,3 +198,19 @@ class Model:
                 draw_dfs[name] = pandas.DataFrame({name: series, "draw": draw_series})
 
         return Fit(draw_dfs)
+
+    def test_sample(self):
+        params = numpy.random.rand(self.size)
+        print(params)
+        draw_dfs: Dict[str, pandas.DataFrame] = {}
+        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
+            if size is not None:
+                dfs = []
+                df = self.parameter_variables[name].index.base_df.copy()
+                df[name] = params[offset : offset + size]
+                dfs.append(df)
+                draw_dfs[name] = pandas.concat(dfs, ignore_index=True)
+            else:
+                series = [params[offset]]
+                draw_dfs[name] = pandas.DataFrame({name: series})
+        print(draw_dfs)
