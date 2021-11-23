@@ -231,9 +231,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     for key, val in parameter_base_df.items():
         print(key)
         print(val.dtypes)
-        #print(val)
+        # print(val)
     print("done printing parameter_base_df")
-
 
     """Now transpose the dependency graph(lhs -> rhs, or lhs | rhs). For a normal DAD, it's as simple as reversing the
      evaluation order. Unfortunately, since assignments always stay true as (lhs | rhs), we have to rebuild the DAG. :(

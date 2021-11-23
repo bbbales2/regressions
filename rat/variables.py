@@ -27,7 +27,7 @@ class Index:
         for column, dtype in zip(base_df.columns, base_df.dtypes):
             if pandas.api.types.is_integer_dtype(dtype):
                 pass
-                #base_df[column] = base_df[column].astype(pandas.Int64Dtype())
+                # base_df[column] = base_df[column].astype(pandas.Int64Dtype())
 
         self.base_df = base_df
         self.df = self.base_df
@@ -97,7 +97,7 @@ class Index:
         # print(pandas.api.types.is_integer_dtype(self.df.dtypes))
         # print("-----")
         # print(df.dtypes)
-        #print(pandas.api.types.is_int64_dtype(df["__index"]))
+        # print(pandas.api.types.is_int64_dtype(df["__index"]))
         # print("@" * 10)
         return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
             "__index"
