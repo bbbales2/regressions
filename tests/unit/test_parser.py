@@ -100,17 +100,15 @@ def test_parser_rhs_index_shift_multiple():
 
     assert statement.__str__() == expected.__str__()
 
+
 def test_parser_lhs_subscript_union():
     input_str = "tau<lower = 0.0>[union(home_team, away_team), year] ~ normal(0.0, 1.0);"
     data_names = ["home_team", "away_team", "year"]
     statement = Parser(scanner(input_str), data_names).statement()
 
     expected = Normal(
-        Param(name="tau",
-              index=Index((("home_team", "away_team"), "year"), shifts=(None, None)),
-              lower=RealConstant("0.0")),
-
+        Param(name="tau", index=Index((("home_team", "away_team"), "year"), shifts=(None, None)), lower=RealConstant("0.0")),
         RealConstant("0.0"),
-        RealConstant("1.0")
+        RealConstant("1.0"),
     )
     assert statement.__str__() == expected.__str__()

@@ -65,7 +65,7 @@ class Index(Expr):
 
 @dataclass
 class Data(Expr):
-    name: Tuple[str] = (None, )
+    name: Tuple[str] = (None,)
     index: Index = None
     variable: variables.Data = None
 
