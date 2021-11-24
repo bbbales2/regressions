@@ -143,7 +143,9 @@ class Model:
                     assigned_parameter_numpy_variables[name] for name in line_function.assigned_parameter_variables_names
                 ]
                 if isinstance(line_function, compiler.AssignLineFunction):
-                    assigned_parameter_numpy_variables[line_function.name] = line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
+                    assigned_parameter_numpy_variables[line_function.name] = line_function(
+                        *data_arguments, *parameter_arguments, *assigned_parameter_arguments
+                    )
                 else:
                     total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
 

@@ -73,18 +73,19 @@ class LineFunction:
     def __call__(self, *args):
         return self.compiled_function_sum(*args, *self.index_use_numpy)
 
+
 class AssignLineFunction(LineFunction):
-    name : str
+    name: str
 
     def __init__(
-            self,
-            name: str,
-            data_variables: Iterable[variables.Data],
-            parameter_variables: Iterable[variables.Param],
-            assigned_parameter_variables: Iterable[variables.AssignedParam],
-            index_use_variables: Iterable[variables.IndexUse],
-            line: ops.Expr,
-        ):
+        self,
+        name: str,
+        data_variables: Iterable[variables.Data],
+        parameter_variables: Iterable[variables.Param],
+        assigned_parameter_variables: Iterable[variables.AssignedParam],
+        index_use_variables: Iterable[variables.IndexUse],
+        line: ops.Expr,
+    ):
         self.name = name
         super().__init__(data_variables, parameter_variables, assigned_parameter_variables, index_use_variables, line)
 
@@ -92,9 +93,10 @@ class AssignLineFunction(LineFunction):
         argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.index_use_variables
         args = [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.rhs.code()}"])
-    
+
     def __call__(self, *args):
         return self.compiled_function(*args, *self.index_use_numpy)
+
 
 # Iterate over the rhs variables, and store them in the graph
 def generate_dependency_graph(parsed_lines: List[ops.Expr], reversed: bool = True):
