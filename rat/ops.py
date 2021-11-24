@@ -73,7 +73,10 @@ class Data(Expr):
             return variable_code
 
     def __str__(self):
-        return f"Data({self.name}, {self.index.__str__()})"
+        if self.index is None:
+            return f"Data({self.name})"
+        else:
+            return f"Data({self.name}, {self.index})"
         # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
@@ -142,6 +145,22 @@ class BernoulliLogit(Distr):
 
     def __str__(self):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+
+
+@dataclass(frozen=True)
+class LogNormal(Distr):
+    variate: Expr
+    mean: Expr
+    std: Expr
+
+    def __iter__(self):
+        return iter([self.variate, self.mean, self.std])
+
+    def code(self):
+        return f"log_normal({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
+
+    def __str__(self):
+        return f"LogNormal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
 
 @dataclass(frozen=True)
