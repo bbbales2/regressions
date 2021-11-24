@@ -107,33 +107,33 @@ def generate_dependency_graph(parsed_lines: List[ops.Expr], reversed: bool = Tru
         elif isinstance(line, ops.Assignment):
             lhs = line.lhs
 
-        lhs_var_key = lhs.get_key()
-        if lhs_var_key not in out_graph:
-            out_graph[lhs_var_key] = set()
+        lhs_op_key = lhs.get_key()
+        if lhs_op_key not in out_graph:
+            out_graph[lhs_op_key] = set()
 
         for subexpr in ops.search_tree(line, ops.Param, ops.Data):
-            rhs_var_key = subexpr.get_key()
-            if rhs_var_key not in out_graph:
-                out_graph[rhs_var_key] = set()
-            if subexpr.get_key() == lhs_var_key:
+            rhs_op_key = subexpr.get_key()
+            if rhs_op_key not in out_graph:
+                out_graph[rhs_op_key] = set()
+            if subexpr.get_key() == lhs_op_key:
                 continue
 
             if reversed:
-                out_graph[rhs_var_key].add(lhs_var_key)
+                out_graph[rhs_op_key].add(lhs_op_key)
             else:
                 # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
-                out_graph[lhs_var_key].add(rhs_var_key)
+                out_graph[lhs_op_key].add(rhs_op_key)
             # if isinstance(line, ops.Distr):
             #     if reversed:
-            #         out_graph[rhs_var_key].add(lhs_var_key)
+            #         out_graph[rhs_op_key].add(lhs_op_key)
             #     else:
             #         # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
-            #         out_graph[lhs_var_key].add(rhs_var_key)
+            #         out_graph[lhs_op_key].add(rhs_op_key)
             # else:
             #     if reversed:
-            #         out_graph[rhs_var_key].add(lhs_var_key)
+            #         out_graph[rhs_op_key].add(lhs_op_key)
             #     else:
-            #         out_graph[lhs_var_key].add(rhs_var_key)
+            #         out_graph[lhs_op_key].add(rhs_op_key)
 
     return out_graph
 
@@ -191,22 +191,22 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     line_functions: List[LineFunction] = []
 
     # first pass : fill param_base_dfs of all parameters
-    for target_var_name in evaluation_order:
-        logging.debug(f"------first pass starting for {target_var_name}")
-        target_var_index_key = None
+    for target_op_name in evaluation_order:
+        logging.debug(f"------first pass starting for {target_op_name}")
+        target_op_index_key = None
         for line in parsed_lines:
             if isinstance(line, ops.Distr):
                 lhs = line.variate
             elif isinstance(line, ops.Assignment):
                 lhs = line.lhs
                 assigned_parameter_keys.add(lhs.get_key())
-                if lhs.get_key() == target_var_name:
+                if lhs.get_key() == target_op_name:
                     if lhs.index:
                         if lhs.get_key() not in parameter_base_df:
                             raise Exception(f"Can't resolve {lhs.get_key()}")
-                        target_var_index_key = lhs.index.get_key()
+                        target_op_index_key = lhs.index.get_key()
 
-            if not lhs.get_key() == target_var_name:
+            if not lhs.get_key() == target_op_name:
                 continue
 
             if isinstance(lhs, ops.Data):
@@ -218,7 +218,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     if parameter_base_df[lhs.get_key()] is not None:
                         if lhs.index is None:
                             raise Exception(f"{lhs.get_key()} must declare its subscripts to be used as a reference variable")
-                        target_var_index_key = lhs.index.get_key()
+                        target_op_index_key = lhs.index.get_key()
                         line_df = parameter_base_df[lhs.get_key()].copy()
                         line_df.columns = tuple(lhs.index.get_key())
                     else:
@@ -254,14 +254,14 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             break
         else:
             # Ignore variables in the input dataframe
-            if target_var_name not in data_df.columns:
+            if target_op_name not in data_df.columns:
                 raise Exception(
-                    f"Could not find a definition for {target_var_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)"
+                    f"Could not find a definition for {target_op_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)"
                 )
 
-        if target_var_name in parameter_base_df:
-            parameter_base_df[target_var_name].columns = tuple(target_var_index_key)
-            variable_indexes[target_var_name] = variables.Index(parameter_base_df[target_var_name])
+        if target_op_name in parameter_base_df:
+            parameter_base_df[target_op_name].columns = tuple(target_op_index_key)
+            variable_indexes[target_op_name] = variables.Index(parameter_base_df[target_op_name])
 
     logging.debug("first pas finished")
     logging.debug("now printing variable_indexes")
@@ -285,9 +285,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
     # since the statements are topologically sorted, a KeyError means a variable was undefined by the user.
     # we now iterate over the statements, assigning actual variables with variables.X
-    for target_var_name in evaluation_order:  # current parameter/data name
+    for target_op_name in evaluation_order:  # current parameter/data name
         logging.debug("@" * 5)
-        logging.debug(f"running 2nd pass for: {target_var_name}")
+        logging.debug(f"running 2nd pass for: {target_op_name}")
         logging.debug(f"data: {list(data_variables.keys())}")
         logging.debug(f"parameters: {list(parameter_variables.keys())}")
         logging.debug(f"assigned parameters {list(assigned_parameter_variables.keys())}")
@@ -304,7 +304,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             elif isinstance(line, ops.Assignment):
                 lhs = line.lhs
             lhs_key = lhs.get_key()
-            if lhs_key != target_var_name:
+            if lhs_key != target_op_name:
                 continue  # worst case we run n! times where n is # of lines
 
             if isinstance(lhs, ops.Data):
@@ -347,51 +347,51 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 lhs.variable = subexpr
 
             # once variable/parameter lhs declarations/sampling are handled, we process rhs
-            for var in ops.search_tree(line, ops.Data):
-                var_key = var.get_key()
-                data_vars_used.add(var_key)
-                if var_key == lhs_key:
+            for op in ops.search_tree(line, ops.Data):
+                op_key = op.get_key()
+                data_vars_used.add(op_key)
+                if op_key == lhs_key:
                     continue
-                var.variable = data_variables[var_key]
+                op.variable = data_variables[op_key]
 
-            for var in ops.search_tree(line, ops.Param):
-                var_key = var.get_key()
+            for op in ops.search_tree(line, ops.Param):
+                op_key = op.get_key()
 
                 # For assignments, the left hand isn't defined yet so don't mark it as used
-                if isinstance(line, ops.Assignment) and var_key == lhs_key:
+                if isinstance(line, ops.Assignment) and op_key == lhs_key:
                     continue
 
-                if var_key in assigned_parameter_variables:
-                    assigned_parameter_vars_used.add(var_key)
+                if op_key in assigned_parameter_variables:
+                    assigned_parameter_vars_used.add(op_key)
                 else:
-                    parameter_vars_used.add(var_key)
+                    parameter_vars_used.add(op_key)
 
-                if var_key in assigned_parameter_variables:
-                    assigned_parameter_vars_used.add(var_key)
-                    var.variable = assigned_parameter_variables[var_key]
+                if op_key in assigned_parameter_variables:
+                    assigned_parameter_vars_used.add(op_key)
+                    op.variable = assigned_parameter_variables[op_key]
                 else:
-                    parameter_vars_used.add(var_key)
-                    var.variable = parameter_variables[var_key]
+                    parameter_vars_used.add(op_key)
+                    op.variable = parameter_variables[op_key]
 
-                if var.index:
-                    variable_indexes[var_key].incorporate_shifts(var.index.shifts)
+                if op.index:
+                    variable_indexes[op_key].incorporate_shifts(op.index.shifts)
 
-                    index_use_identifier = (var.index.get_key(), var.index.shifts)
+                    index_use_identifier = (op.index.get_key(), op.index.shifts)
 
                     # Only need to define this particular index use once per line (multiple uses will share)
                     if index_use_identifier not in index_use_vars:
                         index_use = variables.IndexUse(
-                            var.index.get_key(), lhs_df.loc[:, var.index.get_key()], variable_indexes[var_key], var.index.shifts
+                            op.index.get_key(), lhs_df.loc[:, op.index.get_key()], variable_indexes[op_key], op.index.shifts
                         )
 
                         index_use_vars[index_use_identifier] = index_use
 
-                    var.index.variable = index_use_vars[index_use_identifier]
+                    op.index.variable = index_use_vars[index_use_identifier]
 
-            for var in ops.search_tree(line, ops.Data):
-                var_key = var.get_key()
-                if var.index:
-                    raise Exception(f"Indexing on data variables ({var_key}) not supported")
+            for op in ops.search_tree(line, ops.Data):
+                op_key = op.get_key()
+                if op.index:
+                    raise Exception(f"Indexing on data variables ({op_key}) not supported")
 
             if isinstance(line, ops.Distr):
                 line_function = LineFunction(
