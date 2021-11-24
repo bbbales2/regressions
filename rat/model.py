@@ -136,46 +136,16 @@ class Model:
                     total += constraints_jacobian_adjustment
                 parameter_numpy_variables[name] = parameter
 
-            # evaluate assigned_parameters
-            for name, param in assigned_parameter_variables.items():
-                size = param.size()
-                if size:
-                    assigned_param_array = jax.numpy.zeros(size)
-                else:
-                    assigned_param_array = jax.numpy.zeros(1)
-
-                local_vars = {}  # this will hold the rhs variables for evaluation
-
-                for val in assigned_param_dependencies[name]["param"]:
-                    par = parameter_variables[val]
-                    local_vars[par.code()] = parameter_numpy_variables[val]
-
-                for val in assigned_param_dependencies[name]["data"]:
-                    par = data_variables[val]
-                    local_vars[par.code()] = data_numpy_variables[val]
-
-                for val in assigned_param_dependencies[name]["assigned_param"]:
-                    par = assigned_parameter_variables[val]
-                    local_vars[par.code()] = assigned_parameter_numpy_variables[val]
-
-                # this is such a horrible method I'm not even joking
-                # this assumes all variables share the same subscripts
-                if param.index:
-                    logging.debug(f'code for {name}: {param.rhs.code().replace(f"[{param.ops_param.index.code()}]", "")}')
-                    assigned_parameter_numpy_variables[name] = eval(
-                        param.rhs.code().replace(f"[{param.ops_param.index.code()}]", ""), globals(), local_vars
-                    )
-                else:
-                    logging.debug(f"code for {name}: {param.rhs.code()}")
-                    assigned_parameter_numpy_variables[name] = eval(param.rhs.code(), globals(), local_vars)
-
             for line_function in line_functions:
                 data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
                 parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
                 assigned_parameter_arguments = [
                     assigned_parameter_numpy_variables[name] for name in line_function.assigned_parameter_variables_names
                 ]
-                total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
+                if isinstance(line_function, compiler.AssignLineFunction):
+                    assigned_parameter_numpy_variables[line_function.name] = line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
+                else:
+                    total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
 
             return total
 

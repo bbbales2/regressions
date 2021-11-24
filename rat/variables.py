@@ -164,7 +164,6 @@ class IndexUse:
     shifts: Tuple[Union[str, None]] = None
 
     def to_numpy(self):
-        self.df = self.df.loc[:, self.names]
         shifted_df = self.index.compute_shifted_df(self.df, self.shifts)
         indices = self.index.get_numpy_indices(shifted_df)
         return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))

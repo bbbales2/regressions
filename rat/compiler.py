@@ -2,7 +2,7 @@ import logging
 import numpy
 import pandas
 import jax
-import jax.numpy as jnp
+import jax.numpy
 import jax.scipy.stats
 from typing import Iterable, List, Dict, Set
 
@@ -56,11 +56,9 @@ class LineFunction:
         )
         function_local_scope = {}
         exec(self.code(), globals(), function_local_scope)
-        compiled_function = function_local_scope["func"]
+        self.compiled_function = function_local_scope["func"]
         if any(x is not None for x in vectorize_arguments):
-            compiled_function = jax.vmap(compiled_function, vectorize_arguments, 0)
-
-        self.func = lambda *args: jnp.sum(compiled_function(*args))
+            self.compiled_function = jax.vmap(self.compiled_function, vectorize_arguments, 0)
 
         self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
 
@@ -69,15 +67,34 @@ class LineFunction:
         args = [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
 
-    def __call__(self, *args):
-        # print("--------")
-        # for arg in args:
-        #     print(arg.shape)
-        # for val in self.index_use_variables:
-        #     print(val.names, val.to_numpy().shape)
-        # print(self.code())
-        return self.func(*args, *self.index_use_numpy)
+    def compiled_function_sum(self, *args):
+        return jax.numpy.sum(self.compiled_function(*args))
 
+    def __call__(self, *args):
+        return self.compiled_function_sum(*args, *self.index_use_numpy)
+
+class AssignLineFunction(LineFunction):
+    name : str
+
+    def __init__(
+            self,
+            name: str,
+            data_variables: Iterable[variables.Data],
+            parameter_variables: Iterable[variables.Param],
+            assigned_parameter_variables: Iterable[variables.AssignedParam],
+            index_use_variables: Iterable[variables.IndexUse],
+            line: ops.Expr,
+        ):
+        self.name = name
+        super().__init__(data_variables, parameter_variables, assigned_parameter_variables, index_use_variables, line)
+
+    def code(self):
+        argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.index_use_variables
+        args = [variable.code() for variable in argument_variables]
+        return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.rhs.code()}"])
+    
+    def __call__(self, *args):
+        return self.compiled_function(*args, *self.index_use_numpy)
 
 # Iterate over the rhs variables, and store them in the graph
 def generate_dependency_graph(parsed_lines : List[ops.Expr], reversed : bool =True):
@@ -275,7 +292,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             data_vars_used: Set[variables.Data] = set()
             parameter_vars_used: Set[variables.Param] = set()
             assigned_parameter_vars_used: Set[variables.AssignedParam] = set()
-            index_use_vars_used: List[variables.IndexUse] = []
+            index_use_vars: Dict[Tuple, variables.IndexUse] = {}
 
             if isinstance(line, ops.Distr):
                 lhs = line.variate
@@ -330,11 +347,15 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 data_vars_used.add(var_key)
                 if var_key == lhs_key:
                     continue
-                # data_variables[var_key] = data_variables[var_key]
                 var.variable = data_variables[var_key]
 
             for var in ops.search_tree(line, ops.Param):
                 var_key = var.get_key()
+
+                # For assignments, the left hand isn't defined yet so don't mark it as used
+                if isinstance(line, ops.Assignment) and var_key == lhs_key:
+                    continue
+
                 if var_key in assigned_parameter_variables:
                     assigned_parameter_vars_used.add(var_key)
                 else:
@@ -349,12 +370,18 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
                 if var.index:
                     variable_indexes[var_key].incorporate_shifts(var.index.shifts)
-                    index_use = variables.IndexUse(
-                        var.index.get_key(), lhs_df.loc[:, var.index.get_key()], variable_indexes[var_key], var.index.shifts
-                    )
 
-                    var.index.variable = index_use
-                    index_use_vars_used.append(index_use)
+                    index_use_identifier = (var.index.get_key(), tuple(var.index.shifts))
+
+                    # Only need to define this particular index use once per line (multiple uses will share)
+                    if index_use_identifier not in index_use_vars:
+                        index_use = variables.IndexUse(
+                            var.index.get_key(), lhs_df.loc[:, var.index.get_key()], variable_indexes[var_key], var.index.shifts
+                        )
+
+                        index_use_vars[index_use_identifier] = index_use
+
+                    var.index.variable = index_use_vars[index_use_identifier]
 
             for var in ops.search_tree(line, ops.Data):
                 var_key = var.get_key()
@@ -366,10 +393,19 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     [data_variables[name] for name in data_vars_used],
                     [parameter_variables[name] for name in parameter_vars_used],
                     [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    index_use_vars_used,
+                    index_use_vars.values(),
                     line,
                 )
-                line_functions.append(line_function)
+            elif isinstance(line, ops.Assignment):
+                line_function = AssignLineFunction(
+                    lhs_key,
+                    [data_variables[name] for name in data_vars_used],
+                    [parameter_variables[name] for name in parameter_vars_used],
+                    [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
+                    index_use_vars.values(),
+                    line,
+                )
+            line_functions.append(line_function)
             logging.debug("-------------------")
             break
 
