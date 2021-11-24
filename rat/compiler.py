@@ -374,7 +374,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 if var.index:
                     variable_indexes[var_key].incorporate_shifts(var.index.shifts)
 
-                    index_use_identifier = (var.index.get_key(), tuple(var.index.shifts))
+                    index_use_identifier = (var.index.get_key(), var.index.shifts)
 
                     # Only need to define this particular index use once per line (multiple uses will share)
                     if index_use_identifier not in index_use_vars:
