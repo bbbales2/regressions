@@ -26,4 +26,5 @@ def test_optimize_bernoulli():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    logging.getLogger().setLevel(logging.DEBUG)
+    pytest.main([__file__, "-s", "-o", "log_cli=true"])

@@ -24,4 +24,5 @@ def test_log_normal_values():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-s"])
+    logging.getLogger().setLevel(logging.DEBUG)
+    pytest.main([__file__, "-s", "-o", "log_cli=true"])

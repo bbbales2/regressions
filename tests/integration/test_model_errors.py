@@ -44,4 +44,5 @@ def test_optimize_missing_subscript():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-s"])
+    logging.getLogger().setLevel(logging.DEBUG)
+    pytest.main([__file__, "-s", "-o", "log_cli=true"])
