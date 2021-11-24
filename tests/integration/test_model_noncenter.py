@@ -22,12 +22,13 @@ def test_optimize_noncenter():
 
     # TODO: Add a unit test that the thing above parses to the thing below
     parsed_lines = [
-        ops.Normal(ops.Data("y"), ops.Param("theta", ops.Index(("school",))), ops.Data("sigma", ops.Index(("school",)))),
+        ops.Normal(ops.Data("y"), ops.Param("theta", ops.Index(("school",))), ops.Data("sigma")),
         ops.Assignment(
             ops.Param("theta", ops.Index(("school",))),
             ops.Sum(ops.Param("mu"), ops.Mul(ops.Param("z", ops.Index(("school",))), ops.Param("tau"))),
         ),
-        ops.Normal(ops.Param("z"), ops.RealConstant(0.0), ops.RealConstant(1.0)),
+        ops.Normal(ops.Param("mu"), ops.RealConstant(0.0), ops.RealConstant(5.0)),
+        ops.Normal(ops.Param("z", ops.Index(("school",))), ops.RealConstant(0.0), ops.RealConstant(1.0)),
         ops.LogNormal(ops.Param("tau", lower=ops.RealConstant(0.0)), ops.RealConstant(0.0), ops.RealConstant(1.0)),
     ]
 
@@ -35,7 +36,7 @@ def test_optimize_noncenter():
     fit = model.optimize(init=0.1)
     mu_df = fit.draws("mu")
     z_df = fit.draws("z")
-    tau_df = fit.draws("sigma")
+    tau_df = fit.draws("tau")
 
     ref_z = [
         0.03839950,
@@ -49,8 +50,8 @@ def test_optimize_noncenter():
     ]
     assert mu_df["value"][0] == pytest.approx(4.61934000, rel=1e-2)
     assert tau_df["value"][0] == pytest.approx(0.36975800, rel=1e-2)
-    assert z_df["value"].to_list() == pytest.approx(ref_z, rel=1e-2)
+    assert z_df["value"].to_list() == pytest.approx(ref_z, rel=1e-2, abs=1e-3)
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    pytest.main([__file__, "-s"])

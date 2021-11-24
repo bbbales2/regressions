@@ -144,9 +144,9 @@ class Model:
                     assigned_param_array = jax.numpy.zeros(1)
 
                 local_vars = {}  # this will hold the rhs variables for evaluation
-                # if assigned_param_dependencies[name]["param"]:
-                #     print(assigned_param_array.shape)
-                #     print(param.ops_param.index.code())
+                if assigned_param_dependencies[name]["param"]:
+                    print(assigned_param_array.shape)
+                    print(param.ops_param.index.code())
 
                 for val in assigned_param_dependencies[name]["param"]:
                     par = parameter_variables[val]
@@ -182,6 +182,7 @@ class Model:
             return total
 
         self.parameter_variables = parameter_variables
+        self.lpdf_cpu = functools.partial(lpdf, True)
         self.lpdf = jax.jit(functools.partial(lpdf, True))
         self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size

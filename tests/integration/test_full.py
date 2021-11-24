@@ -1,6 +1,7 @@
 import os
 import pathlib
 import pandas
+import pytest
 
 from rat import ops
 from rat import compiler
@@ -77,3 +78,7 @@ def test_full():
 
     # print(tau_df)
     # print(skills_df)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-s"])

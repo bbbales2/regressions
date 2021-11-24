@@ -32,9 +32,9 @@ class LineFunction:
 
     def __init__(
         self,
-        data_variables: Iterable[str],
-        parameter_variables: Iterable[str],
-        assigned_parameter_variables: Iterable[str],
+        data_variables: Iterable[variables.Data],
+        parameter_variables: Iterable[variables.Param],
+        assigned_parameter_variables: Iterable[variables.AssignedParam],
         index_use_variables: Iterable[variables.IndexUse],
         line: ops.Expr,
     ):
@@ -190,12 +190,12 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             if isinstance(lhs, ops.Data):
                 # If the left hand side is data, the dataframe comes from input
                 line_df = data_df
-                if target_var_name == lhs.get_key():
-                    data_variables[lhs.get_key()] = variables.Data(lhs.get_key(), data_df[lhs.get_key()])
             elif isinstance(lhs, ops.Param):
                 # Otherwise, the dataframe comes from the parameter (unless it's scalar then it's none)
                 if lhs.get_key() in parameter_base_df:
                     if parameter_base_df[lhs.get_key()] is not None:
+                        if lhs.index is None:
+                            raise Exception(f"{lhs.get_key()} must declare its subscripts to be used as a reference variable")
                         target_var_index_key = lhs.index.get_key()
                         line_df = parameter_base_df[lhs.get_key()].copy()
                         line_df.columns = tuple(lhs.index.get_key())
@@ -206,14 +206,23 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                         pass
                     else:
                         continue
+            
+            # Find all the data referenced in the line
+            for subexpr in ops.search_tree(line, ops.Data):
+                data_variables[subexpr.get_key()] = variables.Data(subexpr.get_key(), data_df[subexpr.get_key()])
 
             # Find all the ways that each parameter is indexed
             for subexpr in ops.search_tree(line, ops.Param):
+                # Is this handling y = y by ignoring it?
                 if subexpr.get_key() == lhs.get_key():
                     continue
                 subexpr_key = subexpr.get_key()
                 if subexpr.index:
-                    v_df = line_df.loc[:, subexpr.index.get_key()]
+                    try:
+                        v_df = line_df.loc[:, subexpr.index.get_key()]
+                    except KeyError as e:
+                        print(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.index.get_key()}")
+                        raise e
                     print(subexpr_key, "referenced")
                     if subexpr_key in parameter_base_df:
                         v_df.columns = tuple(parameter_base_df[subexpr_key].columns)
@@ -263,6 +272,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         print("data:", list(data_variables.keys()))
         print("parameters:", list(parameter_variables.keys()))
         print("assigned parameters", list(assigned_parameter_variables.keys()))
+
         for line in parsed_lines:
             # the sets below denote variables needed in this line
             data_vars_used: Set[variables.Data] = set()
@@ -278,10 +288,15 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             if lhs_key != target_var_name:
                 continue  # worst case we run n! times where n is # of lines
 
+            if lhs.index is not None:
+                if isinstance(lhs, ops.Data):
+                    lhs_df = data_df
+                else:
+                    lhs_df = parameter_base_df[lhs.get_key()]
+
             if isinstance(line, ops.Distr):
                 if isinstance(lhs, ops.Data):
                     data_vars_used.add(lhs_key)
-                    data_variables[lhs_key] = data_variables[lhs_key]
                     lhs.variable = data_variables[lhs.get_key()]
                 elif isinstance(lhs, ops.Param):
                     lower = lhs.lower
@@ -318,7 +333,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 data_vars_used.add(var_key)
                 if var_key == lhs_key:
                     continue
-                data_variables[var_key] = data_variables[var_key]
+                #data_variables[var_key] = data_variables[var_key]
                 var.variable = data_variables[var_key]
 
             for var in ops.search_tree(line, ops.Param):
@@ -334,11 +349,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 else:
                     parameter_vars_used.add(var_key)
                     var.variable = parameter_variables[var_key]
+
                 if var.index:
-                    if isinstance(lhs, ops.Data):
-                        lhs_df = data_df
-                    else:
-                        lhs_df = parameter_base_df[lhs.get_key()]
                     variable_indexes[var_key].incorporate_shifts(var.index.shifts)
                     index_use = variables.IndexUse(
                         var.index.get_key(), lhs_df.loc[:, var.index.get_key()], variable_indexes[var_key], var.index.shifts
@@ -346,6 +358,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
                     var.index.variable = index_use
                     index_use_vars_used.append(index_use)
+            
+            for var in ops.search_tree(line, ops.Data):
+                var_key = var.get_key()
+                if var.index:
+                    raise Exception(f"Indexing on data variables ({var_key}) not supported")
 
             if isinstance(line, ops.Distr):
                 line_function = LineFunction(
@@ -357,6 +374,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 )
                 line_functions.append(line_function)
             print("-------------------")
+            break
+        else:
+            # Ignore variables in the input dataframe
+            if target_var_name not in data_df.columns:
+                raise Exception(f"Could not find a definition for {target_var_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)")
 
     print("2nd pass finished")
     print("data:", list(data_variables.keys()))
