@@ -206,7 +206,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                         pass
                     else:
                         continue
-            
+
             # Find all the data referenced in the line
             for subexpr in ops.search_tree(line, ops.Data):
                 data_variables[subexpr.get_key()] = variables.Data(subexpr.get_key(), data_df[subexpr.get_key()])
@@ -333,7 +333,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 data_vars_used.add(var_key)
                 if var_key == lhs_key:
                     continue
-                #data_variables[var_key] = data_variables[var_key]
+                # data_variables[var_key] = data_variables[var_key]
                 var.variable = data_variables[var_key]
 
             for var in ops.search_tree(line, ops.Param):
@@ -358,7 +358,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
                     var.index.variable = index_use
                     index_use_vars_used.append(index_use)
-            
+
             for var in ops.search_tree(line, ops.Data):
                 var_key = var.get_key()
                 if var.index:
@@ -378,7 +378,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         else:
             # Ignore variables in the input dataframe
             if target_var_name not in data_df.columns:
-                raise Exception(f"Could not find a definition for {target_var_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)")
+                raise Exception(
+                    f"Could not find a definition for {target_var_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)"
+                )
 
     print("2nd pass finished")
     print("data:", list(data_variables.keys()))
