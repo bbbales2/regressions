@@ -1,3 +1,4 @@
+import logging
 import numpy
 import pandas
 import jax
@@ -78,6 +79,64 @@ class LineFunction:
         return self.func(*args, *self.index_use_numpy)
 
 
+# Iterate over the rhs variables, and store them in the graph
+def generate_dependency_graph(parsed_lines : List[ops.Expr], reversed : bool =True):
+    out_graph = {}
+    for line in parsed_lines:
+        if isinstance(line, ops.Distr):
+            lhs = line.variate
+        elif isinstance(line, ops.Assignment):
+            lhs = line.lhs
+
+        lhs_var_key = lhs.get_key()
+        if lhs_var_key not in out_graph:
+            out_graph[lhs_var_key] = set()
+
+        for subexpr in ops.search_tree(line, ops.Param, ops.Data):
+            rhs_var_key = subexpr.get_key()
+            if rhs_var_key not in out_graph:
+                out_graph[rhs_var_key] = set()
+            if subexpr.get_key() == lhs_var_key:
+                continue
+
+            if reversed:
+                out_graph[rhs_var_key].add(lhs_var_key)
+            else:
+                # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
+                out_graph[lhs_var_key].add(rhs_var_key)
+            # if isinstance(line, ops.Distr):
+            #     if reversed:
+            #         out_graph[rhs_var_key].add(lhs_var_key)
+            #     else:
+            #         # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
+            #         out_graph[lhs_var_key].add(rhs_var_key)
+            # else:
+            #     if reversed:
+            #         out_graph[rhs_var_key].add(lhs_var_key)
+            #     else:
+            #         out_graph[lhs_var_key].add(rhs_var_key)
+
+    return out_graph
+
+def topological_sort(graph):
+    evaluation_order = []
+    topsort_visited = set()
+
+    def recursive_order_search(current):
+        topsort_visited.add(current)
+        for child in graph[current]:
+            if child not in topsort_visited:
+                recursive_order_search(child)
+
+        evaluation_order.append(current)
+
+    for val in tuple(graph.keys()):
+        if val not in topsort_visited:
+            recursive_order_search(val)
+
+    return evaluation_order
+
+
 def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
     dependency_graph: Dict[str, Set[str]] = {}
@@ -89,71 +148,14 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     # traverse through all lines, assuming they are DAGs. This throws operational semantics out the window, but since
     # rat doesn't allow control flow(yet), I'm certain a cycle would mean that it's a mis-specified program
 
-    # Iterate over the rhs variables, and store them in the graph
-    def generate_dependency_graph(reversed=True):
-        out_graph = {}
-        for line in parsed_lines:
-            if isinstance(line, ops.Distr):
-                lhs = line.variate
-            elif isinstance(line, ops.Assignment):
-                lhs = line.lhs
-
-            lhs_var_key = lhs.get_key()
-            if lhs_var_key not in out_graph:
-                out_graph[lhs_var_key] = set()
-
-            for subexpr in ops.search_tree(line, ops.Param, ops.Data):
-                rhs_var_key = subexpr.get_key()
-                if rhs_var_key not in out_graph:
-                    out_graph[rhs_var_key] = set()
-                if subexpr.get_key() == lhs_var_key:
-                    continue
-
-                if reversed:
-                    out_graph[rhs_var_key].add(lhs_var_key)
-                else:
-                    # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
-                    out_graph[lhs_var_key].add(rhs_var_key)
-                # if isinstance(line, ops.Distr):
-                #     if reversed:
-                #         out_graph[rhs_var_key].add(lhs_var_key)
-                #     else:
-                #         # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
-                #         out_graph[lhs_var_key].add(rhs_var_key)
-                # else:
-                #     if reversed:
-                #         out_graph[rhs_var_key].add(lhs_var_key)
-                #     else:
-                #         out_graph[lhs_var_key].add(rhs_var_key)
-
-        return out_graph
-
-    def topological_sort(graph):
-        evaluation_order = []
-        topsort_visited = set()
-
-        def recursive_order_search(current):
-            topsort_visited.add(current)
-            for child in graph[current]:
-                if child not in topsort_visited:
-                    recursive_order_search(child)
-
-            evaluation_order.append(current)
-
-        for val in tuple(graph.keys()):
-            if val not in topsort_visited:
-                recursive_order_search(val)
-
-        return evaluation_order
-
-    dependency_graph = generate_dependency_graph()
+    dependency_graph = generate_dependency_graph(parsed_lines)
     evaluation_order = topological_sort(dependency_graph)
     # assignments need to be treated opposite
 
     # evaluation_order is the list of topologically sorted vertices
 
-    print("reverse dependency graph:", dependency_graph)
-    print("first pass eval order:", evaluation_order)
+    logging.debug(f"reverse dependency graph: {dependency_graph}")
+    logging.debug(f"first pass eval order: {evaluation_order}")
 
     # this is the dataframe that goes into variables.Index. Each row is a unique combination of indexes
     parameter_base_df: Dict[str, pandas.DataFrame] = {}
@@ -170,7 +172,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
     # first pass : fill param_base_dfs of all parameters
     for target_var_name in evaluation_order:
-        print("------first pass starting for", target_var_name)
+        logging.debug(f"------first pass starting for {target_var_name}")
         target_var_index_key = None
         for line in parsed_lines:
             if isinstance(line, ops.Distr):
@@ -202,10 +204,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     else:
                         line_df = None
                 else:
-                    if lhs.index:
-                        pass
-                    else:
-                        continue
+                    if not lhs.index:
+                        break
             
             # Find all the data referenced in the line
             for subexpr in ops.search_tree(line, ops.Data):
@@ -221,9 +221,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     try:
                         v_df = line_df.loc[:, subexpr.index.get_key()]
                     except KeyError as e:
-                        print(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.index.get_key()}")
-                        raise e
-                    print(subexpr_key, "referenced")
+                        raise Exception(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.index.get_key()}") from e
+                    logging.debug(f"{subexpr_key} referenced")
                     if subexpr_key in parameter_base_df:
                         v_df.columns = tuple(parameter_base_df[subexpr_key].columns)
                         parameter_base_df[subexpr_key] = (
@@ -231,47 +230,45 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                         )
                     else:
                         parameter_base_df[subexpr_key] = v_df.drop_duplicates().reset_index(drop=True)
+            
+            break
+        else:
+            # Ignore variables in the input dataframe
+            if target_var_name not in data_df.columns:
+                raise Exception(f"Could not find a definition for {target_var_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)")
 
         if target_var_name in parameter_base_df:
             parameter_base_df[target_var_name].columns = tuple(target_var_index_key)
             variable_indexes[target_var_name] = variables.Index(parameter_base_df[target_var_name])
 
-    # # convert to pands.Int64Dtype() to potentially allow NA
-    # for key in parameter_base_df.keys():
-    #     df = parameter_base_df[key]
-    #     for column, dtype in zip(df.columns, df.dtypes):
-    #         if pandas.api.types.is_integer_dtype(dtype):
-    #             parameter_base_df[key][column] = parameter_base_df[key][column].astype(pandas.Int64Dtype())
-
-    print("first pas finished")
-    print("now printing variable_indexes")
+    logging.debug("first pas finished")
+    logging.debug("now printing variable_indexes")
     for key, val in variable_indexes.items():
-        print(key)
-        print(val.base_df)
-    print("done printing variable_indexes")
-    print("now printing parameter_Base_df")
+        logging.debug(key)
+        logging.debug(val.base_df)
+    logging.debug("done printing variable_indexes")
+    logging.debug("now printing parameter_Base_df")
     for key, val in parameter_base_df.items():
-        print(key)
-        print(val.dtypes)
-        # print(val)
-    print("done printing parameter_base_df")
+        logging.debug(key)
+        logging.debug(val.dtypes)
+    logging.debug("done printing parameter_base_df")
 
     """Now transpose the dependency graph(lhs -> rhs, or lhs | rhs). For a normal DAD, it's as simple as reversing the
      evaluation order. Unfortunately, since assignments always stay true as (lhs | rhs), we have to rebuild the DAG. :(
      Because we're trying to evaluate lhs given rhs, this is the canonical dependency graph representation for DAGs"""
-    dependency_graph = generate_dependency_graph(reversed=False)
+    dependency_graph = generate_dependency_graph(parsed_lines, reversed=False)
     evaluation_order = topological_sort(dependency_graph)
-    print("canonical dependency graph", dependency_graph)
-    print("second pass eval order:", evaluation_order)
+    logging.debug(f"canonical dependency graph: {dependency_graph}")
+    logging.debug(f"second pass eval order: {evaluation_order}")
 
     # since the statements are topologically sorted, a KeyError means a variable was undefined by the user.
     # we now iterate over the statements, assigning actual variables with variables.X
     for target_var_name in evaluation_order:  # current parameter/data name
-        print("@" * 5)
-        print("running 2nd pass for ", target_var_name)
-        print("data:", list(data_variables.keys()))
-        print("parameters:", list(parameter_variables.keys()))
-        print("assigned parameters", list(assigned_parameter_variables.keys()))
+        logging.debug("@" * 5)
+        logging.debug(f"running 2nd pass for: {target_var_name}")
+        logging.debug(f"data: {list(data_variables.keys())}")
+        logging.debug(f"parameters: {list(parameter_variables.keys())}")
+        logging.debug(f"assigned parameters {list(assigned_parameter_variables.keys())}")
 
         for line in parsed_lines:
             # the sets below denote variables needed in this line
@@ -288,10 +285,10 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             if lhs_key != target_var_name:
                 continue  # worst case we run n! times where n is # of lines
 
-            if lhs.index is not None:
-                if isinstance(lhs, ops.Data):
-                    lhs_df = data_df
-                else:
+            if isinstance(lhs, ops.Data):
+                lhs_df = data_df
+            else:
+                if lhs.index is not None:
                     lhs_df = parameter_base_df[lhs.get_key()]
 
             if isinstance(line, ops.Distr):
@@ -373,15 +370,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     line,
                 )
                 line_functions.append(line_function)
-            print("-------------------")
+            logging.debug("-------------------")
             break
-        else:
-            # Ignore variables in the input dataframe
-            if target_var_name not in data_df.columns:
-                raise Exception(f"Could not find a definition for {target_var_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)")
 
-    print("2nd pass finished")
-    print("data:", list(data_variables.keys()))
-    print("parameters:", list(parameter_variables.keys()))
-    print("assigned parameters", list(assigned_parameter_variables.keys()))
+    logging.debug("2nd pass finished")
+    logging.debug(f"data: {list(data_variables.keys())}")
+    logging.debug(f"parameters: {list(parameter_variables.keys())}")
+    logging.debug(f"assigned parameters {list(assigned_parameter_variables.keys())}")
     return data_variables, parameter_variables, assigned_parameter_variables, variable_indexes, line_functions

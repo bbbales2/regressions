@@ -566,7 +566,6 @@ class Placeholder(Expr):
 
     def __str__(self):
         return f"Placeholder({self.name}, {self.index.__str__()})"
-        # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
 def search_tree(expr, *types):

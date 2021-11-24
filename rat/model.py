@@ -5,6 +5,7 @@ import jax
 import jax.scipy
 import jax.scipy.optimize
 import jax.numpy
+import logging
 import numpy
 import pandas
 import scipy.optimize
@@ -144,9 +145,6 @@ class Model:
                     assigned_param_array = jax.numpy.zeros(1)
 
                 local_vars = {}  # this will hold the rhs variables for evaluation
-                if assigned_param_dependencies[name]["param"]:
-                    print(assigned_param_array.shape)
-                    print(param.ops_param.index.code())
 
                 for val in assigned_param_dependencies[name]["param"]:
                     par = parameter_variables[val]
@@ -163,12 +161,12 @@ class Model:
                 # this is such a horrible method I'm not even joking
                 # this assumes all variables share the same subscripts
                 if param.index:
-                    print(f'code for {name}: {param.rhs.code().replace(f"[{param.ops_param.index.code()}]", "")}')
+                    logging.debug(f'code for {name}: {param.rhs.code().replace(f"[{param.ops_param.index.code()}]", "")}')
                     assigned_parameter_numpy_variables[name] = eval(
                         param.rhs.code().replace(f"[{param.ops_param.index.code()}]", ""), globals(), local_vars
                     )
                 else:
-                    print(f"code for {name}: {param.rhs.code()}")
+                    logging.debug(f"code for {name}: {param.rhs.code()}")
                     assigned_parameter_numpy_variables[name] = eval(param.rhs.code(), globals(), local_vars)
 
             for line_function in line_functions:
@@ -182,7 +180,6 @@ class Model:
             return total
 
         self.parameter_variables = parameter_variables
-        self.lpdf_cpu = functools.partial(lpdf, True)
         self.lpdf = jax.jit(functools.partial(lpdf, True))
         self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
