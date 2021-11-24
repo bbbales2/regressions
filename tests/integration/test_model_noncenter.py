@@ -22,27 +22,16 @@ def test_optimize_noncenter():
 
     # TODO: Add a unit test that the thing above parses to the thing below
     parsed_lines = [
-        ops.Normal(
-            ops.Data("y"),
-            ops.Param("theta", ops.Index(("school",))),
-            ops.Data("sigma", ops.Index(("school",)))
-        ),
+        ops.Normal(ops.Data("y"), ops.Param("theta", ops.Index(("school",))), ops.Data("sigma", ops.Index(("school",)))),
         ops.Assignment(
             ops.Param("theta", ops.Index(("school",))),
-            ops.Sum(
-                ops.Param("mu"),
-                ops.Mul(ops.Param("z", ops.Index(("school",))), ops.Param("tau"))
-            )
+            ops.Sum(ops.Param("mu"), ops.Mul(ops.Param("z", ops.Index(("school",))), ops.Param("tau"))),
         ),
         ops.Normal(ops.Param("z"), ops.RealConstant(0.0), ops.RealConstant(1.0)),
-        ops.LogNormal(
-            ops.Param("tau", lower=ops.RealConstant(0.0)),
-            ops.RealConstant(0.0),
-            ops.RealConstant(1.0)
-        ),
+        ops.LogNormal(ops.Param("tau", lower=ops.RealConstant(0.0)), ops.RealConstant(0.0), ops.RealConstant(1.0)),
     ]
 
-    model = Model(data_df, parsed_lines)#model_string=model_string
+    model = Model(data_df, parsed_lines)  # model_string=model_string
     fit = model.optimize(init=0.1)
     mu_df = fit.draws("mu")
     z_df = fit.draws("z")
