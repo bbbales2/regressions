@@ -330,7 +330,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 data_vars_used.add(var_key)
                 if var_key == lhs_key:
                     continue
-                #data_variables[var_key] = data_variables[var_key]
+                # data_variables[var_key] = data_variables[var_key]
                 var.variable = data_variables[var_key]
 
             for var in ops.search_tree(line, ops.Param):
@@ -355,7 +355,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
                     var.index.variable = index_use
                     index_use_vars_used.append(index_use)
-            
+
             for var in ops.search_tree(line, ops.Data):
                 var_key = var.get_key()
                 if var.index:
