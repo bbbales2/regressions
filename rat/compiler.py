@@ -80,7 +80,7 @@ class LineFunction:
 
 
 # Iterate over the rhs variables, and store them in the graph
-def generate_dependency_graph(parsed_lines : List[ops.Expr], reversed : bool =True):
+def generate_dependency_graph(parsed_lines: List[ops.Expr], reversed: bool = True):
     out_graph = {}
     for line in parsed_lines:
         if isinstance(line, ops.Distr):
@@ -117,6 +117,7 @@ def generate_dependency_graph(parsed_lines : List[ops.Expr], reversed : bool =Tr
             #         out_graph[lhs_var_key].add(rhs_var_key)
 
     return out_graph
+
 
 def topological_sort(graph):
     evaluation_order = []
@@ -206,7 +207,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 else:
                     if not lhs.index:
                         break
-            
+
             # Find all the data referenced in the line
             for subexpr in ops.search_tree(line, ops.Data):
                 data_variables[subexpr.get_key()] = variables.Data(subexpr.get_key(), data_df[subexpr.get_key()])
@@ -230,12 +231,14 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                         )
                     else:
                         parameter_base_df[subexpr_key] = v_df.drop_duplicates().reset_index(drop=True)
-            
+
             break
         else:
             # Ignore variables in the input dataframe
             if target_var_name not in data_df.columns:
-                raise Exception(f"Could not find a definition for {target_var_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)")
+                raise Exception(
+                    f"Could not find a definition for {target_var_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)"
+                )
 
         if target_var_name in parameter_base_df:
             parameter_base_df[target_var_name].columns = tuple(target_var_index_key)
