@@ -134,7 +134,7 @@ class UnaryFunctions:
 
 
 class Distributions:
-    names = ["normal", "bernoulli_logit"]
+    names = ["normal", "bernoulli_logit", "log_normal"]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -152,6 +152,10 @@ class Distributions:
             if len(expressions) != 1:
                 raise Exception(f"bernoulli_logit distribution needs 1 parameters, but got {len(expressions)}!")
             return BernoulliLogit(lhs, expressions[0])
+        elif dist_type.value == "log_normal":
+            if len(expressions) != 2:
+                raise Exception(f"log_normal distribution needs 2 parameters, but got {len(expressions)}!")
+            return LogNormal(lhs, expressions[0], expressions[1])
 
 
 class Parser:
@@ -254,7 +258,7 @@ class Parser:
             expressions.append(expression)
             shift_amounts.append(shift_amount)
 
-        return expressions, shift_amounts
+        return expressions, tuple(shift_amounts)
 
     def expression(self, allow_subscripts=False):
         token = self.peek()

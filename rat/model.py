@@ -6,6 +6,7 @@ import jax
 import jax.scipy
 import jax.scipy.optimize
 import jax.numpy
+import logging
 import numpy
 import pandas
 import scipy.optimize
@@ -53,6 +54,7 @@ class Model:
         (
             data_variables,
             parameter_variables,
+            assigned_parameter_variables,
             index_variables,
             line_functions,
         ) = compiler.compile(data_df, parsed_lines)
@@ -80,9 +82,31 @@ class Model:
             else:
                 unconstrained_parameter_size += 1
 
+        # identify which values are needed for each assigned_param
+        assigned_param_dependencies = {}
+        for name, param in assigned_parameter_variables.items():
+            dependant_data = set()
+            dependant_param = set()
+            dependant_assigned_param = set()
+            for expr in ops.search_tree(param.rhs, ops.Data, ops.Param):
+                if isinstance(expr, ops.Data):
+                    dependant_data.add(expr.get_key())
+                elif isinstance(expr, ops.Param):
+                    if expr.get_key() in assigned_parameter_variables:
+                        dependant_assigned_param.add(expr.get_key())
+                    else:
+                        dependant_param.add(expr.get_key())
+
+            assigned_param_dependencies[name] = {
+                "param": tuple(dependant_param),
+                "data": tuple(dependant_data),
+                "assigned_param": tuple(dependant_assigned_param),
+            }
+
         # This is the likelihood function we'll expose!
         def lpdf(include_jacobian, unconstrained_parameter_vector):
             parameter_numpy_variables = {}
+            assigned_parameter_numpy_variables = {}
             total = 0.0
             for name, offset, size in zip(
                 self.parameter_names,
@@ -116,7 +140,15 @@ class Model:
             for line_function in line_functions:
                 data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
                 parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
-                total += line_function(*data_arguments, *parameter_arguments)
+                assigned_parameter_arguments = [
+                    assigned_parameter_numpy_variables[name] for name in line_function.assigned_parameter_variables_names
+                ]
+                if isinstance(line_function, compiler.AssignLineFunction):
+                    assigned_parameter_numpy_variables[line_function.name] = line_function(
+                        *data_arguments, *parameter_arguments, *assigned_parameter_arguments
+                    )
+                else:
+                    total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
 
             return total
 
@@ -150,6 +182,37 @@ class Model:
 
         return fit.OptimizationFit(self, unconstrained_draws, tolerance=tolerance)
 
+    def build_draw_dfs(self, states: List[numpy.array]):
+        draw_dfs: Dict[str, pandas.DataFrame] = {}
+        draw_series = list(range(len(states)))
+        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
+            if size is not None:
+                dfs = []
+                for draw, state in enumerate(states):
+                    df = self.parameter_variables[name].index.base_df.copy()
+                    df["value"] = state[offset : offset + size]
+                    df["draw"] = draw
+                    dfs.append(df)
+                df = pandas.concat(dfs, ignore_index=True)
+            else:
+                series = [state[offset] for state in states]
+                df = pandas.DataFrame({"value": series, "draw": draw_series})
+
+            variable = self.parameter_variables[name]
+            lower = variable.lower
+            upper = variable.upper
+            value = df["value"].to_numpy()
+            if lower > float("-inf") and upper == float("inf"):
+                value, _ = constraints.lower(value, lower)
+            elif lower == float("inf") and upper < float("inf"):
+                value, _ = constraints.upper(value, upper)
+            elif lower > float("inf") and upper < float("inf"):
+                value, _ = constraints.finite(value, lower, upper)
+            df["value"] = value
+
+            draw_dfs[name] = df
+        return draw_dfs
+
     def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1e-2):
         initial_positions = 2 * init * numpy.random.uniform(size=(chains, self.size)) - init
 
@@ -162,13 +225,13 @@ class Model:
         # kernel = jax.jit(kernel)
 
         # Initialize the state
-        states: List[blackjax.inference.base.HMCState] = []
+        initial_states: List[blackjax.inference.base.HMCState] = []
         for initial_position in initial_positions:
-            states.append(blackjax.nuts.new_state(initial_position, self.lpdf))
+            initial_states.append(blackjax.nuts.new_state(initial_position, self.lpdf))
 
         # Do warmup for each chain
         key = jax.random.PRNGKey(0)
-        # states = []
+        states = []
         kernels = []
         for chain in range(chains):
             key, subkey = jax.random.split(key)

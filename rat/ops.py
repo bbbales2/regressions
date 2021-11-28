@@ -44,7 +44,7 @@ class IntegerConstant(Expr):
 class Index(Expr):
     names: Tuple[str]
     shifts: Tuple[Union[str, None]] = (None,)
-    variable: variables.Index = None
+    variable: variables.IndexUse = None
 
     def get_key(self):
         return self.names
@@ -73,7 +73,10 @@ class Data(Expr):
             return variable_code
 
     def __str__(self):
-        return f"Data({self.name}, {self.index.__str__()})"
+        if self.index is None:
+            return f"Data({self.name})"
+        else:
+            return f"Data({self.name}, {self.index})"
         # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
@@ -99,7 +102,7 @@ class Param(Expr):
 
     def code(self):
         variable_code = self.variable.code()
-        if self.index is not None:
+        if self.index:
             return variable_code + f"[{self.index.code()}]"
         else:
             return variable_code
@@ -142,6 +145,22 @@ class BernoulliLogit(Distr):
 
     def __str__(self):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+
+
+@dataclass(frozen=True)
+class LogNormal(Distr):
+    variate: Expr
+    mean: Expr
+    std: Expr
+
+    def __iter__(self):
+        return iter([self.variate, self.mean, self.std])
+
+    def code(self):
+        return f"log_normal({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
+
+    def __str__(self):
+        return f"LogNormal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
 
 @dataclass(frozen=True)
@@ -547,13 +566,13 @@ class Placeholder(Expr):
 
     def __str__(self):
         return f"Placeholder({self.name}, {self.index.__str__()})"
-        # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
-def search_tree(type, expr):
-    if isinstance(expr, type):
-        yield expr
+def search_tree(expr, *types):
+    for _type in types:
+        if isinstance(expr, _type):
+            yield expr
     else:
         for child in expr:
-            for child_expr in search_tree(type, child):
+            for child_expr in search_tree(child, *types):
                 yield child_expr

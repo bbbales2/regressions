@@ -24,10 +24,9 @@ class Index:
         columns = unprocessed_df.columns
 
         base_df = unprocessed_df.drop_duplicates().sort_values(list(columns)).reset_index(drop=True)
-
-        for column, dtype in zip(base_df.columns, base_df.dtypes):
-            if pandas.api.types.is_integer_dtype(dtype):
-                base_df[column] = base_df[column].astype(pandas.Int64Dtype())
+        # for column, dtype in zip(base_df.columns, base_df.dtypes):
+        #     if pandas.api.types.is_integer_dtype(dtype):
+        #         base_df[column] = base_df[column].astype(pandas.Int64Dtype())
 
         self.base_df = base_df
         self.df = self.base_df
@@ -38,7 +37,6 @@ class Index:
     def incorporate_shifts(self, shifts):
         if all(shift is None for shift in shifts):
             return
-
         self.shifts_list.append(shifts)
 
         self.rebuild_df()
@@ -83,7 +81,7 @@ class Index:
             df_list.append(shifted_df)
 
         self.df = pandas.concat(df_list).drop_duplicates(keep="first").reset_index(drop=True)
-        self.df["__index"] = range(len(self.df.index))
+        self.df["__index"] = pandas.Series(range(len(self.df.index)), dtype=pandas.Int64Dtype)
 
         self.levels = [row for row in self.df.itertuples(index=False)]
         self.indices = {}
@@ -122,7 +120,9 @@ class Param:
         self.upper = upper
 
     def scalar(self):
-        return self.index is None
+        if self.index:
+            return False
+        return True
 
     def size(self):
         if self.scalar():
@@ -138,6 +138,22 @@ class Param:
 
     def code(self):
         return f"param__{self.name}"
+
+
+@dataclass
+class AssignedParam:
+    ops_param: None  # this is ops.Param
+    rhs: None
+    index: Index = None
+
+    def size(self):
+        if not self.index:
+            return None
+        else:
+            return len(self.index.base_df.index)
+
+    def code(self):
+        return f"assigned_param__{self.ops_param.name}"
 
 
 @dataclass
