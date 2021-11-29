@@ -247,7 +247,7 @@ class Mod(Expr):
         return iter([self.left, self.right])
 
     def code(self):
-        return f"{self.left.code()} $ {self.right.code()}"
+        return f"{self.left.code()} % {self.right.code()}"
 
     def __str__(self):
         return f"Mod({self.left.__str__(), self.right.__str__()})"
@@ -484,7 +484,7 @@ class Exp(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"exp({self.subexpr.code()})"
+        return f"jax.numpy.exp({self.subexpr.code()})"
 
     def __str__(self):
         return f"Exp({self.subexpr.__str__()})"
@@ -498,7 +498,7 @@ class Abs(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"abs({self.subexpr.code()})"
+        return f"jax.numpy.abs({self.subexpr.code()})"
 
     def __str__(self):
         return f"Abs({self.subexpr.__str__()})"
@@ -512,7 +512,7 @@ class Floor(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"floor({self.subexpr.code()})"
+        return f"jax.numpy.floor({self.subexpr.code()})"
 
     def __str__(self):
         return f"Floor({self.subexpr.__str__()})"
@@ -526,7 +526,7 @@ class Ceil(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"ceil({self.subexpr.code()})"
+        return f"jax.numpy.ceil({self.subexpr.code()})"
 
     def __str__(self):
         return f"Ceil({self.subexpr.__str__()})"
@@ -540,7 +540,7 @@ class Round(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"round({self.subexpr.code()})"
+        return f"jax.numpy.round({self.subexpr.code()})"
 
     def __str__(self):
         return f"Round({self.subexpr.__str__()})"
