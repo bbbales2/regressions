@@ -220,14 +220,14 @@ class Model:
         def kernel_generator(step_size, inverse_mass_matrix):
             return blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
 
-        #inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
+        # inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
         # kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
         # kernel = jax.jit(kernel)
 
         # Initialize the state
         initial_state = blackjax.nuts.new_state(initial_position, self.lpdf)
-        #positions = jax.numpy.array(chains * [initial_position])
-        #initial_states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)
+        # positions = jax.numpy.array(chains * [initial_position])
+        # initial_states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)
 
         # Do one-chain warmup
         key = jax.random.PRNGKey(0)
@@ -242,7 +242,7 @@ class Model:
         kernel = jax.jit(kernel_generator(step_size, inverse_mass_matrix))
 
         positions = jax.numpy.array(chains * [state.position])
-        states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)
+        states = jax.vmap(blackjax.nuts.new_state, in_axes=(0, None))(positions, self.lpdf)
 
         # Sample chains
         def one_step(chain_states, rng_key):
