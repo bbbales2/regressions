@@ -9,6 +9,7 @@ class Token:
     A token denotes a sequence of input characters, typically demarcated by other characters that represent
     semantics, most commonly whitespace. Please Refer to individual token types' docs for more information
     """
+
     value: str
     """A string containing the input characters"""
     token_type: str
@@ -24,6 +25,7 @@ class Identifier(Token):
     The Identifier token represents any alphanumeric string that isn't used as a standalone number.
     This includes function names, variables, distributions, etc.
     """
+
     def __init__(self, value):
         super(Identifier, self).__init__(value)
 
@@ -33,6 +35,7 @@ class Special(Token):
     The Special token represents any single characters that indicate change in semantics or control flow.
     Explicitly any single token that has the following values("(", ")", ",", "[", "]", "~") are set as Special
     """
+
     def __init__(self, value):
         super(Special, self).__init__(value)
 
@@ -41,6 +44,7 @@ class IntLiteral(Token):
     """
     The IntLiteral token represent integers.
     """
+
     def __init__(self, value):
         super(IntLiteral, self).__init__(value)
 
@@ -51,6 +55,7 @@ class RealLiteral(Token):
     ^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$ is being used to parse real numbers, which allows negative values as well as
     scientific notation.
     """
+
     def __init__(self, value):
         super(RealLiteral, self).__init__(value)
 
@@ -61,6 +66,7 @@ class Operator(Token):
     following values("=","+=","-=","/=","*=","%=","+","-","*","/","^","%","!",">=","<=","==","<",">","&&","||") are
     set as an Operator.
     """
+
     def __init__(self, value):
         super(Operator, self).__init__(value)
 
@@ -70,6 +76,7 @@ class Terminate(Token):
     In rat, all statements are terminated using with ;. As of now, the scanner nor parser relies on the Terminate
     token when resolving. This is left in case the need for explicitly terminated statements arise in the future.
     """
+
     def __init__(self, value):
         super(Terminate, self).__init__(value)
 
@@ -78,6 +85,7 @@ class NullToken(Token):
     """
     NullToken doesn't represent anything. This is pretty much used in the same context as None.
     """
+
     def __init__(self):
         super(NullToken, self).__init__(None)
 

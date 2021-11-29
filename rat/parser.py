@@ -20,6 +20,7 @@ class PrefixOps:
     """
     A utility class that's used to identify and build prefix-operation expressions.
     """
+
     ops = ["!", "-"]
 
     @staticmethod
@@ -52,6 +53,7 @@ class InfixOps:
     Currently supported operations are:
     `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`
     """
+
     ops = ["+", "-", "*", "^", "/", "%", "||", "&&", "==", "!=", "<", "<=", ">", ">="]
 
     @staticmethod
@@ -103,6 +105,7 @@ class AssignmentOps:
     Currently supports the following assignment types:
     `ops.Assignment`
     """
+
     ops = ["=", "+=", "-=", "*=", "/="]
 
     @staticmethod
@@ -131,6 +134,7 @@ class UnaryFunctions:
     Currently supported are:
     `ops.Exp`, `ops.Abs`, `ops.Floor`, `ops.Ceil`, `ops.Round`
     """
+
     names = ["exp", "abs", "floor", "ceil", "round"]
 
     @staticmethod
@@ -159,6 +163,7 @@ class Distributions:
     Currently supported distributions are:
     `ops.Normal`, `ops.BernoulliLogit`, `ops.LogNormal`
     """
+
     names = ["normal", "bernoulli_logit", "log_normal"]
 
     @staticmethod
@@ -189,6 +194,7 @@ class Parser:
     Since rat programs are defined within the context of data, the parser needs to know
     the column names of the data.
     """
+
     def __init__(self, tokens: List[Type[Token]], data_names: List[str]):
         """
         Initialize the parser
