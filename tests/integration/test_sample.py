@@ -24,17 +24,10 @@ def test_sample_normal_mu():
     """
 
     model = Model(data_df, model_string=model_string)
-    fit = model.sample(num_draws=200)
+    fit = model.sample(num_draws=1000)
     mu_df = fit.draws("mu")
 
-    import plotnine
-
-    (plotnine.ggplot(mu_df) + plotnine.geom_point(plotnine.aes("draw", "value", color="chain"))).draw(show=True)
-
-    print(mu_df.agg({"value": [numpy.mean, numpy.std]}))
-    print(fit.ess("mu"))
-    print(fit.rhat("mu"))
-    # assert mu_df["value"][0] == pytest.approx(-1.11249, rel=1e-2)
+    assert mu_df["value"][0] == pytest.approx(-1.11, rel=1e-2)
 
 
 def adsftest_full():

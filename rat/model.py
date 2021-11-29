@@ -214,45 +214,45 @@ class Model:
         return draw_dfs
 
     def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1e-2):
-        initial_positions = 2 * init * numpy.random.uniform(size=(chains, self.size)) - init
+        # Currently only doing warmup on one chain
+        initial_position = 2 * init * numpy.random.uniform(size=(self.size)) - init
 
-        # Build the kernel
         def kernel_generator(step_size, inverse_mass_matrix):
             return blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
 
-        inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
+        #inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
         # kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
         # kernel = jax.jit(kernel)
 
         # Initialize the state
-        initial_states: List[blackjax.inference.base.HMCState] = []
-        for initial_position in initial_positions:
-            initial_states.append(blackjax.nuts.new_state(initial_position, self.lpdf))
+        initial_state = blackjax.nuts.new_state(initial_position, self.lpdf)
+        #positions = jax.numpy.array(chains * [initial_position])
+        #initial_states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)
 
-        # Do warmup for each chain
+        # Do one-chain warmup
         key = jax.random.PRNGKey(0)
-        states = []
-        kernels = []
-        for chain in range(chains):
-            key, subkey = jax.random.split(key)
-            state, (step_size, inverse_mass_matrix), info = blackjax.stan_warmup.run(
-                key,
-                kernel_generator,
-                initial_states[chain],
-                num_warmup,
-            )
-            states.append(state)
-            kernels.append(jax.jit(kernel_generator(step_size, inverse_mass_matrix)))
+        warmup_key, key = jax.random.split(key)
+        state, (step_size, inverse_mass_matrix), info = blackjax.stan_warmup.run(
+            warmup_key,
+            kernel_generator,
+            initial_state,
+            num_warmup,
+        )
 
-        # Initialize storage for draws
-        unconstrained_draws = numpy.zeros((chains, num_draws, self.size))
+        kernel = jax.jit(kernel_generator(step_size, inverse_mass_matrix))
 
-        # Iterate
-        for chain in range(0, chains):
-            unconstrained_draws[chain, 0] = states[chain].position
-            for draw in range(1, num_draws):
-                key, subkey = jax.random.split(key)
-                states[chain], info = kernels[chain](key, states[chain])
-                unconstrained_draws[chain, draw] = states[chain].position
+        positions = jax.numpy.array(chains * [state.position])
+        states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)
+
+        # Sample chains
+        def one_step(chain_states, rng_key):
+            keys = jax.random.split(rng_key, chains)
+            new_chain_states, _ = jax.vmap(kernel)(keys, chain_states)
+            return new_chain_states, new_chain_states
+
+        keys = jax.random.split(key, num_draws)
+        _, states = jax.lax.scan(one_step, states, keys)
+
+        unconstrained_draws = numpy.swapaxes(states.position, 0, 1)
 
         return fit.SampleFit(self, unconstrained_draws)
