@@ -1,3 +1,4 @@
+arviz
 blackjax
 jax
 jaxlib
