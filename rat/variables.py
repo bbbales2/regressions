@@ -108,7 +108,10 @@ class Index:
 
     def log_summary(self, log_level=logging.INFO):
         for index_num in range(len(self.indexed_sets)):
-            logging.log(log_level, f"Subscript {index_num} - defined as union of the following columns({','.join(self.indexed_sets[index_num])}), with column name '{self.df.columns[index_num]}'")
+            logging.log(
+                log_level,
+                f"Subscript {index_num} - defined as union of the following columns({','.join(self.indexed_sets[index_num])}), with column name '{self.df.columns[index_num]}'",
+            )
 
     def check_and_return_index(self, index_key: Tuple[str]) -> Tuple[str]:
         """
@@ -127,6 +130,7 @@ class Index:
                     return_list.append(self.df.columns[n])
 
         return tuple(return_list)
+
 
 @dataclass
 class Data:

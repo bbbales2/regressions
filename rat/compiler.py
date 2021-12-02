@@ -285,7 +285,6 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         logging.info("-----")
     logging.debug("done printing variable_indexes")
 
-
     """Now transpose the dependency graph(lhs -> rhs, or lhs | rhs). For a normal DAD, it's as simple as reversing the
      evaluation order. Unfortunately, since assignments always stay true as (lhs | rhs), we have to rebuild the DAG. :(
      Because we're trying to evaluate lhs given rhs, this is the canonical dependency graph representation for DAGs"""
@@ -322,7 +321,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 lhs_df = data_df
             else:
                 if lhs.index is not None:
-                    lhs_df = variable_indexes[lhs.get_key()].df#parameter_base_df[lhs.get_key()]
+                    lhs_df = variable_indexes[lhs.get_key()].df  # parameter_base_df[lhs.get_key()]
 
             if isinstance(line, ops.Distr):
                 if isinstance(lhs, ops.Data):
@@ -389,7 +388,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
                     index_use_identifier = (op.index.get_key(), op.index.shifts)
 
-                    df_index = op.index.get_key() if isinstance(lhs, ops.Data) else lhs.variable.index.check_and_return_index(op.index.get_key())
+                    df_index = (
+                        op.index.get_key() if isinstance(lhs, ops.Data) else lhs.variable.index.check_and_return_index(op.index.get_key())
+                    )
 
                     # Only need to define this particular index use once per line (multiple uses will share)
                     if index_use_identifier not in index_use_vars:
