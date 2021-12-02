@@ -4,7 +4,7 @@ import pandas
 import jax
 import jax.numpy
 import jax.scipy.stats
-from typing import Iterable, List, Dict, Set
+from typing import Iterable, List, Dict, Set, Tuple
 
 from . import ops
 from . import variables
@@ -158,7 +158,7 @@ def topological_sort(graph):
 
 
 def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
-
+    logging.info(f"rat compiler - starting code generation for {len(parsed_lines)} line(s) of code.")
     dependency_graph: Dict[str, Set[str]] = {}
     """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
     If we think of it as rhs | lhs, the dependency graph is an *acyclic* graph that has directed edges going 
@@ -179,6 +179,9 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
     # this is the dataframe that goes into variables.Index. Each row is a unique combination of indexes
     parameter_base_df: Dict[str, pandas.DataFrame] = {}
+
+    # this is the dictionary that keeps track of what columns the parameter subscripts were defined as
+    parameter_index_columns: Dict[str, List[Set[str]]] = {}
 
     # this set keep track of variable names that are not parameters, i.e. assigned by assignment
     assigned_parameter_keys: Set[str] = set()
@@ -248,32 +251,40 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                         parameter_base_df[subexpr_key] = (
                             pandas.concat([parameter_base_df[subexpr_key], v_df]).drop_duplicates().reset_index(drop=True)
                         )
+                        for n, key in enumerate(subexpr.index.get_key()):
+                            parameter_index_columns[subexpr_key][n].add(key)
                     else:
+                        # initialize the index column list length to be the index count
+                        parameter_index_columns[subexpr_key] = [set() for _ in range(len(subexpr.index.get_key()))]
+                        for n, key in enumerate(subexpr.index.get_key()):
+                            parameter_index_columns[subexpr_key][n].add(key)
                         parameter_base_df[subexpr_key] = v_df.drop_duplicates().reset_index(drop=True)
 
-            break
-        else:
-            # Ignore variables in the input dataframe
-            if target_op_name not in data_df.columns:
-                raise Exception(
-                    f"Could not find a definition for {target_op_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)"
-                )
-
+        # else:
+        #     # Ignore variables in the input dataframe
+        #     if target_op_name not in data_df.columns:
+        #         raise Exception(
+        #             f"Could not find a definition for {target_op_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)"
+        #         )
         if target_op_name in parameter_base_df:
             parameter_base_df[target_op_name].columns = tuple(target_op_index_key)
-            variable_indexes[target_op_name] = variables.Index(parameter_base_df[target_op_name])
 
-    logging.debug("first pas finished")
+    logging.debug("first pass finished")
+    logging.debug("now printing parameter_base_df")
+    for key, val in parameter_base_df.items():
+        logging.debug(key)
+        logging.debug(val)
+        variable_indexes[key] = variables.Index(parameter_base_df[key], parameter_index_columns[key])
+    logging.debug("done printing parameter_base_df")
     logging.debug("now printing variable_indexes")
     for key, val in variable_indexes.items():
         logging.debug(key)
         logging.debug(val.base_df)
+        logging.info(f"Subscript data for parameter {key}:")
+        val.log_summary(logging.INFO)
+        logging.info("-----")
     logging.debug("done printing variable_indexes")
-    logging.debug("now printing parameter_Base_df")
-    for key, val in parameter_base_df.items():
-        logging.debug(key)
-        logging.debug(val.dtypes)
-    logging.debug("done printing parameter_base_df")
+
 
     """Now transpose the dependency graph(lhs -> rhs, or lhs | rhs). For a normal DAD, it's as simple as reversing the
      evaluation order. Unfortunately, since assignments always stay true as (lhs | rhs), we have to rebuild the DAG. :(
@@ -311,7 +322,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 lhs_df = data_df
             else:
                 if lhs.index is not None:
-                    lhs_df = parameter_base_df[lhs.get_key()]
+                    lhs_df = variable_indexes[lhs.get_key()].df#parameter_base_df[lhs.get_key()]
 
             if isinstance(line, ops.Distr):
                 if isinstance(lhs, ops.Data):
@@ -378,10 +389,12 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
                     index_use_identifier = (op.index.get_key(), op.index.shifts)
 
+                    df_index = op.index.get_key() if isinstance(lhs, ops.Data) else lhs.variable.index.check_and_return_index(op.index.get_key())
+
                     # Only need to define this particular index use once per line (multiple uses will share)
                     if index_use_identifier not in index_use_vars:
                         index_use = variables.IndexUse(
-                            op.index.get_key(), lhs_df.loc[:, op.index.get_key()], variable_indexes[op_key], op.index.shifts
+                            op.index.get_key(), lhs_df.loc[:, df_index], variable_indexes[op_key], op.index.shifts
                         )
 
                         index_use_vars[index_use_identifier] = index_use

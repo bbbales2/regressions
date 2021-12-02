@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 import jax.numpy as jnp
 import pandas
-from typing import List, Dict, Tuple, Union
+import logging
+from typing import List, Dict, Tuple, Union, Set
 
 
 class Index:
@@ -15,12 +16,20 @@ class Index:
     # Maintain a list of all the shifts used to access a variable
     shifts_list: List[Tuple[Union[str, None]]]
 
-    def __init__(self, unprocessed_df: pandas.DataFrame):
+    indexed_sets: List[Set]
+    # Maintain a tuple of the ways the variable is indexed on rhs
+    # each sub-tuple are column names for each index number
+    # example: skills[column_1, year], skills[column_2, year] results to:
+    # (("column_1", "column_2"), ("year",))
+
+    def __init__(self, unprocessed_df: pandas.DataFrame, indexed_sets):
         # Rows of unprocessed_df are considered to be indexes into
         # another variable.
         #
         # Every column of unprocessed_df is considered a different
         # dimension.
+        #
+        # indexed_sets are a tuple denoting the indexes in which the variable is subscripted on rhs.
         columns = unprocessed_df.columns
 
         base_df = unprocessed_df.drop_duplicates().sort_values(list(columns)).reset_index(drop=True)
@@ -31,6 +40,8 @@ class Index:
         self.base_df = base_df
         self.df = self.base_df
         self.shifts_list = []
+
+        self.indexed_sets = indexed_sets
 
         self.rebuild_df()
 
@@ -95,6 +106,27 @@ class Index:
             "__index"
         ].to_numpy(dtype=int)
 
+    def log_summary(self, log_level=logging.INFO):
+        for index_num in range(len(self.indexed_sets)):
+            logging.log(log_level, f"Subscript {index_num} - defined as union of the following columns({','.join(self.indexed_sets[index_num])}), with column name '{self.df.columns[index_num]}'")
+
+    def check_and_return_index(self, index_key: Tuple[str]) -> Tuple[str]:
+        """
+        This function checks a given index key is valid in case the Index has different aliases.
+        For example, if we have a parameter 'score' that was subscripted as 'score[home_team, year]' and
+        'score[away_team, year]', but was used as 'score[tem, year]', it gets hard to manage what the column names
+        should be. This function tries to resolve them by first checking that index_key is valid, i.e. was declared,
+        and returns the default singular column names.
+        :param index_key: A tuple of strings, which is retrieved by `ops.Index.get_key`
+        :return: A tuple of strings, which is composed of the columns names of self.df
+        """
+        return_list = []
+        for n, subscript_set in enumerate(self.indexed_sets):
+            for index in index_key:
+                if index in subscript_set or self.df.columns[n] == index:
+                    return_list.append(self.df.columns[n])
+
+        return tuple(return_list)
 
 @dataclass
 class Data:
