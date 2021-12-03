@@ -475,6 +475,7 @@ class DivAssignment(Expr):
     def __str__(self):
         return f"DivAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+
 @dataclass(frozen=True)
 class Log(Expr):
     subexpr: Expr
@@ -487,6 +488,7 @@ class Log(Expr):
 
     def __str__(self):
         return f"Log({self.subexpr.__str__()})"
+
 
 @dataclass(frozen=True)
 class Exp(Expr):
@@ -599,6 +601,7 @@ class Tan(Expr):
     def __str__(self):
         return f"Tan({self.subexpr.__str__()})"
 
+
 @dataclass(frozen=True)
 class Arcsin(Expr):
     subexpr: Expr
@@ -639,6 +642,7 @@ class Arctan(Expr):
 
     def __str__(self):
         return f"Arctan({self.subexpr.__str__()})"
+
 
 @dataclass
 class Placeholder(Expr):
