@@ -6,7 +6,7 @@ from rat.ops import *
 
 def test_parser_multiple():
     input_str = """
-    score_diff ~ normals(skills[home_team, year]-skills[away_team, year],sigma);
+    score_diff ~ normal(skills[home_team, year]-skills[away_team, year],sigma);
     skills[team, year] ~ normal(skills_mu[year], tau);
     tau<lower=0.0 + 5.0> ~ normal(0.0, 1.0);
     sigma<lower=0.0> ~ normal(0.0, 10.0);
