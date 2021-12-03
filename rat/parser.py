@@ -208,6 +208,20 @@ class Distributions:
             return Cauchy(lhs, expressions[0], expressions[1])
 
 
+class CompilationError(Exception):
+    def __init__(self, message, code_string="", column_num=None):
+        if code_string:
+            code_string += "\n"
+            if column_num:
+                column_indicator_string = " " * column_num +"^\n\n"
+            else:
+                column_indicator_string = "\n"
+        else:
+            column_indicator_string = ""
+        exception_message = f"An error occured{' during processing the following line' if code_string else ''}:\n{code_string}{column_indicator_string}{message}"
+        super().__init__(exception_message)
+
+
 class Parser:
     """
     The parser for rat is a modified top-down, leftmost derivative LL parser.
@@ -215,15 +229,17 @@ class Parser:
     the column names of the data.
     """
 
-    def __init__(self, tokens: List[Type[Token]], data_names: List[str]):
+    def __init__(self, tokens: List[Type[Token]], data_names: List[str], code_string: str = ""):
         """
         Initialize the parser
         :param tokens: A list of `scanner.Token`. This should be the output format of `scanner.scanner`
         :param data_names: A list of data column names
+        :param code_string: Optional. The original code string. If supplied, used to generate detailed errors.
         """
         self.out_tree = []
         self.tokens = tokens
         self.data_names = data_names
+        self.code_string = code_string
 
     def peek(self, k=0) -> Type[Token]:
         """
@@ -269,9 +285,7 @@ class Parser:
                     self.remove()
                 return True
 
-        raise Exception(
-            f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!"
-        )
+        raise CompilationError(f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!", self.code_string, next_token.column_index)
 
     def expressions(self, entry_token_value, allow_shift=False) -> Tuple[List[Expr], Tuple[int]]:
         """
@@ -323,7 +337,7 @@ class Parser:
                     continue
             elif isinstance(token, Identifier) and token.value == "shift":
                 if not allow_shift:
-                    raise Exception("shift() has been used in a position that is not allowed.")
+                    raise CompilationError("shift() has been used in a position that is not allowed.", self.code_string, token.column_index)
                 # parse lag(index, integer)
                 self.remove()  # identifier "lag"
                 self.expect_token(Special, "(")
@@ -331,7 +345,7 @@ class Parser:
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise Exception("index specified with shift() must be in data columns.")
+                    raise CompilationError("Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index)
                 expression = Data(subscript_name.value)
                 self.remove()  # index name
                 self.expect_token(Special, ",")
@@ -407,7 +421,7 @@ class Parser:
                             if self.peek(idx).value == ">":
                                 if n_openbrackets == 0:
                                     # switch from Operator to Special
-                                    self.tokens[idx] = Special(">")
+                                    self.tokens[idx] = Special(">", self.peek(idx).column_index)
                                     break
                                 else:
                                     n_openbrackets -= 1
@@ -437,7 +451,7 @@ class Parser:
                                 self.remove()  # >
                                 break
                             else:
-                                raise Exception(f"Found unknown token with value {lookahead_1.value} when evaluating constraints")
+                                raise CompilationError(f"Found unknown token with value {lookahead_1.value} when evaluating constraints", self.code_string, lookahead_1.column_index)
 
                         # the for loop takes of the portion "<lower= ... >
                         # this means the constraint part of been processed and
@@ -491,7 +505,7 @@ class Parser:
         """
         token = self.peek()
         if Distributions.check(token):
-            raise Exception("Cannot assign to a distribution.")
+            raise CompilationError("Cannot assign to a distribution.", self.code_string, token.column_index)
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.expression()
@@ -519,6 +533,6 @@ class Parser:
                 return Distributions.generate(distribution, lhs, expressions)
 
             else:
-                raise Exception("Statement finished without assignment")
+                raise CompilationError("Statement finished without assignment", self.code_string)
 
         return Expr()
