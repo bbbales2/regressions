@@ -213,7 +213,7 @@ class CompilationError(Exception):
         if code_string:
             code_string += "\n"
             if column_num:
-                column_indicator_string = " " * column_num +"^\n\n"
+                column_indicator_string = " " * column_num + "^\n\n"
             else:
                 column_indicator_string = "\n"
         else:
@@ -285,7 +285,11 @@ class Parser:
                     self.remove()
                 return True
 
-        raise CompilationError(f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!", self.code_string, next_token.column_index)
+        raise CompilationError(
+            f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!",
+            self.code_string,
+            next_token.column_index,
+        )
 
     def expressions(self, entry_token_value, allow_shift=False) -> Tuple[List[Expr], Tuple[int]]:
         """
@@ -345,7 +349,9 @@ class Parser:
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise CompilationError("Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index)
+                    raise CompilationError(
+                        "Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index
+                    )
                 expression = Data(subscript_name.value)
                 self.remove()  # index name
                 self.expect_token(Special, ",")
@@ -451,7 +457,11 @@ class Parser:
                                 self.remove()  # >
                                 break
                             else:
-                                raise CompilationError(f"Found unknown token with value {lookahead_1.value} when evaluating constraints", self.code_string, lookahead_1.column_index)
+                                raise CompilationError(
+                                    f"Found unknown token with value {lookahead_1.value} when evaluating constraints",
+                                    self.code_string,
+                                    lookahead_1.column_index,
+                                )
 
                         # the for loop takes of the portion "<lower= ... >
                         # this means the constraint part of been processed and
