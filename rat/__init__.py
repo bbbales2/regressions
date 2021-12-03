@@ -1,3 +1,142 @@
+r"""
+If you want to see a list of supported math functions/distributions, skip to [here](#language-function-reference)
+
+---
+
+## Subscripts
+
+Subscripts are the core feature that enables concise expressions. They can be seen as extensions of groups/factors in `lme4` syntax.
+
+Say we have the following data dataframe:
+```
+    game_id  home_score  away_score home_team away_team  score_diff  year
+0         1         117          88       CLE       NYK        29.0  2016
+1         2         113         104       POR       UTA         9.0  2016
+2         3         100         129       GSW       SAS       -29.0  2016
+3         4          96         108       ORL       MIA       -12.0  2016
+4         5         130         121       IND       DAL         9.0  2016
+5         6         122         117       BOS       BKN         5.0  2016
+6         7         109          91       TOR       DET        18.0  2016
+7         8          96         107       MIL       CHA       -11.0  2016
+8         9         102          98       MEM       MIN         4.0  2016
+9        10         102         107       NOP       DEN        -5.0  2016
+10       11          97         103       PHI       CLE        -6.0  2016
+```
+and we're trying to estimate some hidden skill parameter for each team. We can write the following model:
+```
+score_diff ~ normal(skills[home_team, year] - skills[away_team, year], sigma);
+skills[team, year] ~ normal(skills_mu[year], tau);
+skills_mu[year] ~ normal(0.0, 1.0);
+tau<lower=0.0> ~ normal(0.0, 1.0);
+sigma<lower=0.0> ~ normal(0.0, 10.0);
+```
+The simple way to think about how rat works is that it works on a row-by-row basis. Let's take a look at the first line:
+```
+score_diff ~ normal(skills[home_team, year] - skills[away_team, year],sigma);
+```
+This line of rat code states `score_diff` which is observed data follows a normal distribution with its mean defined as the difference between the home team and away team's `skills` parameter. Through `skills`'s subscript syntax using brackets(they are not your standard indexing syntax), rat identifies that each unique team-year combination from the data dataframe would have its own `skills` parameter.
+In general, subscripts are resolved and generated when found on the **right-hand-side of a statement that has a left-hand-side with resolved subscripts**. However since rat topologically sorts before evaluation accordingly, the user just has to make sure parameters that they have declared/assigned with subscripts must be resolvable by checking they are present as right-hand-side.
+
+However, take a look at the second line:
+```
+skills[team, year] ~ normal(skills_mu[year], tau);
+```
+Now parameter `skills` is on the left-hand-side of a statement with some new subscript `team` which isn't present on the dataframe. However, we know from the first line that skills was subscripted with `[home_team, year]` and `away_team, year`. And thus, we can infer that this new new subscript `team` would be an alias for $home\\_team \bigcup away\\_team$. And right-hand-side evaluation works the same as the first line; `skills_mu`'s `year` subscript would be referenced from `skills`'s.
+
+## Assignments
+Rat supports variable transformations by assigning values of expressions to variables we internally call `assigned_param`. `assigned_param` are not subject to inference but their definition expressions are evaluated at each inference iteration. They are functionally equivalent to Stan's `transformed parameters`. Let's use another example to demonstrate. We'll be implementing the non-centered version of the [eightschools model](https://github.com/stan-dev/posteriordb/blob/master/posterior_database/models/stan/eight_schools_noncentered.stan).
+
+Again we provide the data dataframe:
+```
+    y  sigma  school
+0  28     15       1
+1   8     10       2
+2  -3     16       3
+3   7     11       4
+4  -1      9       5
+5   1     11       6
+6  18     10       7
+7  12     18       8
+```
+
+The rat code for the eightschools model is the following:
+```
+y ~ normal(theta[school], sigma[school]);
+theta[school] = mu + z[school] * tau;
+z[school] ~ normal(0, 1);
+mu ~ normal(0, 5);
+tau<lower = 0.0> ~ lognormal(0, 1);
+```
+
+The only new line of code is line 2, which uses assignment to declare `theta` with subscript `school`. However the subscript resolving scenario is exactly the same as the previous example: `school` is resolved at line 1 from the dataframe. `z`, the unit normal parameter's subscript `school` is resolved from `theta[school]`.
+
+---
+
+## Internals - `rat.variables`, `rat.ops`, `rat.variables.Index`, and `rat.variables.IndexUse`
+(This portion is for people who want to dig into rat's source)
+
+If you look closely at rat's source, you might notice something weird: There's a `rat.ops.Param` class and a `rat.variables.Param`. This also goes for `rat.ops.Data`, `rat.ops.Index`. `rat.ops` is designated as elements for the nodes of the parse tree that's generated by the parser. Since rat uses the parse tree to transpile to Python, we need to inject additional information regarding subscripts to the parse tree. This is where `rat.variables` comes into play: they are used to hold information regarding subscripts for a given parameter. I'll use the [skill model](#subscripts) example to explain:
+
+The parser converts the skill model above into the following parse tree representations:
+```
+ops.Normal(
+    ops.Data("score_diff"),
+    ops.Diff(
+        ops.Param("skills", ops.Index(("home_team", "year"))),
+        ops.Param("skills", ops.Index(("away_team", "year"))),
+    ),
+    ops.Param("sigma"),
+),
+ops.Normal(
+    ops.Param("skills", ops.Index(("team", "year"))),
+    ops.Param("skills_mu", ops.Index(("year",))),
+    ops.Param("tau"),
+),
+ops.Normal(
+    ops.Param("skills_mu", ops.Index(("year",))),
+    ops.RealConstant(0.0),
+    ops.RealConstant(1.0),
+),
+ops.Normal(
+    ops.Param("tau", lower=ops.RealConstant(0.0)),
+    ops.RealConstant(0.0),
+    ops.RealConstant(1.0),
+),
+ops.Normal(
+    ops.Param("sigma", lower=ops.RealConstant(0.0)),
+    ops.RealConstant(0.0),
+    ops.RealConstant(1.0),
+)
+```
+
+For each parameter we create a `rat.variables.Index` object which in essence hold the factors of the subscript. Recall `skills[team, year]` was in fact `skills[union(home_team, away_team), year]`. So we need a parameter for each team-year combination. `rat.variables.Index` internally stores a dataframe with columns `team` and `year`, which hold these unique combinations as reference subscripts.
+
+But we might want to just subscript `home_team` from `team`. That is, we might only want a portion of the subscript. `rat.variables.IndexUse` is the object that maps a variable's subscripts to another variable's reference subscript(its `rat.variables.Index` object). If we just wanted to index `home_team` from `team`, it will compare the `home_team` dataframe with `team`'s reference dataframe, and only select the combinations that are necessary.
+
+---
+
+## Language function reference
+Below are individual links to supported math functions and distributions
+
+- **Distributions**
+    - `rat.ops.Normal`
+    - `rat.ops.BernoulliLogit`, `rat.compiler.bernoulli_logit`
+    - `rat.ops.LogNormal`, `rat.compiler.log_normal`
+- **Functions**
+    - `rat.ops.Log`
+    - `rat.ops.Exp`
+    - `rat.ops.Abs`
+    - `rat.ops.Floor`
+    - `rat.ops.Ceil`
+    - `rat.ops.Round`
+    - `rat.ops.Sin`
+    - `rat.ops.Cos`
+    - `rat.ops.Tan`
+    - `rat.ops.Arcsin`
+    - `rat.ops.Arccos`
+    - `rat.ops.Arctan`
+"""
+
 from . import compiler
 from . import constraints
 from . import fit

@@ -475,6 +475,18 @@ class DivAssignment(Expr):
     def __str__(self):
         return f"DivAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
+@dataclass(frozen=True)
+class Log(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.log({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Log({self.subexpr.__str__()})"
 
 @dataclass(frozen=True)
 class Exp(Expr):
@@ -545,6 +557,88 @@ class Round(Expr):
     def __str__(self):
         return f"Round({self.subexpr.__str__()})"
 
+
+@dataclass(frozen=True)
+class Sin(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.sin({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Sin({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Cos(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.cos({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Cos({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Tan(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.tan({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Tan({self.subexpr.__str__()})"
+
+@dataclass(frozen=True)
+class Arcsin(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.arcsin({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Arcsin({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Arccos(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.arccos({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Arccos({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Arctan(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.arctan({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Arctan({self.subexpr.__str__()})"
 
 @dataclass
 class Placeholder(Expr):
