@@ -119,23 +119,25 @@ But we might want to just subscript `home_team` from `team`. That is, we might o
 Below are individual links to supported math functions and distributions
 
 - **Distributions**
-    - `rat.ops.Normal`
-    - `rat.ops.BernoulliLogit`, `rat.compiler.bernoulli_logit`
-    - `rat.ops.LogNormal`, `rat.compiler.log_normal`
-    - `rat.ops.Cauchy`
+    - `rat.ops.Normal` : `normal(mu, sigma)`
+    - `rat.ops.BernoulliLogit`, `rat.compiler.bernoulli_logit` : `bernoulli_logit(p)`
+    - `rat.ops.LogNormal`, `rat.compiler.log_normal`  : `log_normal(mu, sigma)`
+    - `rat.ops.Cauchy`  : `cauchy(location, scale)`
 - **Functions**
-    - `rat.ops.Log`
-    - `rat.ops.Exp`
-    - `rat.ops.Abs`
-    - `rat.ops.Floor`
-    - `rat.ops.Ceil`
-    - `rat.ops.Round`
-    - `rat.ops.Sin`
-    - `rat.ops.Cos`
-    - `rat.ops.Tan`
-    - `rat.ops.Arcsin`
-    - `rat.ops.Arccos`
-    - `rat.ops.Arctan`
+    - `rat.ops.Log`: `log(x)`
+    - `rat.ops.Exp` : `exp(x)`
+    - `rat.ops.Abs` : `abs(x)`
+    - `rat.ops.Floor` : `floor(x)`
+    - `rat.ops.Ceil` : `ceil(x)`
+    - `rat.ops.Round` : `round(x)`
+    - `rat.ops.Sin` : `sin(x)`
+    - `rat.ops.Cos` : `cos(x)`
+    - `rat.ops.Tan` : `tan(x)`
+    - `rat.ops.Arcsin` : `arcsin(x)`
+    - `rat.ops.Arccos` : `arccos(x)`
+    - `rat.ops.Arctan` : `arctan(x)`
+    - `rat.ops.Logit` : `logit(x)`
+    - `rat.ops.InverseLogit` : `inverse_logit(x)`
 """
 
 from . import compiler

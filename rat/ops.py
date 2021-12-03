@@ -659,6 +659,34 @@ class Arctan(Expr):
         return f"Arctan({self.subexpr.__str__()})"
 
 
+@dataclass(frozen=True)
+class Logit(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.scipy.special.logit({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Logit({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class InverseLogit(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.scipy.special.expit({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"InverseLogit({self.subexpr.__str__()})"
+
+
 @dataclass
 class Placeholder(Expr):
     name: str

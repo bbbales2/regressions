@@ -131,11 +131,11 @@ class AssignmentOps:
 class UnaryFunctions:
     """
     A utility class that's used to identify and build unary functions.
-    Currently supported are:
-    `ops.Exp`, `ops.Abs`, `ops.Floor`, `ops.Ceil`, `ops.Round`
     """
 
-    names = ["exp", "abs", "floor", "ceil", "round"]
+    names = ["exp", "log", "abs", "floor", "ceil", "round",
+             "sin", "cos", "tan", "arcsin", "arccos", "arctan",
+             "logit", "inverse_logit"]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -147,6 +147,8 @@ class UnaryFunctions:
     def generate(subexpr: Expr, func_type: Identifier):
         if func_type.value == "exp":
             return Exp(subexpr)
+        elif func_type.value == "log":
+            return Log(subexpr)
         elif func_type.value == "abs":
             return Abs(subexpr)
         elif func_type.value == "floor":
@@ -155,6 +157,22 @@ class UnaryFunctions:
             return Ceil(subexpr)
         elif func_type.value == "round":
             return Round(subexpr)
+        elif func_type.value == "sin":
+            return Sin(subexpr)
+        elif func_type.value == "cos":
+            return Cos(subexpr)
+        elif func_type.value == "tan":
+            return Tan(subexpr)
+        elif func_type.value == "arcsin":
+            return Arcsin(subexpr)
+        elif func_type.value == "arccos":
+            return Arccos(subexpr)
+        elif func_type.value == "arctan":
+            return Arctan(subexpr)
+        elif func_type.value == "logit":
+            return Logit(subexpr)
+        elif func_type.value == "inverse_logit":
+            return InverseLogit(subexpr)
 
 
 class Distributions:
