@@ -208,7 +208,7 @@ class Distributions:
             return Cauchy(lhs, expressions[0], expressions[1])
 
 
-class CompilationError(Exception):
+class ParseError(Exception):
     def __init__(self, message, code_string="", column_num=None):
         if code_string:
             code_string += "\n"
@@ -285,8 +285,8 @@ class Parser:
                     self.remove()
                 return True
 
-        raise CompilationError(
-            f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!",
+        raise ParseError(
+            f"Expected token type(s) {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!",
             self.code_string,
             next_token.column_index,
         )
@@ -341,7 +341,7 @@ class Parser:
                     continue
             elif isinstance(token, Identifier) and token.value == "shift":
                 if not allow_shift:
-                    raise CompilationError("shift() has been used in a position that is not allowed.", self.code_string, token.column_index)
+                    raise ParseError("shift() has been used in a position that is not allowed.", self.code_string, token.column_index)
                 # parse lag(index, integer)
                 self.remove()  # identifier "lag"
                 self.expect_token(Special, "(")
@@ -349,7 +349,7 @@ class Parser:
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise CompilationError(
+                    raise ParseError(
                         "Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index
                     )
                 expression = Data(subscript_name.value)
@@ -457,7 +457,7 @@ class Parser:
                                 self.remove()  # >
                                 break
                             else:
-                                raise CompilationError(
+                                raise ParseError(
                                     f"Found unknown token with value {lookahead_1.value} when evaluating constraints",
                                     self.code_string,
                                     lookahead_1.column_index,
@@ -515,7 +515,7 @@ class Parser:
         """
         token = self.peek()
         if Distributions.check(token):
-            raise CompilationError("Cannot assign to a distribution.", self.code_string, token.column_index)
+            raise ParseError("Cannot assign to a distribution.", self.code_string, token.column_index)
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.expression()
@@ -543,6 +543,6 @@ class Parser:
                 return Distributions.generate(distribution, lhs, expressions)
 
             else:
-                raise CompilationError("Statement finished without assignment", self.code_string)
+                raise ParseError("Statement finished without assignment", self.code_string)
 
         return Expr()
