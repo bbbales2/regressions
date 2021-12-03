@@ -349,9 +349,7 @@ class Parser:
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise ParseError(
-                        "Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index
-                    )
+                    raise ParseError("Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index)
                 expression = Data(subscript_name.value)
                 self.remove()  # index name
                 self.expect_token(Special, ",")
