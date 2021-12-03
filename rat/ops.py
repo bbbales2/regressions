@@ -164,6 +164,21 @@ class LogNormal(Distr):
 
 
 @dataclass(frozen=True)
+class Cauchy(Distr):
+    variate: Expr
+    location: Expr
+    scale: Expr
+
+    def __iter__(self):
+        return iter([self.variate, self.location, self.scale])
+    def code(self):
+        return f"jax.scipy.stats.cauchy.logpdf({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
+
+    def __str__(self):
+        return f"Cauchy({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
+
+
+@dataclass(frozen=True)
 class Diff(Expr):
     lhs: Expr
     rhs: Expr

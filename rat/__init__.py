@@ -122,6 +122,7 @@ Below are individual links to supported math functions and distributions
     - `rat.ops.Normal`
     - `rat.ops.BernoulliLogit`, `rat.compiler.bernoulli_logit`
     - `rat.ops.LogNormal`, `rat.compiler.log_normal`
+    - `rat.ops.Cauchy`
 - **Functions**
     - `rat.ops.Log`
     - `rat.ops.Exp`
