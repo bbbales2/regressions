@@ -133,9 +133,7 @@ class UnaryFunctions:
     A utility class that's used to identify and build unary functions.
     """
 
-    names = ["exp", "log", "abs", "floor", "ceil", "round",
-             "sin", "cos", "tan", "arcsin", "arccos", "arctan",
-             "logit", "inverse_logit"]
+    names = ["exp", "log", "abs", "floor", "ceil", "round", "sin", "cos", "tan", "arcsin", "arccos", "arctan", "logit", "inverse_logit"]
 
     @staticmethod
     def check(tok: Type[Token]):
