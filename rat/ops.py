@@ -171,6 +171,7 @@ class Cauchy(Distr):
 
     def __iter__(self):
         return iter([self.variate, self.location, self.scale])
+
     def code(self):
         return f"jax.scipy.stats.cauchy.logpdf({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
 

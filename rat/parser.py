@@ -205,7 +205,7 @@ class Distributions:
                 raise Exception(f"log_normal distribution needs 2 parameters, but got {len(expressions)}!")
             return LogNormal(lhs, expressions[0], expressions[1])
         elif dist_type.value == "cauchy":
-            if(len(expressions) != 2):
+            if len(expressions) != 2:
                 raise Exception(f"cauchy distribution needs 2 parameters, but got {len(expressions)}!")
             return Cauchy(lhs, expressions[0], expressions[1])
 
