@@ -258,7 +258,7 @@ class Parser:
             expressions.append(expression)
             shift_amounts.append(shift_amount)
 
-        return expressions, shift_amounts
+        return expressions, tuple(shift_amounts)
 
     def expression(self, allow_subscripts=False):
         token = self.peek()

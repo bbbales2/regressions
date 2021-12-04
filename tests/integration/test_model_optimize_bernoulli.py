@@ -14,7 +14,7 @@ def test_optimize_bernoulli():
 
     model_string = """
     y ~ bernoulli_logit(mu[group]);
-    mu ~ normal(-0.5, 0.3);
+    mu[group] ~ normal(-0.5, 0.3);
     """
 
     model = Model(data_df, model_string=model_string)
@@ -26,4 +26,5 @@ def test_optimize_bernoulli():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    logging.getLogger().setLevel(logging.DEBUG)
+    pytest.main([__file__, "-s", "-o", "log_cli=true"])

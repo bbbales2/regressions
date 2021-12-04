@@ -5,6 +5,7 @@ import jax
 import jax.scipy
 import jax.scipy.optimize
 import jax.numpy
+import logging
 import numpy
 import pandas
 import scipy.optimize
@@ -52,6 +53,7 @@ class Model:
         (
             data_variables,
             parameter_variables,
+            assigned_parameter_variables,
             index_variables,
             line_functions,
         ) = compiler.compile(data_df, parsed_lines)
@@ -79,9 +81,31 @@ class Model:
             else:
                 unconstrained_parameter_size += 1
 
+        # identify which values are needed for each assigned_param
+        assigned_param_dependencies = {}
+        for name, param in assigned_parameter_variables.items():
+            dependant_data = set()
+            dependant_param = set()
+            dependant_assigned_param = set()
+            for expr in ops.search_tree(param.rhs, ops.Data, ops.Param):
+                if isinstance(expr, ops.Data):
+                    dependant_data.add(expr.get_key())
+                elif isinstance(expr, ops.Param):
+                    if expr.get_key() in assigned_parameter_variables:
+                        dependant_assigned_param.add(expr.get_key())
+                    else:
+                        dependant_param.add(expr.get_key())
+
+            assigned_param_dependencies[name] = {
+                "param": tuple(dependant_param),
+                "data": tuple(dependant_data),
+                "assigned_param": tuple(dependant_assigned_param),
+            }
+
         # This is the likelihood function we'll expose!
         def lpdf(include_jacobian, unconstrained_parameter_vector):
             parameter_numpy_variables = {}
+            assigned_parameter_numpy_variables = {}
             total = 0.0
             for name, offset, size in zip(
                 self.parameter_names,
@@ -115,7 +139,15 @@ class Model:
             for line_function in line_functions:
                 data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
                 parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
-                total += line_function(*data_arguments, *parameter_arguments)
+                assigned_parameter_arguments = [
+                    assigned_parameter_numpy_variables[name] for name in line_function.assigned_parameter_variables_names
+                ]
+                if isinstance(line_function, compiler.AssignLineFunction):
+                    assigned_parameter_numpy_variables[line_function.name] = line_function(
+                        *data_arguments, *parameter_arguments, *assigned_parameter_arguments
+                    )
+                else:
+                    total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
 
             return total
 
