@@ -10,6 +10,7 @@ from rat.model import Model
 
 test_dir = pathlib.Path(__file__).parent
 
+
 @pytest.fixture
 def eight_schools_model():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
@@ -36,6 +37,7 @@ def eight_schools_model():
 
     return Model(data_df, parsed_lines)  # model_string=model_string
 
+
 def test_optimize_eight_schools(eight_schools_model):
     fit = eight_schools_model.optimize(init=0.1)
     mu_df = fit.draws("mu")
@@ -56,8 +58,9 @@ def test_optimize_eight_schools(eight_schools_model):
     assert tau_df["value"][0] == pytest.approx(0.36975800, rel=1e-2)
     assert z_df["value"].to_list() == pytest.approx(ref_z, rel=1e-2, abs=1e-3)
 
+
 def test_sample_eight_schools(eight_schools_model):
-    fit = eight_schools_model.sample(init=0.1, num_draws = 1000, num_warmup = 1000)
+    fit = eight_schools_model.sample(init=0.1, num_draws=1000, num_warmup=1000)
 
     mu_ess_df = fit.ess("mu")
     tau_ess_df = fit.ess("tau")
@@ -70,14 +73,8 @@ def test_sample_eight_schools(eight_schools_model):
     mu_df = fit.draws("mu")
     tau_df = fit.draws("tau")
     z_df = fit.draws("z")
-    z_mean_df = (
-        z_df
-        .groupby("school")
-        .agg({ "value" : numpy.mean })
-        .reset_index()
-        .sort_values("school")
-    )
-    
+    z_mean_df = z_df.groupby("school").agg({"value": numpy.mean}).reset_index().sort_values("school")
+
     ref_z_mean = [
         0.137,
         0.033,
