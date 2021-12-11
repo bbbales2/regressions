@@ -27,10 +27,10 @@ def test_sample_normal_mu():
     fit = model.sample(num_draws=1000)
     mu_df = fit.draws("mu")
 
-    assert mu_df["value"][0] == pytest.approx(-1.11, rel=1e-2)
+    assert mu_df["value"].mean() == pytest.approx(-1.11, rel=1e-2)
 
 
-def adsftest_full():
+def test_full():
     data_df = (
         pandas.read_csv(os.path.join(test_dir, "games_small.csv"))
         .assign(score_diff=lambda df: (df.home_score - df.away_score).astype("float"))

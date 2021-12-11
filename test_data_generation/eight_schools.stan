@@ -10,9 +10,11 @@ parameters {
   vector[J] z;
 }
 
-model {
+transformed parameters {
   vector[J] theta = mu + tau * z;
+}
 
+model {
   mu ~ normal(0, 5);
   tau ~ lognormal(0, 1);
   z ~ normal(0, 1);

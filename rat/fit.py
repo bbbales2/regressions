@@ -64,7 +64,7 @@ class Fit:
                             df["chain"] = chain
                         if num_draws > 1:
                             df["draw"] = draw
-                        dfs.append(df)
+                        dfs.append(df.copy())
                 else:
                     series = draws[chain, :, offset]
                     df = pandas.DataFrame({"value": series})

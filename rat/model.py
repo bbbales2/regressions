@@ -172,7 +172,7 @@ class Model:
             for retry in range(retries):
                 params = 2 * init * numpy.random.uniform(size=self.size) - init
 
-                solution = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7)
+                solution = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-9)
 
                 if solution.success:
                     unconstrained_draws[chain, 0] = solution.x
