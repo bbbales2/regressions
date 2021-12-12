@@ -30,16 +30,16 @@ class Fit:
             if len(constrained_variable.shape) == 2:
                 size = 1
             else:
-                size = constrained_variable.shape[0]
-            num_draws = constrained_variable.shape[-2]
-            num_chains = constrained_variable.shape[-1]
+                size = constrained_variable.shape[-1]
+            num_draws = constrained_variable.shape[0]
+            num_chains = constrained_variable.shape[1]
 
             base_df = base_dfs[name]
 
             df = pandas.concat([base_df] * num_draws * num_chains, ignore_index=True)
             df["chain"] = numpy.repeat(numpy.arange(num_chains), size * num_draws)
             df["draw"] = numpy.tile(numpy.repeat(numpy.arange(num_draws), size), num_chains)
-            df["value"] = constrained_variable.flatten(order="F")
+            df["value"] = constrained_variable.flatten(order="C")
             draw_dfs[name] = df
 
         return draw_dfs
@@ -105,9 +105,9 @@ class SampleFit(Fit):
 
         self.diag_dfs = {}
         for name, constrained_variable in constrained_variables.items():
-            # Compute ess/rhat, must reshape from (param, draw, chain) to (chain, draw, param)
+            # Compute ess/rhat, must reshape from (draw, chain, param) to (chain, draw, param)
             if len(constrained_variable.shape) == 3:
-                arviz_constrained_variable = numpy.swapaxes(constrained_variable, 0, 2)
+                arviz_constrained_variable = numpy.swapaxes(constrained_variable, 0, 1)
             else:
                 arviz_constrained_variable = numpy.expand_dims(constrained_variable.transpose(), 2)
             x_draws = arviz.convert_to_dataset(arviz_constrained_variable)

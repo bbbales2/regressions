@@ -11,7 +11,7 @@ def scalar_base_dfs():
 
 @pytest.fixture
 def scalar_constrained_draws():
-    constrained_draws = {"x": numpy.array([10.1, 10.08, 10.05, 10.03]).reshape((1, 1, 4))}
+    constrained_draws = {"x": numpy.array([10.1, 10.08, 10.05, 10.03]).reshape((1, 4, 1))}
     return constrained_draws
 
 
@@ -23,7 +23,7 @@ def vector_base_dfs():
 
 @pytest.fixture
 def vector_constrained_draws():
-    constrained_draws = numpy.array([20.2, 20.17, 20.1, 20.13, 10.1, 10.08, 10.05, 10.03]).reshape((2, 1, 4))
+    constrained_draws = numpy.array([20.2, 10.1, 20.17, 10.08, 20.1, 10.05, 20.13, 10.03]).reshape((4, 1, 2))
     return {"x": constrained_draws}
 
 

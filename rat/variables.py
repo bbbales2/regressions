@@ -138,7 +138,7 @@ class Data:
     series: pandas.Series
 
     def to_numpy(self):
-        return jnp.array(self.series).reshape((len(self.series), 1))
+        return jnp.array(self.series)#.reshape((len(self.series), 1))
 
     def code(self):
         return f"data__{self.name}"
@@ -202,7 +202,7 @@ class IndexUse:
     def to_numpy(self):
         shifted_df = self.index.compute_shifted_df(self.df, self.shifts)
         indices = self.index.get_numpy_indices(shifted_df)
-        return jnp.array(indices, dtype=int).reshape((indices.shape[0], 1))
+        return jnp.array(indices, dtype=int)#.reshape((indices.shape[0], 1))
 
     def code(self):
         if all(shift is None for shift in self.shifts):
