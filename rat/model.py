@@ -23,7 +23,8 @@ from . import fit
 
 
 class Model:
-    lpdf: Callable[[numpy.array], float]
+    log_density_jax: Callable[[numpy.array], float]
+    log_density_jax_no_jac: Callable[[numpy.array], float]
     size: int
     parameter_variables: List[variables.Param]
     parameter_names: List[str]
@@ -63,6 +64,32 @@ class Model:
             constrained_variables[name] = parameter
 
         return total, constrained_variables
+
+
+    def evaluate_program(self, device_variables):
+        total = 0.0
+        for line_function in self.line_functions:
+            data_arguments = [device_variables[name] for name in line_function.data_variable_names]
+            parameter_arguments = [device_variables[name] for name in line_function.parameter_variable_names]
+            assigned_parameter_arguments = [
+                device_variables[name] for name in line_function.assigned_parameter_variables_names
+            ]
+            if isinstance(line_function, compiler.AssignLineFunction):
+                device_variables[line_function.name] = line_function(
+                    *data_arguments, *parameter_arguments, *assigned_parameter_arguments
+                )
+            else:
+                total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
+        
+        return total, device_variables
+
+
+    def log_density(self, include_jacobian, device_variables, unconstrained_parameter_vector):
+        jacobian_adjustment, constrained_variables = self.constrain(unconstrained_parameter_vector)
+        device_variables.update(constrained_variables)
+
+        target_program, device_variables = self.evaluate_program(device_variables)
+        return target_program + (jacobian_adjustment if include_jacobian else 0.0)
 
 
     def __init__(
@@ -118,32 +145,10 @@ class Model:
             else:
                 unconstrained_parameter_size += 1
 
-        # This is the likelihood function we'll expose!
-        def lpdf(include_jacobian, unconstrained_parameter_vector):
-            total = 0.0
-            jacobian_adjustment, constrained_variables = self.constrain(unconstrained_parameter_vector)
-            device_variables.update(constrained_variables)
-            if include_jacobian:
-                total = jacobian_adjustment
-
-            for line_function in line_functions:
-                data_arguments = [device_variables[name] for name in line_function.data_variable_names]
-                parameter_arguments = [device_variables[name] for name in line_function.parameter_variable_names]
-                assigned_parameter_arguments = [
-                    device_variables[name] for name in line_function.assigned_parameter_variables_names
-                ]
-                if isinstance(line_function, compiler.AssignLineFunction):
-                    device_variables[line_function.name] = line_function(
-                        *data_arguments, *parameter_arguments, *assigned_parameter_arguments
-                    )
-                else:
-                    total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
-
-            return total
-
+        self.line_functions = line_functions
         self.parameter_variables = parameter_variables
-        self.lpdf = jax.jit(functools.partial(lpdf, True))
-        self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
+        self.log_density_jax = jax.jit(functools.partial(self.log_density, True, device_variables))
+        self.log_density_jax_no_jac = jax.jit(functools.partial(self.log_density, False, device_variables))
         self.size = unconstrained_parameter_size
 
     def prepare_draws_and_dfs(self, unconstrained_draws):
@@ -159,10 +164,10 @@ class Model:
         return constrained_draws, base_dfs
 
     def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
-        def nlpdf(x):
-            return -self.lpdf_no_jac(x.astype(numpy.float32))
+        def negative_log_density(x):
+            return -self.log_density_jax_no_jac(x.astype(numpy.float32))
 
-        grad = jax.jit(jax.grad(nlpdf))
+        grad = jax.jit(jax.grad(negative_log_density))
 
         def grad_double(x):
             grad_device_array = grad(x)
@@ -173,7 +178,7 @@ class Model:
             for retry in range(retries):
                 params = 2 * init * numpy.random.uniform(size=self.size) - init
 
-                solution = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-9)
+                solution = scipy.optimize.minimize(negative_log_density, params, jac=grad_double, method="L-BFGS-B", tol=1e-9)
 
                 if solution.success:
                     unconstrained_draws[:, 0, chain] = solution.x
@@ -189,14 +194,14 @@ class Model:
         initial_position = 2 * init * numpy.random.uniform(size=(self.size)) - init
 
         def kernel_generator(step_size, inverse_mass_matrix):
-            return blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
+            return blackjax.nuts.kernel(self.log_density_jax, step_size, inverse_mass_matrix)
 
         # inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
         # kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
         # kernel = jax.jit(kernel)
 
         # Initialize the state
-        initial_state = blackjax.nuts.new_state(initial_position, self.lpdf)
+        initial_state = blackjax.nuts.new_state(initial_position, self.log_density_jax)
         # positions = jax.numpy.array(chains * [initial_position])
         # initial_states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)
 
@@ -213,7 +218,7 @@ class Model:
         kernel = jax.jit(kernel_generator(step_size, inverse_mass_matrix))
 
         positions = jax.numpy.array(chains * [state.position])
-        states = jax.vmap(blackjax.nuts.new_state, in_axes=(0, None))(positions, self.lpdf)
+        states = jax.vmap(blackjax.nuts.new_state, in_axes=(0, None))(positions, self.log_density_jax)
 
         # Sample chains
         def one_step(chain_states, rng_key):
