@@ -159,7 +159,6 @@
 
         <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">constrained_variables</span>
 
-
     <span class="k">def</span> <span class="nf">evaluate_program</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">device_variables</span><span class="p">):</span>
         <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">line_function</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_functions</span><span class="p">:</span>
@@ -180,7 +179,6 @@
         <span class="n">target_program</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">constrained_variables</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">target_program</span> <span class="o">+</span> <span class="p">(</span><span class="n">jacobian_adjustment</span> <span class="k">if</span> <span class="n">include_jacobian</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
 
-
     <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
         <span class="n">num_draws</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">num_chains</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
@@ -189,7 +187,7 @@
         <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_draws</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chains</span><span class="p">):</span>
                 <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">[</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">],</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span> <span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
                 <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
                 <span class="n">target</span><span class="p">,</span> <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">device_constrained_variables</span><span class="p">)</span>
 
@@ -213,7 +211,6 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
-
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -406,7 +403,6 @@
 
         <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">constrained_variables</span>
 
-
     <span class="k">def</span> <span class="nf">evaluate_program</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">device_variables</span><span class="p">):</span>
         <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">line_function</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_functions</span><span class="p">:</span>
@@ -427,7 +423,6 @@
         <span class="n">target_program</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">constrained_variables</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">target_program</span> <span class="o">+</span> <span class="p">(</span><span class="n">jacobian_adjustment</span> <span class="k">if</span> <span class="n">include_jacobian</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
 
-
     <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
         <span class="n">num_draws</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">num_chains</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
@@ -436,7 +431,7 @@
         <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_draws</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chains</span><span class="p">):</span>
                 <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">[</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">],</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span> <span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
                 <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
                 <span class="n">target</span><span class="p">,</span> <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">device_constrained_variables</span><span class="p">)</span>
 
@@ -460,7 +455,6 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
-
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -800,7 +794,7 @@
         <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_draws</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chains</span><span class="p">):</span>
                 <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">[</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">],</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span> <span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
                 <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
                 <span class="n">target</span><span class="p">,</span> <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">device_constrained_variables</span><span class="p">)</span>
 
