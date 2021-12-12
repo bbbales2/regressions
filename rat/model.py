@@ -90,7 +90,7 @@ class Model:
         num_chains = unconstrained_draws.shape[1]
         variables_to_extract = set(itertools.chain(self.parameter_variables.keys(), self.assigned_parameter_variables.keys()))
         constrained_draws = {}
-        evaluate_program_with_data = jax.jit(functools.partial(self.evaluate_program, **self.device_data_variables), backend = "cpu")
+        evaluate_program_with_data = jax.jit(functools.partial(self.evaluate_program, **self.device_data_variables), backend="cpu")
         for draw in range(num_draws):
             for chain in range(num_chains):
                 jacobian_adjustment, constrained_variables = self.constrain(unconstrained_draws[draw, chain], pad=False)
@@ -104,9 +104,9 @@ class Model:
                         constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
 
         ## This is probably faster than above but uses more device memory
-        #jacobian_adjustment, device_constrained_variables = self.constrain(unconstrained_draws, pad=False)
-        #device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}
-        #target, device_constrained_variables = jax.vmap(jax.vmap(evaluate_program_with_data))(**device_constrained_variables)
+        # jacobian_adjustment, device_constrained_variables = self.constrain(unconstrained_draws, pad=False)
+        # device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}
+        # target, device_constrained_variables = jax.vmap(jax.vmap(evaluate_program_with_data))(**device_constrained_variables)
 
         # Copy back to numpy arrays
         base_dfs = {}
