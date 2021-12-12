@@ -70,18 +70,13 @@ class Model:
         for line_function in self.line_functions:
             data_arguments = [device_variables[name] for name in line_function.data_variable_names]
             parameter_arguments = [device_variables[name] for name in line_function.parameter_variable_names]
-            assigned_parameter_arguments = [
-                device_variables[name] for name in line_function.assigned_parameter_variables_names
-            ]
+            assigned_parameter_arguments = [device_variables[name] for name in line_function.assigned_parameter_variables_names]
             if isinstance(line_function, compiler.AssignLineFunction):
-                device_variables[line_function.name] = line_function(
-                    *data_arguments, *parameter_arguments, *assigned_parameter_arguments
-                )
+                device_variables[line_function.name] = line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
             else:
                 total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
-        
-        return total, device_variables
 
+        return total, device_variables
 
     def log_density(self, include_jacobian, unconstrained_parameter_vector):
         jacobian_adjustment, constrained_variables = self.constrain(unconstrained_parameter_vector)
