@@ -64,7 +64,6 @@ class Model:
 
         return total, constrained_variables
 
-
     def evaluate_program(self, **device_variables):
         total = 0.0
         for line_function in self.line_functions:
@@ -85,7 +84,6 @@ class Model:
         target_program, constrained_variables = self.evaluate_program(**constrained_variables)
         return target_program + (jacobian_adjustment if include_jacobian else 0.0)
 
-
     def prepare_draws_and_dfs(self, unconstrained_draws):
         num_draws = unconstrained_draws.shape[0]
         num_chains = unconstrained_draws.shape[1]
@@ -94,7 +92,7 @@ class Model:
         for draw in range(num_draws):
             for chain in range(num_chains):
                 jacobian_adjustment, constrained_variables = self.constrain(unconstrained_draws[draw, chain], pad=False)
-                device_constrained_variables = {k : jax.device_put(v) for k, v in constrained_variables.items()}
+                device_constrained_variables = {k: jax.device_put(v) for k, v in constrained_variables.items()}
                 device_constrained_variables.update(self.device_data_variables)
                 target, device_constrained_variables = self.evaluate_program(**device_constrained_variables)
 
@@ -118,7 +116,6 @@ class Model:
             else:
                 base_dfs[name] = pandas.DataFrame()
         return constrained_draws, base_dfs
-
 
     def __init__(
         self,

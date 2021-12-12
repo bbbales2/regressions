@@ -54,7 +54,7 @@ def test_optimize_eight_schools(eight_schools_model):
         0.04939970,
         0.00839282,
     ]
-   
+
     ref_theta_mean = [
         4.63356000,
         4.62396000,
