@@ -54,6 +54,9 @@
                                 <a class="function" href="#Fit.__init__">Fit</a>
                         </li>
                         <li>
+                                <a class="function" href="#Fit.build_constrained_dfs">build_constrained_dfs</a>
+                        </li>
+                        <li>
                                 <a class="function" href="#Fit.draws">draws</a>
                         </li>
                 </ul>
@@ -64,6 +67,21 @@
                             <ul class="memberlist">
                         <li>
                                 <a class="function" href="#OptimizationFit.__init__">OptimizationFit</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#OptimizationFit.check_convergence_and_select_one_chain">check_convergence_and_select_one_chain</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#SampleFit">SampleFit</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#SampleFit.__init__">SampleFit</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#SampleFit.diag">diag</a>
                         </li>
                 </ul>
 
@@ -87,31 +105,65 @@
                 
                         <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="kn">import</span> <span class="nn">blackjax</span>
+            <div class="codehilite"><pre><span></span><span class="kn">import</span> <span class="nn">arviz</span>
+<span class="kn">import</span> <span class="nn">blackjax</span>
 <span class="kn">import</span> <span class="nn">blackjax.nuts</span>
 <span class="kn">import</span> <span class="nn">blackjax.inference</span>
 <span class="kn">import</span> <span class="nn">numpy</span>
 <span class="kn">import</span> <span class="nn">pandas</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span>
 
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">constraints</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">model</span>
+
 
 <span class="k">class</span> <span class="nc">Fit</span><span class="p">:</span>
+    <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
+    <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
     <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">draw_dfs</span>
+    
+    <span class="k">def</span> <span class="nf">build_constrained_dfs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span>
+        <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Re-sort parameters stored as dictionary of arrays into dataframes</span>
+
+<span class="sd">        Scalar parameter arrays are expected to have shape (num_draws, num_chains) or (1, num_draws, num_chains)</span>
+<span class="sd">        Vector parameter arrays are expected to have shape (size, num_draws, num_chains)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="p">:</span>
+            <span class="n">constrained_variable</span> <span class="o">=</span> <span class="n">constrained_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">num_draws</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">num_chains</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            
+            <span class="n">base_df</span> <span class="o">=</span> <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">base_df</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_draws</span> <span class="o">*</span> <span class="n">num_chains</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;chain&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_chains</span><span class="p">),</span> <span class="n">size</span> <span class="o">*</span> <span class="n">num_draws</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_draws</span><span class="p">),</span> <span class="n">size</span><span class="p">),</span> <span class="n">num_chains</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">order</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span><span class="p">)</span>
+            <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
+
+        <span class="k">return</span> <span class="n">draw_dfs</span>
+
 
     <span class="k">def</span> <span class="nf">draws</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
 
 
 <span class="k">class</span> <span class="nc">OptimizationFit</span><span class="p">(</span><span class="n">Fit</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="p">{}</span>
-
+    <span class="k">def</span> <span class="nf">check_convergence_and_select_one_chain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">):</span>
         <span class="c1"># Check that all the optimization solutions are vaguely close to each other</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">draw_df</span> <span class="ow">in</span> <span class="n">draw_dfs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">group_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">draw_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;value&quot;</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">]))</span>
+            <span class="n">group_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">draw_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;value&quot;</span><span class="p">,</span> <span class="s2">&quot;chain&quot;</span><span class="p">]))</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group_columns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">grouped_df</span> <span class="o">=</span> <span class="n">draw_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">group_columns</span><span class="p">)</span>
                 <span class="n">median_df</span> <span class="o">=</span> <span class="n">grouped_df</span><span class="o">.</span><span class="n">agg</span><span class="p">({</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">median</span><span class="p">})</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;median&quot;</span><span class="p">})</span>
@@ -139,8 +191,44 @@
                     <span class="p">)</span>
 
         <span class="c1"># Only copy one optimization result</span>
+        <span class="n">output_draw_dfs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">draw_df</span> <span class="ow">in</span> <span class="n">draw_dfs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw_df</span><span class="p">[</span><span class="n">draw_df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">output_draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw_df</span><span class="p">[</span><span class="n">draw_df</span><span class="p">[</span><span class="s2">&quot;chain&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">output_draw_dfs</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">tolerance</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constrained_variables</span> <span class="o">=</span> <span class="n">constrained_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_dfs</span> <span class="o">=</span> <span class="n">base_dfs</span>
+        <span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_convergence_and_select_one_chain</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">SampleFit</span><span class="p">(</span><span class="n">Fit</span><span class="p">):</span>
+    <span class="n">diag_dfs</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constrained_variables</span> <span class="o">=</span> <span class="n">constrained_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_dfs</span> <span class="o">=</span> <span class="n">base_dfs</span>
+
+        <span class="c1"># Unpack draws into dataframes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">constrained_variable</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Compute ess/rhat, must reshape from (param, draw, chain) to (chain, draw, param)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">arviz_constrained_variable</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">constrained_variable</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">arviz_constrained_variable</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">transpose</span><span class="p">(),</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">x_draws</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">convert_to_dataset</span><span class="p">(</span><span class="n">arviz_constrained_variable</span><span class="p">)</span>
+            <span class="n">ess</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">ess</span><span class="p">(</span><span class="n">x_draws</span><span class="p">)[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">rhat</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">rhat</span><span class="p">(</span><span class="n">x_draws</span><span class="p">)[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">ess</span> <span class="o">=</span> <span class="n">ess</span><span class="p">,</span> <span class="n">rhat</span> <span class="o">=</span> <span class="n">rhat</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">diag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
 </pre></div>
 
         </details>
@@ -158,10 +246,42 @@
                 <details>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Fit</span><span class="p">:</span>
+    <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
+    <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
     <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">draw_dfs</span>
+    
+    <span class="k">def</span> <span class="nf">build_constrained_dfs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span>
+        <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Re-sort parameters stored as dictionary of arrays into dataframes</span>
+
+<span class="sd">        Scalar parameter arrays are expected to have shape (num_draws, num_chains) or (1, num_draws, num_chains)</span>
+<span class="sd">        Vector parameter arrays are expected to have shape (size, num_draws, num_chains)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="p">:</span>
+            <span class="n">constrained_variable</span> <span class="o">=</span> <span class="n">constrained_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">num_draws</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">num_chains</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            
+            <span class="n">base_df</span> <span class="o">=</span> <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">base_df</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_draws</span> <span class="o">*</span> <span class="n">num_chains</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;chain&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_chains</span><span class="p">),</span> <span class="n">size</span> <span class="o">*</span> <span class="n">num_draws</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_draws</span><span class="p">),</span> <span class="n">size</span><span class="p">),</span> <span class="n">num_chains</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">order</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span><span class="p">)</span>
+            <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
+
+        <span class="k">return</span> <span class="n">draw_dfs</span>
+
 
     <span class="k">def</span> <span class="nf">draws</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
@@ -175,18 +295,67 @@
                                         <div class="attr function"><a class="headerlink" href="#Fit.__init__">#&nbsp;&nbsp</a>
 
         
-            <span class="name">Fit</span><span class="signature">(draw_dfs: Dict[str, pandas.core.frame.DataFrame])</span>
+            <span class="name">Fit</span><span class="signature">()</span>
+    </div>
+
+        
+    
+
+                            </div>
+                            <div id="Fit.build_constrained_dfs" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Fit.build_constrained_dfs">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">build_constrained_dfs</span><span class="signature">(
+    self,
+    constrained_variables: Dict[str, &lt;built-in function array&gt;],
+    base_dfs: Dict[str, pandas.core.frame.DataFrame]
+) -&gt; Dict[str, pandas.core.frame.DataFrame]</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">draw_dfs</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">build_constrained_dfs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span>
+        <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Re-sort parameters stored as dictionary of arrays into dataframes</span>
+
+<span class="sd">        Scalar parameter arrays are expected to have shape (num_draws, num_chains) or (1, num_draws, num_chains)</span>
+<span class="sd">        Vector parameter arrays are expected to have shape (size, num_draws, num_chains)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="p">:</span>
+            <span class="n">constrained_variable</span> <span class="o">=</span> <span class="n">constrained_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">num_draws</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">num_chains</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            
+            <span class="n">base_df</span> <span class="o">=</span> <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">base_df</span><span class="p">]</span> <span class="o">*</span> <span class="n">num_draws</span> <span class="o">*</span> <span class="n">num_chains</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;chain&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_chains</span><span class="p">),</span> <span class="n">size</span> <span class="o">*</span> <span class="n">num_draws</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_draws</span><span class="p">),</span> <span class="n">size</span><span class="p">),</span> <span class="n">num_chains</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">constrained_variable</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">order</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span><span class="p">)</span>
+            <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
+
+        <span class="k">return</span> <span class="n">draw_dfs</span>
 </pre></div>
 
         </details>
 
-    
+            <div class="docstring"><p>Re-sort parameters stored as dictionary of arrays into dataframes</p>
+
+<p>Scalar parameter arrays are expected to have shape (num_draws, num_chains) or (1, num_draws, num_chains)
+Vector parameter arrays are expected to have shape (size, num_draws, num_chains)</p>
+</div>
+
 
                             </div>
                             <div id="Fit.draws" class="classattr">
@@ -221,12 +390,10 @@
                 <details>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">OptimizationFit</span><span class="p">(</span><span class="n">Fit</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="p">{}</span>
-
+    <span class="k">def</span> <span class="nf">check_convergence_and_select_one_chain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">):</span>
         <span class="c1"># Check that all the optimization solutions are vaguely close to each other</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">draw_df</span> <span class="ow">in</span> <span class="n">draw_dfs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">group_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">draw_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;value&quot;</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">]))</span>
+            <span class="n">group_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">draw_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;value&quot;</span><span class="p">,</span> <span class="s2">&quot;chain&quot;</span><span class="p">]))</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group_columns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">grouped_df</span> <span class="o">=</span> <span class="n">draw_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">group_columns</span><span class="p">)</span>
                 <span class="n">median_df</span> <span class="o">=</span> <span class="n">grouped_df</span><span class="o">.</span><span class="n">agg</span><span class="p">({</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">median</span><span class="p">})</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;median&quot;</span><span class="p">})</span>
@@ -254,8 +421,17 @@
                     <span class="p">)</span>
 
         <span class="c1"># Only copy one optimization result</span>
+        <span class="n">output_draw_dfs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">draw_df</span> <span class="ow">in</span> <span class="n">draw_dfs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw_df</span><span class="p">[</span><span class="n">draw_df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">output_draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw_df</span><span class="p">[</span><span class="n">draw_df</span><span class="p">[</span><span class="s2">&quot;chain&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">output_draw_dfs</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">tolerance</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constrained_variables</span> <span class="o">=</span> <span class="n">constrained_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_dfs</span> <span class="o">=</span> <span class="n">base_dfs</span>
+        <span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_convergence_and_select_one_chain</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
 </pre></div>
 
         </details>
@@ -266,17 +442,41 @@
                                         <div class="attr function"><a class="headerlink" href="#OptimizationFit.__init__">#&nbsp;&nbsp</a>
 
         
-            <span class="name">OptimizationFit</span><span class="signature">(draw_dfs: Dict[str, pandas.core.frame.DataFrame], tolerance=0.01)</span>
+            <span class="name">OptimizationFit</span><span class="signature">(
+    constrained_variables: Dict[str, &lt;built-in function array&gt;],
+    base_dfs: Dict[str, pandas.core.frame.DataFrame],
+    tolerance
+)</span>
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">tolerance</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constrained_variables</span> <span class="o">=</span> <span class="n">constrained_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_dfs</span> <span class="o">=</span> <span class="n">base_dfs</span>
+        <span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_convergence_and_select_one_chain</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+</pre></div>
 
+        </details>
+
+    
+
+                            </div>
+                            <div id="OptimizationFit.check_convergence_and_select_one_chain" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#OptimizationFit.check_convergence_and_select_one_chain">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">check_convergence_and_select_one_chain</span><span class="signature">(self, draw_dfs, tolerance)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">check_convergence_and_select_one_chain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">):</span>
         <span class="c1"># Check that all the optimization solutions are vaguely close to each other</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">draw_df</span> <span class="ow">in</span> <span class="n">draw_dfs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">group_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">draw_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;value&quot;</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">]))</span>
+            <span class="n">group_columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">draw_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;value&quot;</span><span class="p">,</span> <span class="s2">&quot;chain&quot;</span><span class="p">]))</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group_columns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">grouped_df</span> <span class="o">=</span> <span class="n">draw_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">group_columns</span><span class="p">)</span>
                 <span class="n">median_df</span> <span class="o">=</span> <span class="n">grouped_df</span><span class="o">.</span><span class="n">agg</span><span class="p">({</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">median</span><span class="p">})</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;median&quot;</span><span class="p">})</span>
@@ -304,8 +504,11 @@
                     <span class="p">)</span>
 
         <span class="c1"># Only copy one optimization result</span>
+        <span class="n">output_draw_dfs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">draw_df</span> <span class="ow">in</span> <span class="n">draw_dfs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw_df</span><span class="p">[</span><span class="n">draw_df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">output_draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw_df</span><span class="p">[</span><span class="n">draw_df</span><span class="p">[</span><span class="s2">&quot;chain&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">output_draw_dfs</span>
 </pre></div>
 
         </details>
@@ -317,7 +520,118 @@
                                 <h5>Inherited Members</h5>
                                 <dl>
                                     <div><dt><a href="#Fit">Fit</a></dt>
-                                <dd id="OptimizationFit.draws" class="function"><a href="#Fit.draws">draws</a></dd>
+                                <dd id="OptimizationFit.build_constrained_dfs" class="function"><a href="#Fit.build_constrained_dfs">build_constrained_dfs</a></dd>
+                <dd id="OptimizationFit.draws" class="function"><a href="#Fit.draws">draws</a></dd>
+
+            </div>
+                                </dl>
+                            </div>
+                </section>
+                <section id="SampleFit">
+                                <div class="attr class">
+        <a class="headerlink" href="#SampleFit">#&nbsp;&nbsp</a>
+
+        
+        <span class="def">class</span>
+        <span class="name">SampleFit</span><wbr>(<span class="base"><a href="#Fit">Fit</a></span>):
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">SampleFit</span><span class="p">(</span><span class="n">Fit</span><span class="p">):</span>
+    <span class="n">diag_dfs</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constrained_variables</span> <span class="o">=</span> <span class="n">constrained_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_dfs</span> <span class="o">=</span> <span class="n">base_dfs</span>
+
+        <span class="c1"># Unpack draws into dataframes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">constrained_variable</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Compute ess/rhat, must reshape from (param, draw, chain) to (chain, draw, param)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">arviz_constrained_variable</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">constrained_variable</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">arviz_constrained_variable</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">transpose</span><span class="p">(),</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">x_draws</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">convert_to_dataset</span><span class="p">(</span><span class="n">arviz_constrained_variable</span><span class="p">)</span>
+            <span class="n">ess</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">ess</span><span class="p">(</span><span class="n">x_draws</span><span class="p">)[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">rhat</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">rhat</span><span class="p">(</span><span class="n">x_draws</span><span class="p">)[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">ess</span> <span class="o">=</span> <span class="n">ess</span><span class="p">,</span> <span class="n">rhat</span> <span class="o">=</span> <span class="n">rhat</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">diag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            <div id="SampleFit.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#SampleFit.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">SampleFit</span><span class="signature">(
+    constrained_variables: Dict[str, &lt;built-in function array&gt;],
+    base_dfs: Dict[str, pandas.core.frame.DataFrame]
+)</span>
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constrained_variables</span> <span class="o">=</span> <span class="n">constrained_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_dfs</span> <span class="o">=</span> <span class="n">base_dfs</span>
+
+        <span class="c1"># Unpack draws into dataframes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">constrained_variable</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Compute ess/rhat, must reshape from (param, draw, chain) to (chain, draw, param)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">arviz_constrained_variable</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">constrained_variable</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">arviz_constrained_variable</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">transpose</span><span class="p">(),</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">x_draws</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">convert_to_dataset</span><span class="p">(</span><span class="n">arviz_constrained_variable</span><span class="p">)</span>
+            <span class="n">ess</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">ess</span><span class="p">(</span><span class="n">x_draws</span><span class="p">)[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">rhat</span> <span class="o">=</span> <span class="n">arviz</span><span class="o">.</span><span class="n">rhat</span><span class="p">(</span><span class="n">x_draws</span><span class="p">)[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">ess</span> <span class="o">=</span> <span class="n">ess</span><span class="p">,</span> <span class="n">rhat</span> <span class="o">=</span> <span class="n">rhat</span><span class="p">)</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                            <div id="SampleFit.diag" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#SampleFit.diag">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">diag</span><span class="signature">(self, parameter_name: str) -&gt; pandas.core.frame.DataFrame</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">diag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                            <div class="inherited">
+                                <h5>Inherited Members</h5>
+                                <dl>
+                                    <div><dt><a href="#Fit">Fit</a></dt>
+                                <dd id="SampleFit.build_constrained_dfs" class="function"><a href="#Fit.build_constrained_dfs">build_constrained_dfs</a></dd>
+                <dd id="SampleFit.draws" class="function"><a href="#Fit.draws">draws</a></dd>
 
             </div>
                                 </dl>

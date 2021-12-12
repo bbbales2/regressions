@@ -6,24 +6,25 @@ from rat import fit, model
 
 @pytest.fixture
 def scalar_base_dfs():
-    return { "x" : pandas.DataFrame() }
+    return {"x": pandas.DataFrame()}
+
 
 @pytest.fixture
 def scalar_constrained_draws():
-    constrained_draws = { "x" : numpy.array([10.1, 10.08, 10.05, 10.03]).reshape((1, 1, 4)) }
+    constrained_draws = {"x": numpy.array([10.1, 10.08, 10.05, 10.03]).reshape((1, 1, 4))}
     return constrained_draws
 
 
 @pytest.fixture
 def vector_base_dfs():
     data_df = pandas.DataFrame({"group": [0, 1]})
-    return { "x" : data_df }
+    return {"x": data_df}
 
 
 @pytest.fixture
 def vector_constrained_draws():
     constrained_draws = numpy.array([20.2, 20.17, 20.1, 20.13, 10.1, 10.08, 10.05, 10.03]).reshape((2, 1, 4))
-    return { "x" : constrained_draws }
+    return {"x": constrained_draws}
 
 
 def test_optimization_fit(scalar_constrained_draws, scalar_base_dfs):

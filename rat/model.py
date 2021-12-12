@@ -21,7 +21,6 @@ from .parser import Parser
 from . import fit
 
 
-
 class Model:
     log_density_jax: Callable[[numpy.array], float]
     log_density_jax_no_jac: Callable[[numpy.array], float]
@@ -31,8 +30,7 @@ class Model:
     parameter_offsets: List[int]
     parameter_sizes: List[Union[None, int]]
 
-
-    def constrain(self, unconstrained_parameter_vector, pad = True):
+    def constrain(self, unconstrained_parameter_vector, pad=True):
         constrained_variables = {}
         total = 0.0
         for name, offset, size in zip(
@@ -44,22 +42,22 @@ class Model:
                 parameter = unconstrained_parameter_vector[offset : offset + size]
             else:
                 parameter = unconstrained_parameter_vector[offset]
-        
+
             variable = self.parameter_variables[name]
             lower = variable.lower
             upper = variable.upper
             constraints_jacobian_adjustment = 0.0
-        
+
             if lower > float("-inf") and upper == float("inf"):
                 parameter, constraints_jacobian_adjustment = constraints.lower(parameter, lower)
             elif lower == float("inf") and upper < float("inf"):
                 parameter, constraints_jacobian_adjustment = constraints.upper(parameter, upper)
             elif lower > float("inf") and upper < float("inf"):
                 parameter, constraints_jacobian_adjustment = constraints.finite(parameter, lower, upper)
-        
+
             if pad and size is not None and size != variable.padded_size():
                 parameter = jax.numpy.pad(parameter, (0, variable.padded_size() - size))
-        
+
             total += jax.numpy.sum(constraints_jacobian_adjustment)
             constrained_variables[name] = parameter
 
@@ -152,7 +150,7 @@ class Model:
         self.size = unconstrained_parameter_size
 
     def prepare_draws_and_dfs(self, unconstrained_draws):
-        jacobian_adjustment, device_constrained_draws = self.constrain(unconstrained_draws, pad = False)
+        jacobian_adjustment, device_constrained_draws = self.constrain(unconstrained_draws, pad=False)
         # Copy back to numpy arrays
         constrained_draws = {key: numpy.array(value) for key, value in device_constrained_draws.items()}
         base_dfs = {}
@@ -235,4 +233,3 @@ class Model:
         constrained_draws, base_dfs = self.prepare_draws_and_dfs(unconstrained_draws)
 
         return fit.SampleFit(constrained_draws, base_dfs)
-
