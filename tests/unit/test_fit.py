@@ -1,43 +1,63 @@
+import numpy
 import pandas
 import pytest
-from rat import fit
+from rat import fit, model
 
 
 @pytest.fixture
-def scalar_draws_df():
-    value = [10.1, 10.08, 10.05, 10.03]
-    draw = [1, 2, 3, 4]
-    df = pandas.DataFrame({"value": value, "draw": draw})
-    return {"var": df}
+def scalar_model():
+    data_df = pandas.DataFrame({"y": [0.0]})
+
+    model_string = """
+    y ~ normal(mu, 1.5);
+    mu ~ normal(-0.5, 0.3);
+    """
+
+    return model.Model(data_df, model_string=model_string)
 
 
 @pytest.fixture
-def vector_draws_df():
-    value = [20.2, 20.17, 20.1, 20.13, 10.1, 10.08, 10.05, 10.03]
-    group = [1, 1, 1, 1, 4, 4, 4, 4]
-    draw = [1, 2, 3, 4, 1, 2, 3, 4]
-    df = pandas.DataFrame({"value": value, "group": group, "draw": draw})
-    return {"var": df}
+def scalar_unconstrained_draws():
+    unconstrained_draws = numpy.array([10.1, 10.08, 10.05, 10.03]).reshape((4, 1, 1))
+    return unconstrained_draws
 
 
-def test_optimization_fit(scalar_draws_df):
-    fit.OptimizationFit(scalar_draws_df)
+@pytest.fixture
+def vector_model():
+    data_df = pandas.DataFrame({"y": [0.0, 1.0], "group": [0, 1]})
+
+    model_string = """
+    y ~ normal(mu[group], 1.5);
+    mu[group] ~ normal(-0.5, 0.3);
+    """
+
+    return model.Model(data_df, model_string=model_string)
 
 
-def test_optimization_fit_error(scalar_draws_df):
+@pytest.fixture
+def vector_unconstrained_draws():
+    unconstrained_draws = numpy.array([20.2, 10.1, 20.17, 10.08, 20.1, 10.05, 20.13, 10.03]).reshape((4, 1, 2))
+    return unconstrained_draws
+
+
+def test_optimization_fit(scalar_model, scalar_unconstrained_draws):
+    fit.OptimizationFit(scalar_model, scalar_unconstrained_draws, tolerance=1e-2)
+
+
+def test_optimization_fit_error(scalar_model, scalar_unconstrained_draws):
     # Throws an error because the given results are not within tolerance of each other
     with pytest.raises(Exception):
-        fit.OptimizationFit(scalar_draws_df, tolerance=1e-3)
+        fit.OptimizationFit(scalar_model, scalar_unconstrained_draws, tolerance=1e-3)
 
 
-def test_optimization_fit_vector(vector_draws_df):
-    fit.OptimizationFit(vector_draws_df)
+def test_optimization_fit_vector(scalar_model, scalar_unconstrained_draws):
+    fit.OptimizationFit(scalar_model, scalar_unconstrained_draws, tolerance=1e-2)
 
 
-def test_optimization_fit_error_vector(vector_draws_df):
+def test_optimization_fit_error_vector(scalar_model, scalar_unconstrained_draws):
     # Throws an error because the given results are not within tolerance of each other
     with pytest.raises(Exception):
-        fit.OptimizationFit(vector_draws_df, tolerance=1e-3)
+        fit.OptimizationFit(scalar_model, scalar_unconstrained_draws, tolerance=1e-3)
 
 
 if __name__ == "__main__":

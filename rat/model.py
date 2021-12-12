@@ -1,4 +1,5 @@
 import blackjax
+import blackjax.stan_warmup
 import blackjax.nuts
 import functools
 import jax
@@ -17,7 +18,7 @@ from . import variables
 from . import constraints
 from .scanner import scanner
 from .parser import Parser
-from .fit import OptimizationFit, Fit
+from . import fit
 
 
 class Model:
@@ -156,9 +157,7 @@ class Model:
         self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
 
-    def optimize(self, init=2, chains=4, retries=5) -> Fit:
-        params = 2 * init * numpy.random.rand(self.size) - init
-
+    def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
         def nlpdf(x):
             return -self.lpdf_no_jac(x.astype(numpy.float32))
 
@@ -168,20 +167,20 @@ class Model:
             grad_device_array = grad(x)
             return numpy.array(grad_device_array).astype(numpy.float64)
 
-        solutions = []
+        unconstrained_draws = numpy.zeros((chains, 1, self.size))
         for chain in range(chains):
             for retry in range(retries):
-                solution = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-7)
+                params = 2 * init * numpy.random.uniform(size=self.size) - init
+
+                solution = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-9)
 
                 if solution.success:
-                    solutions.append(solution.x)
+                    unconstrained_draws[chain, 0] = solution.x
                     break
             else:
-                raise Exception(f"Optimization failed on chain {chain} with message: {solutions.message}")
+                raise Exception(f"Optimization failed on chain {chain} with message: {solution.message}")
 
-        draw_dfs = self.build_draw_dfs(solutions)
-
-        return OptimizationFit(draw_dfs)
+        return fit.OptimizationFit(self, unconstrained_draws, tolerance=tolerance)
 
     def build_draw_dfs(self, states: List[numpy.array]):
         draw_dfs: Dict[str, pandas.DataFrame] = {}
@@ -214,40 +213,46 @@ class Model:
             draw_dfs[name] = df
         return draw_dfs
 
-    def sample(self, num_steps=200, step_size=1e-3) -> Fit:
-        params = numpy.random.rand(self.size)
+    def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1e-2):
+        # Currently only doing warmup on one chain
+        initial_position = 2 * init * numpy.random.uniform(size=(self.size)) - init
 
-        # Build the kernel
-        inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
-        kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
-        kernel = jax.jit(kernel)  # try without to see the speedup
+        def kernel_generator(step_size, inverse_mass_matrix):
+            return blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
+
+        # inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))
+        # kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)
+        # kernel = jax.jit(kernel)
 
         # Initialize the state
-        initial_position = params
-        state = blackjax.nuts.new_state(initial_position, self.lpdf)
+        initial_state = blackjax.nuts.new_state(initial_position, self.lpdf)
+        # positions = jax.numpy.array(chains * [initial_position])
+        # initial_states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)
 
-        states: List[blackjax.inference.base.HMCState] = [state]
-
-        # Iterate
+        # Do one-chain warmup
         key = jax.random.PRNGKey(0)
-        for draw in range(1, num_steps):
-            key, subkey = jax.random.split(key)
-            state, info = kernel(key, state)
-            states.append(state)
+        warmup_key, key = jax.random.split(key)
+        state, (step_size, inverse_mass_matrix), info = blackjax.stan_warmup.run(
+            warmup_key,
+            kernel_generator,
+            initial_state,
+            num_warmup,
+        )
 
-        draw_dfs: Dict[str, pandas.DataFrame] = {}
-        draw_series = list(range(num_steps))
-        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
-            if size is not None:
-                dfs = []
-                for draw, state in enumerate(states):
-                    df = self.parameter_variables[name].index.base_df.copy()
-                    df[name] = state.position[offset : offset + size]
-                    df["draw"] = draw
-                    dfs.append(df)
-                draw_dfs[name] = pandas.concat(dfs, ignore_index=True)
-            else:
-                series = [state.position[offset] for state in states]
-                draw_dfs[name] = pandas.DataFrame({name: series, "draw": draw_series})
+        kernel = jax.jit(kernel_generator(step_size, inverse_mass_matrix))
 
-        return Fit(draw_dfs)
+        positions = jax.numpy.array(chains * [state.position])
+        states = jax.vmap(blackjax.nuts.new_state, in_axes=(0, None))(positions, self.lpdf)
+
+        # Sample chains
+        def one_step(chain_states, rng_key):
+            keys = jax.random.split(rng_key, chains)
+            new_chain_states, _ = jax.vmap(kernel)(keys, chain_states)
+            return new_chain_states, new_chain_states
+
+        keys = jax.random.split(key, num_draws)
+        _, states = jax.lax.scan(one_step, states, keys)
+
+        unconstrained_draws = numpy.swapaxes(states.position, 0, 1)
+
+        return fit.SampleFit(self, unconstrained_draws)
