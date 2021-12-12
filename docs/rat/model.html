@@ -97,6 +97,7 @@
 <span class="kn">import</span> <span class="nn">blackjax.stan_warmup</span>
 <span class="kn">import</span> <span class="nn">blackjax.nuts</span>
 <span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">jax</span>
 <span class="kn">import</span> <span class="nn">jax.scipy</span>
 <span class="kn">import</span> <span class="nn">jax.scipy.optimize</span>
@@ -134,9 +135,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
         <span class="p">):</span>
             <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">offset</span><span class="p">]</span>
 
             <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
             <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
@@ -159,30 +160,59 @@
         <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">constrained_variables</span>
 
 
-    <span class="k">def</span> <span class="nf">evaluate_program</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">evaluate_program</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">device_variables</span><span class="p">):</span>
         <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">line_function</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_functions</span><span class="p">:</span>
             <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
             <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
-            <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
-            <span class="p">]</span>
+            <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line_function</span><span class="p">,</span> <span class="n">compiler</span><span class="o">.</span><span class="n">AssignLineFunction</span><span class="p">):</span>
-                <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
-                    <span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span>
-                <span class="p">)</span>
+                <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span><span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">total</span> <span class="o">+=</span> <span class="n">line_function</span><span class="p">(</span><span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span><span class="p">)</span>
-        
+
         <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">device_variables</span>
 
-
-    <span class="k">def</span> <span class="nf">log_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_jacobian</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_jacobian</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
         <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">)</span>
-        <span class="n">device_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">)</span>
+        <span class="n">constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
 
-        <span class="n">target_program</span><span class="p">,</span> <span class="n">device_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="n">device_variables</span><span class="p">)</span>
+        <span class="n">target_program</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">constrained_variables</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">target_program</span> <span class="o">+</span> <span class="p">(</span><span class="n">jacobian_adjustment</span> <span class="k">if</span> <span class="n">include_jacobian</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
+        <span class="n">num_draws</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">num_chains</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">variables_to_extract</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_draws</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chains</span><span class="p">):</span>
+                <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">[</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">],</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span> <span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
+                <span class="n">target</span><span class="p">,</span> <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">device_constrained_variables</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">device_constrained_variable</span> <span class="ow">in</span> <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">variables_to_extract</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
+                            <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_draws</span><span class="p">,</span> <span class="n">num_chains</span><span class="p">)</span> <span class="o">+</span> <span class="n">device_constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                        <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">device_constrained_variable</span><span class="p">)</span>
+
+        <span class="c1">## This is probably faster than above but uses more device memory</span>
+        <span class="c1"># jacobian_adjustment, device_constrained_variables = self.constrain(unconstrained_draws, pad=False)</span>
+        <span class="c1"># evaluate_program_with_data = functools.partial(self.evaluate_program, **self.device_data_variables)#jax.jit(, backend = &quot;cpu&quot;)</span>
+        <span class="c1"># device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}</span>
+        <span class="c1"># target, device_constrained_variables = evaluate_program_with_data(**device_constrained_variables)</span>
+
+        <span class="c1"># Copy back to numpy arrays</span>
+        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">variable</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
 
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -220,9 +250,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># Copy data to jax device</span>
-        <span class="n">device_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">device_data_variables</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+            <span class="n">device_data_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
 
         <span class="c1"># Get parameter dimensions so can build individual arguments from</span>
         <span class="c1"># unconstrained vector</span>
@@ -240,21 +270,11 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">line_functions</span> <span class="o">=</span> <span class="n">line_functions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span> <span class="o">=</span> <span class="n">parameter_variables</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax_no_jac</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span> <span class="o">=</span> <span class="n">assigned_parameter_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span> <span class="o">=</span> <span class="n">device_data_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax_no_jac</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">unconstrained_parameter_size</span>
-
-    <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
-        <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">device_constrained_draws</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="c1"># Copy back to numpy arrays</span>
-        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">device_constrained_draws</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
 
     <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">negative_log_density</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
@@ -266,7 +286,7 @@
             <span class="n">grad_device_array</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grad_device_array</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
-        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">))</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chains</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">retry</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retries</span><span class="p">):</span>
                 <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
@@ -274,7 +294,7 @@
                 <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">negative_log_density</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">solution</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-                    <span class="n">unconstrained_draws</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
+                    <span class="n">unconstrained_draws</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solution</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -322,8 +342,8 @@
         <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">num_draws</span><span class="p">)</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">one_step</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
 
-        <span class="c1"># Reorder as (param, draws, chains) from (draws, chains, param)</span>
-        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># Ordered as (draws, chains, param)</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">states</span><span class="o">.</span><span class="n">position</span>
 
         <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
 
@@ -362,9 +382,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
         <span class="p">):</span>
             <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">offset</span><span class="p">]</span>
 
             <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
             <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
@@ -387,30 +407,59 @@
         <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">constrained_variables</span>
 
 
-    <span class="k">def</span> <span class="nf">evaluate_program</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">evaluate_program</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">device_variables</span><span class="p">):</span>
         <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">line_function</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_functions</span><span class="p">:</span>
             <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
             <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
-            <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
-            <span class="p">]</span>
+            <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line_function</span><span class="p">,</span> <span class="n">compiler</span><span class="o">.</span><span class="n">AssignLineFunction</span><span class="p">):</span>
-                <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
-                    <span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span>
-                <span class="p">)</span>
+                <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span><span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">total</span> <span class="o">+=</span> <span class="n">line_function</span><span class="p">(</span><span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span><span class="p">)</span>
-        
+
         <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">device_variables</span>
 
-
-    <span class="k">def</span> <span class="nf">log_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_jacobian</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">log_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_jacobian</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
         <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">)</span>
-        <span class="n">device_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">)</span>
+        <span class="n">constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
 
-        <span class="n">target_program</span><span class="p">,</span> <span class="n">device_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="n">device_variables</span><span class="p">)</span>
+        <span class="n">target_program</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">constrained_variables</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">target_program</span> <span class="o">+</span> <span class="p">(</span><span class="n">jacobian_adjustment</span> <span class="k">if</span> <span class="n">include_jacobian</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
+        <span class="n">num_draws</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">num_chains</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">variables_to_extract</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_draws</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chains</span><span class="p">):</span>
+                <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">[</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">],</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span> <span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
+                <span class="n">target</span><span class="p">,</span> <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">device_constrained_variables</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">device_constrained_variable</span> <span class="ow">in</span> <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">variables_to_extract</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
+                            <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_draws</span><span class="p">,</span> <span class="n">num_chains</span><span class="p">)</span> <span class="o">+</span> <span class="n">device_constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                        <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">device_constrained_variable</span><span class="p">)</span>
+
+        <span class="c1">## This is probably faster than above but uses more device memory</span>
+        <span class="c1"># jacobian_adjustment, device_constrained_variables = self.constrain(unconstrained_draws, pad=False)</span>
+        <span class="c1"># evaluate_program_with_data = functools.partial(self.evaluate_program, **self.device_data_variables)#jax.jit(, backend = &quot;cpu&quot;)</span>
+        <span class="c1"># device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}</span>
+        <span class="c1"># target, device_constrained_variables = evaluate_program_with_data(**device_constrained_variables)</span>
+
+        <span class="c1"># Copy back to numpy arrays</span>
+        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">variable</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
 
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -448,9 +497,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># Copy data to jax device</span>
-        <span class="n">device_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">device_data_variables</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+            <span class="n">device_data_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
 
         <span class="c1"># Get parameter dimensions so can build individual arguments from</span>
         <span class="c1"># unconstrained vector</span>
@@ -468,21 +517,11 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">line_functions</span> <span class="o">=</span> <span class="n">line_functions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span> <span class="o">=</span> <span class="n">parameter_variables</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax_no_jac</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span> <span class="o">=</span> <span class="n">assigned_parameter_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span> <span class="o">=</span> <span class="n">device_data_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax_no_jac</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">unconstrained_parameter_size</span>
-
-    <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
-        <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">device_constrained_draws</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="c1"># Copy back to numpy arrays</span>
-        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">device_constrained_draws</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
 
     <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">negative_log_density</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
@@ -494,7 +533,7 @@
             <span class="n">grad_device_array</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grad_device_array</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
-        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">))</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chains</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">retry</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retries</span><span class="p">):</span>
                 <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
@@ -502,7 +541,7 @@
                 <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">negative_log_density</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">solution</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-                    <span class="n">unconstrained_draws</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
+                    <span class="n">unconstrained_draws</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solution</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -550,8 +589,8 @@
         <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">num_draws</span><span class="p">)</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">one_step</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
 
-        <span class="c1"># Reorder as (param, draws, chains) from (draws, chains, param)</span>
-        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># Ordered as (draws, chains, param)</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">states</span><span class="o">.</span><span class="n">position</span>
 
         <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
 
@@ -610,9 +649,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># Copy data to jax device</span>
-        <span class="n">device_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">device_data_variables</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+            <span class="n">device_data_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
 
         <span class="c1"># Get parameter dimensions so can build individual arguments from</span>
         <span class="c1"># unconstrained vector</span>
@@ -630,8 +669,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">line_functions</span> <span class="o">=</span> <span class="n">line_functions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span> <span class="o">=</span> <span class="n">parameter_variables</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax_no_jac</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span> <span class="o">=</span> <span class="n">assigned_parameter_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span> <span class="o">=</span> <span class="n">device_data_variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax_no_jac</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">unconstrained_parameter_size</span>
 </pre></div>
 
@@ -659,9 +700,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
         <span class="p">):</span>
             <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">offset</span><span class="p">]</span>
 
             <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
             <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
@@ -694,26 +735,22 @@
 
         
             <span class="def">def</span>
-            <span class="name">evaluate_program</span><span class="signature">(self, device_variables)</span>:
+            <span class="name">evaluate_program</span><span class="signature">(self, **device_variables)</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">evaluate_program</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">evaluate_program</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">device_variables</span><span class="p">):</span>
         <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">line_function</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_functions</span><span class="p">:</span>
             <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
             <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
-            <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
-            <span class="p">]</span>
+            <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line_function</span><span class="p">,</span> <span class="n">compiler</span><span class="o">.</span><span class="n">AssignLineFunction</span><span class="p">):</span>
-                <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
-                    <span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span>
-                <span class="p">)</span>
+                <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span><span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">total</span> <span class="o">+=</span> <span class="n">line_function</span><span class="p">(</span><span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span><span class="p">)</span>
-        
+
         <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">device_variables</span>
 </pre></div>
 
@@ -727,21 +764,16 @@
 
         
             <span class="def">def</span>
-            <span class="name">log_density</span><span class="signature">(
-    self,
-    include_jacobian,
-    device_variables,
-    unconstrained_parameter_vector
-)</span>:
+            <span class="name">log_density</span><span class="signature">(self, include_jacobian, unconstrained_parameter_vector)</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">log_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_jacobian</span><span class="p">,</span> <span class="n">device_variables</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">log_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_jacobian</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
         <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">)</span>
-        <span class="n">device_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">)</span>
+        <span class="n">constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
 
-        <span class="n">target_program</span><span class="p">,</span> <span class="n">device_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="n">device_variables</span><span class="p">)</span>
+        <span class="n">target_program</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">constrained_variables</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">target_program</span> <span class="o">+</span> <span class="p">(</span><span class="n">jacobian_adjustment</span> <span class="k">if</span> <span class="n">include_jacobian</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
 </pre></div>
 
@@ -761,13 +793,34 @@
                 <details>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
-        <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">device_constrained_draws</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">num_draws</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">num_chains</span> <span class="o">=</span> <span class="n">unconstrained_draws</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">variables_to_extract</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_draws</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chains</span><span class="p">):</span>
+                <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">[</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">],</span> <span class="n">pad</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span> <span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data_variables</span><span class="p">)</span>
+                <span class="n">target</span><span class="p">,</span> <span class="n">device_constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_program</span><span class="p">(</span><span class="o">**</span><span class="n">device_constrained_variables</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">device_constrained_variable</span> <span class="ow">in</span> <span class="n">device_constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">variables_to_extract</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
+                            <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_draws</span><span class="p">,</span> <span class="n">num_chains</span><span class="p">)</span> <span class="o">+</span> <span class="n">device_constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                        <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">device_constrained_variable</span><span class="p">)</span>
+
+        <span class="c1">## This is probably faster than above but uses more device memory</span>
+        <span class="c1"># jacobian_adjustment, device_constrained_variables = self.constrain(unconstrained_draws, pad=False)</span>
+        <span class="c1"># evaluate_program_with_data = functools.partial(self.evaluate_program, **self.device_data_variables)#jax.jit(, backend = &quot;cpu&quot;)</span>
+        <span class="c1"># device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}</span>
+        <span class="c1"># target, device_constrained_variables = evaluate_program_with_data(**device_constrained_variables)</span>
+
         <span class="c1"># Copy back to numpy arrays</span>
-        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">device_constrained_draws</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
         <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">variable</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
@@ -798,7 +851,7 @@
             <span class="n">grad_device_array</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grad_device_array</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
-        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">))</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chains</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">retry</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retries</span><span class="p">):</span>
                 <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
@@ -806,7 +859,7 @@
                 <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">negative_log_density</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">solution</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-                    <span class="n">unconstrained_draws</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
+                    <span class="n">unconstrained_draws</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solution</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -877,8 +930,8 @@
         <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">num_draws</span><span class="p">)</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">one_step</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
 
-        <span class="c1"># Reorder as (param, draws, chains) from (draws, chains, param)</span>
-        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># Ordered as (draws, chains, param)</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">states</span><span class="o">.</span><span class="n">position</span>
 
         <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
 
