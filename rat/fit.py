@@ -15,11 +15,8 @@ class Fit:
     base_dfs: Dict[str, pandas.DataFrame]
     draw_dfs: Dict[str, pandas.DataFrame]
 
-    
     def build_constrained_dfs(
-        self,
-        constrained_variables: Dict[str, numpy.array],
-        base_dfs: Dict[str, pandas.DataFrame]
+        self, constrained_variables: Dict[str, numpy.array], base_dfs: Dict[str, pandas.DataFrame]
     ) -> Dict[str, pandas.DataFrame]:
         """
         Re-sort parameters stored as dictionary of arrays into dataframes
@@ -36,17 +33,16 @@ class Fit:
                 size = constrained_variable.shape[0]
             num_draws = constrained_variable.shape[-2]
             num_chains = constrained_variable.shape[-1]
-            
+
             base_df = base_dfs[name]
 
             df = pandas.concat([base_df] * num_draws * num_chains, ignore_index=True)
             df["chain"] = numpy.repeat(numpy.arange(num_chains), size * num_draws)
             df["draw"] = numpy.tile(numpy.repeat(numpy.arange(num_draws), size), num_chains)
-            df["value"] = constrained_variable.flatten(order = "F")
+            df["value"] = constrained_variable.flatten(order="F")
             draw_dfs[name] = df
 
         return draw_dfs
-
 
     def draws(self, parameter_name: str) -> pandas.DataFrame:
         return self.draw_dfs[parameter_name]
@@ -118,7 +114,7 @@ class SampleFit(Fit):
             ess = arviz.ess(x_draws)["x"].to_numpy()
             rhat = arviz.rhat(x_draws)["x"].to_numpy()
 
-            self.diag_dfs[name] = base_dfs[name].assign(ess = ess, rhat = rhat)
+            self.diag_dfs[name] = base_dfs[name].assign(ess=ess, rhat=rhat)
 
     def diag(self, parameter_name: str) -> pandas.DataFrame:
         return self.diag_dfs[parameter_name]

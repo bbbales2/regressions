@@ -54,10 +54,13 @@
                                 <a class="function" href="#Model.__init__">Model</a>
                         </li>
                         <li>
-                                <a class="function" href="#Model.optimize">optimize</a>
+                                <a class="function" href="#Model.constrain">constrain</a>
                         </li>
                         <li>
-                                <a class="function" href="#Model.build_draw_dfs">build_draw_dfs</a>
+                                <a class="function" href="#Model.prepare_draws_and_dfs">prepare_draws_and_dfs</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#Model.optimize">optimize</a>
                         </li>
                         <li>
                                 <a class="function" href="#Model.sample">sample</a>
@@ -85,6 +88,7 @@
                         <details>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span><span class="kn">import</span> <span class="nn">blackjax</span>
+<span class="kn">import</span> <span class="nn">blackjax.stan_warmup</span>
 <span class="kn">import</span> <span class="nn">blackjax.nuts</span>
 <span class="kn">import</span> <span class="nn">functools</span>
 <span class="kn">import</span> <span class="nn">jax</span>
@@ -103,7 +107,8 @@
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">constraints</span>
 <span class="kn">from</span> <span class="nn">.scanner</span> <span class="kn">import</span> <span class="n">scanner</span>
 <span class="kn">from</span> <span class="nn">.parser</span> <span class="kn">import</span> <span class="n">Parser</span>
-<span class="kn">from</span> <span class="nn">.fit</span> <span class="kn">import</span> <span class="n">OptimizationFit</span><span class="p">,</span> <span class="n">Fit</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">fit</span>
+
 
 
 <span class="k">class</span> <span class="nc">Model</span><span class="p">:</span>
@@ -113,6 +118,41 @@
     <span class="n">parameter_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
     <span class="n">parameter_offsets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
     <span class="n">parameter_sizes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
+
+
+    <span class="k">def</span> <span class="nf">constrain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="n">constrained_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
+        
+            <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
+            <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="mf">0.0</span>
+        
+            <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
+        
+            <span class="k">if</span> <span class="n">pad</span> <span class="ow">and</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">size</span> <span class="o">!=</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">():</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">()</span> <span class="o">-</span> <span class="n">size</span><span class="p">))</span>
+        
+            <span class="n">total</span> <span class="o">+=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">constraints_jacobian_adjustment</span><span class="p">)</span>
+            <span class="n">constrained_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span>
+
+        <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">constrained_variables</span>
+
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -149,9 +189,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># Copy data to jax device</span>
-        <span class="n">data_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">device_variables</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">data_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+            <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
 
         <span class="c1"># Get parameter dimensions so can build individual arguments from</span>
         <span class="c1"># unconstrained vector</span>
@@ -167,69 +207,22 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">unconstrained_parameter_size</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="c1"># identify which values are needed for each assigned_param</span>
-        <span class="n">assigned_param_dependencies</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">dependant_data</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="n">dependant_param</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="n">dependant_assigned_param</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">ops</span><span class="o">.</span><span class="n">search_tree</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Data</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Param</span><span class="p">):</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Data</span><span class="p">):</span>
-                    <span class="n">dependant_data</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Param</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">()</span> <span class="ow">in</span> <span class="n">assigned_parameter_variables</span><span class="p">:</span>
-                        <span class="n">dependant_assigned_param</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">dependant_param</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-
-            <span class="n">assigned_param_dependencies</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;param&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_param</span><span class="p">),</span>
-                <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_data</span><span class="p">),</span>
-                <span class="s2">&quot;assigned_param&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_assigned_param</span><span class="p">),</span>
-            <span class="p">}</span>
-
         <span class="c1"># This is the likelihood function we&#39;ll expose!</span>
         <span class="k">def</span> <span class="nf">lpdf</span><span class="p">(</span><span class="n">include_jacobian</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
-            <span class="n">parameter_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="n">assigned_parameter_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
-            <span class="p">):</span>
-                <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
-
-                <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-                <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
-                <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
-                <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="mf">0.0</span>
-
-                <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">size</span> <span class="o">!=</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">():</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">()</span> <span class="o">-</span> <span class="n">size</span><span class="p">))</span>
-
-                <span class="k">if</span> <span class="n">include_jacobian</span><span class="p">:</span>
-                    <span class="n">total</span> <span class="o">+=</span> <span class="n">constraints_jacobian_adjustment</span>
-                <span class="n">parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span>
+            <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">)</span>
+            <span class="n">device_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">include_jacobian</span><span class="p">:</span>
+                <span class="n">total</span> <span class="o">=</span> <span class="n">jacobian_adjustment</span>
 
             <span class="k">for</span> <span class="n">line_function</span> <span class="ow">in</span> <span class="n">line_functions</span><span class="p">:</span>
-                <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">data_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
-                <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
+                <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
+                <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
                 <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="n">assigned_parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
+                    <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
                 <span class="p">]</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line_function</span><span class="p">,</span> <span class="n">compiler</span><span class="o">.</span><span class="n">AssignLineFunction</span><span class="p">):</span>
-                    <span class="n">assigned_parameter_numpy_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
+                    <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
                         <span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
@@ -242,9 +235,19 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">lpdf_no_jac</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">lpdf</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">unconstrained_parameter_size</span>
 
-    <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fit</span><span class="p">:</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
+    <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
+        <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">device_constrained_draws</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">,</span> <span class="n">pad</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># Copy back to numpy arrays</span>
+        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">device_constrained_draws</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
 
+    <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">nlpdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
             <span class="k">return</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf_no_jac</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
 
@@ -254,89 +257,68 @@
             <span class="n">grad_device_array</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grad_device_array</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
-        <span class="n">solutions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chains</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">retry</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retries</span><span class="p">):</span>
-                <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">nlpdf</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
+
+                <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">nlpdf</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">solution</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-                    <span class="n">solutions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">solution</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+                    <span class="n">unconstrained_draws</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solutions</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solution</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_draw_dfs</span><span class="p">(</span><span class="n">solutions</span><span class="p">)</span>
+        <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fit</span><span class="o">.</span><span class="n">OptimizationFit</span><span class="p">(</span><span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">OptimizationFit</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_draws</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">num_warmup</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
+        <span class="c1"># Currently only doing warmup on one chain</span>
+        <span class="n">initial_position</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span> <span class="o">-</span> <span class="n">init</span>
 
-    <span class="k">def</span> <span class="nf">build_draw_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">states</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]):</span>
-        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">draw_series</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">states</span><span class="p">)))</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">draw</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">states</span><span class="p">):</span>
-                    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw</span>
-                    <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">series</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">]</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">series</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">:</span> <span class="n">draw_series</span><span class="p">})</span>
+        <span class="k">def</span> <span class="nf">kernel_generator</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">,</span> <span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">)</span>
 
-            <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-            <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
-            <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-
-            <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
-        <span class="k">return</span> <span class="n">draw_dfs</span>
-
-    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fit</span><span class="p">:</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
-
-        <span class="c1"># Build the kernel</span>
-        <span class="n">inverse_mass_matrix</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
-        <span class="n">kernel</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">,</span> <span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">)</span>
-        <span class="n">kernel</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">kernel</span><span class="p">)</span>  <span class="c1"># try without to see the speedup</span>
+        <span class="c1"># inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))</span>
+        <span class="c1"># kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)</span>
+        <span class="c1"># kernel = jax.jit(kernel)</span>
 
         <span class="c1"># Initialize the state</span>
-        <span class="n">initial_position</span> <span class="o">=</span> <span class="n">params</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">(</span><span class="n">initial_position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+        <span class="n">initial_state</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">(</span><span class="n">initial_position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+        <span class="c1"># positions = jax.numpy.array(chains * [initial_position])</span>
+        <span class="c1"># initial_states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)</span>
 
-        <span class="n">states</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">blackjax</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">HMCState</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="p">]</span>
-
-        <span class="c1"># Iterate</span>
+        <span class="c1"># Do one-chain warmup</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_steps</span><span class="p">):</span>
-            <span class="n">key</span><span class="p">,</span> <span class="n">subkey</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-            <span class="n">state</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
-            <span class="n">states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">warmup_key</span><span class="p">,</span> <span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">state</span><span class="p">,</span> <span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">),</span> <span class="n">info</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">stan_warmup</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">warmup_key</span><span class="p">,</span>
+            <span class="n">kernel_generator</span><span class="p">,</span>
+            <span class="n">initial_state</span><span class="p">,</span>
+            <span class="n">num_warmup</span><span class="p">,</span>
+        <span class="p">)</span>
 
-        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">draw_series</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_steps</span><span class="p">))</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">draw</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">states</span><span class="p">):</span>
-                    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                    <span class="n">df</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw</span>
-                    <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-                <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">series</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">]</span>
-                <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="n">name</span><span class="p">:</span> <span class="n">series</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">:</span> <span class="n">draw_series</span><span class="p">})</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">kernel_generator</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="n">Fit</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">)</span>
+        <span class="n">positions</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">chains</span> <span class="o">*</span> <span class="p">[</span><span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">])</span>
+        <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))(</span><span class="n">positions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+
+        <span class="c1"># Sample chains</span>
+        <span class="k">def</span> <span class="nf">one_step</span><span class="p">(</span><span class="n">chain_states</span><span class="p">,</span> <span class="n">rng_key</span><span class="p">):</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">rng_key</span><span class="p">,</span> <span class="n">chains</span><span class="p">)</span>
+            <span class="n">new_chain_states</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">kernel</span><span class="p">)(</span><span class="n">keys</span><span class="p">,</span> <span class="n">chain_states</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">new_chain_states</span><span class="p">,</span> <span class="n">new_chain_states</span>
+
+        <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">num_draws</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">one_step</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
+
+        <span class="c1"># Reorder as (param, draws, chains) from (draws, chains, param)</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+        <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">fit</span><span class="o">.</span><span class="n">SampleFit</span><span class="p">(</span><span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
 </pre></div>
 
         </details>
@@ -361,6 +343,41 @@
     <span class="n">parameter_offsets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
     <span class="n">parameter_sizes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
 
+
+    <span class="k">def</span> <span class="nf">constrain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="n">constrained_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
+        
+            <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
+            <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="mf">0.0</span>
+        
+            <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
+        
+            <span class="k">if</span> <span class="n">pad</span> <span class="ow">and</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">size</span> <span class="o">!=</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">():</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">()</span> <span class="o">-</span> <span class="n">size</span><span class="p">))</span>
+        
+            <span class="n">total</span> <span class="o">+=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">constraints_jacobian_adjustment</span><span class="p">)</span>
+            <span class="n">constrained_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span>
+
+        <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">constrained_variables</span>
+
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">data_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
@@ -396,9 +413,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># Copy data to jax device</span>
-        <span class="n">data_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">device_variables</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">data_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+            <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
 
         <span class="c1"># Get parameter dimensions so can build individual arguments from</span>
         <span class="c1"># unconstrained vector</span>
@@ -414,69 +431,22 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">unconstrained_parameter_size</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="c1"># identify which values are needed for each assigned_param</span>
-        <span class="n">assigned_param_dependencies</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">dependant_data</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="n">dependant_param</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="n">dependant_assigned_param</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">ops</span><span class="o">.</span><span class="n">search_tree</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Data</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Param</span><span class="p">):</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Data</span><span class="p">):</span>
-                    <span class="n">dependant_data</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Param</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">()</span> <span class="ow">in</span> <span class="n">assigned_parameter_variables</span><span class="p">:</span>
-                        <span class="n">dependant_assigned_param</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">dependant_param</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-
-            <span class="n">assigned_param_dependencies</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;param&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_param</span><span class="p">),</span>
-                <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_data</span><span class="p">),</span>
-                <span class="s2">&quot;assigned_param&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_assigned_param</span><span class="p">),</span>
-            <span class="p">}</span>
-
         <span class="c1"># This is the likelihood function we&#39;ll expose!</span>
         <span class="k">def</span> <span class="nf">lpdf</span><span class="p">(</span><span class="n">include_jacobian</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
-            <span class="n">parameter_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="n">assigned_parameter_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
-            <span class="p">):</span>
-                <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
-
-                <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-                <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
-                <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
-                <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="mf">0.0</span>
-
-                <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">size</span> <span class="o">!=</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">():</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">()</span> <span class="o">-</span> <span class="n">size</span><span class="p">))</span>
-
-                <span class="k">if</span> <span class="n">include_jacobian</span><span class="p">:</span>
-                    <span class="n">total</span> <span class="o">+=</span> <span class="n">constraints_jacobian_adjustment</span>
-                <span class="n">parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span>
+            <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">)</span>
+            <span class="n">device_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">include_jacobian</span><span class="p">:</span>
+                <span class="n">total</span> <span class="o">=</span> <span class="n">jacobian_adjustment</span>
 
             <span class="k">for</span> <span class="n">line_function</span> <span class="ow">in</span> <span class="n">line_functions</span><span class="p">:</span>
-                <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">data_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
-                <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
+                <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
+                <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
                 <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="n">assigned_parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
+                    <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
                 <span class="p">]</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line_function</span><span class="p">,</span> <span class="n">compiler</span><span class="o">.</span><span class="n">AssignLineFunction</span><span class="p">):</span>
-                    <span class="n">assigned_parameter_numpy_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
+                    <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
                         <span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
@@ -489,9 +459,19 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">lpdf_no_jac</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">lpdf</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">unconstrained_parameter_size</span>
 
-    <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fit</span><span class="p">:</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
+    <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
+        <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">device_constrained_draws</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">,</span> <span class="n">pad</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># Copy back to numpy arrays</span>
+        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">device_constrained_draws</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
 
+    <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">nlpdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
             <span class="k">return</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf_no_jac</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
 
@@ -501,89 +481,68 @@
             <span class="n">grad_device_array</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grad_device_array</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
-        <span class="n">solutions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chains</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">retry</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retries</span><span class="p">):</span>
-                <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">nlpdf</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
+
+                <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">nlpdf</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">solution</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-                    <span class="n">solutions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">solution</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+                    <span class="n">unconstrained_draws</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solutions</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solution</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_draw_dfs</span><span class="p">(</span><span class="n">solutions</span><span class="p">)</span>
+        <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fit</span><span class="o">.</span><span class="n">OptimizationFit</span><span class="p">(</span><span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">OptimizationFit</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_draws</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">num_warmup</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
+        <span class="c1"># Currently only doing warmup on one chain</span>
+        <span class="n">initial_position</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span> <span class="o">-</span> <span class="n">init</span>
 
-    <span class="k">def</span> <span class="nf">build_draw_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">states</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]):</span>
-        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">draw_series</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">states</span><span class="p">)))</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">draw</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">states</span><span class="p">):</span>
-                    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw</span>
-                    <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">series</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">]</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">series</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">:</span> <span class="n">draw_series</span><span class="p">})</span>
+        <span class="k">def</span> <span class="nf">kernel_generator</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">,</span> <span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">)</span>
 
-            <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-            <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
-            <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-
-            <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
-        <span class="k">return</span> <span class="n">draw_dfs</span>
-
-    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fit</span><span class="p">:</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
-
-        <span class="c1"># Build the kernel</span>
-        <span class="n">inverse_mass_matrix</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
-        <span class="n">kernel</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">,</span> <span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">)</span>
-        <span class="n">kernel</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">kernel</span><span class="p">)</span>  <span class="c1"># try without to see the speedup</span>
+        <span class="c1"># inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))</span>
+        <span class="c1"># kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)</span>
+        <span class="c1"># kernel = jax.jit(kernel)</span>
 
         <span class="c1"># Initialize the state</span>
-        <span class="n">initial_position</span> <span class="o">=</span> <span class="n">params</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">(</span><span class="n">initial_position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+        <span class="n">initial_state</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">(</span><span class="n">initial_position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+        <span class="c1"># positions = jax.numpy.array(chains * [initial_position])</span>
+        <span class="c1"># initial_states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)</span>
 
-        <span class="n">states</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">blackjax</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">HMCState</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="p">]</span>
-
-        <span class="c1"># Iterate</span>
+        <span class="c1"># Do one-chain warmup</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_steps</span><span class="p">):</span>
-            <span class="n">key</span><span class="p">,</span> <span class="n">subkey</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-            <span class="n">state</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
-            <span class="n">states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">warmup_key</span><span class="p">,</span> <span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">state</span><span class="p">,</span> <span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">),</span> <span class="n">info</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">stan_warmup</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">warmup_key</span><span class="p">,</span>
+            <span class="n">kernel_generator</span><span class="p">,</span>
+            <span class="n">initial_state</span><span class="p">,</span>
+            <span class="n">num_warmup</span><span class="p">,</span>
+        <span class="p">)</span>
 
-        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">draw_series</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_steps</span><span class="p">))</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">draw</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">states</span><span class="p">):</span>
-                    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                    <span class="n">df</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw</span>
-                    <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-                <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">series</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">]</span>
-                <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="n">name</span><span class="p">:</span> <span class="n">series</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">:</span> <span class="n">draw_series</span><span class="p">})</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">kernel_generator</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="n">Fit</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">)</span>
+        <span class="n">positions</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">chains</span> <span class="o">*</span> <span class="p">[</span><span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">])</span>
+        <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))(</span><span class="n">positions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+
+        <span class="c1"># Sample chains</span>
+        <span class="k">def</span> <span class="nf">one_step</span><span class="p">(</span><span class="n">chain_states</span><span class="p">,</span> <span class="n">rng_key</span><span class="p">):</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">rng_key</span><span class="p">,</span> <span class="n">chains</span><span class="p">)</span>
+            <span class="n">new_chain_states</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">kernel</span><span class="p">)(</span><span class="n">keys</span><span class="p">,</span> <span class="n">chain_states</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">new_chain_states</span><span class="p">,</span> <span class="n">new_chain_states</span>
+
+        <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">num_draws</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">one_step</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
+
+        <span class="c1"># Reorder as (param, draws, chains) from (draws, chains, param)</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+        <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">fit</span><span class="o">.</span><span class="n">SampleFit</span><span class="p">(</span><span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
 </pre></div>
 
         </details>
@@ -638,9 +597,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># Copy data to jax device</span>
-        <span class="n">data_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">device_variables</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">data_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+            <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
 
         <span class="c1"># Get parameter dimensions so can build individual arguments from</span>
         <span class="c1"># unconstrained vector</span>
@@ -656,69 +615,22 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">unconstrained_parameter_size</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="c1"># identify which values are needed for each assigned_param</span>
-        <span class="n">assigned_param_dependencies</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">dependant_data</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="n">dependant_param</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="n">dependant_assigned_param</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">ops</span><span class="o">.</span><span class="n">search_tree</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Data</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Param</span><span class="p">):</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Data</span><span class="p">):</span>
-                    <span class="n">dependant_data</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Param</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">()</span> <span class="ow">in</span> <span class="n">assigned_parameter_variables</span><span class="p">:</span>
-                        <span class="n">dependant_assigned_param</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">dependant_param</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">get_key</span><span class="p">())</span>
-
-            <span class="n">assigned_param_dependencies</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;param&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_param</span><span class="p">),</span>
-                <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_data</span><span class="p">),</span>
-                <span class="s2">&quot;assigned_param&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dependant_assigned_param</span><span class="p">),</span>
-            <span class="p">}</span>
-
         <span class="c1"># This is the likelihood function we&#39;ll expose!</span>
         <span class="k">def</span> <span class="nf">lpdf</span><span class="p">(</span><span class="n">include_jacobian</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
-            <span class="n">parameter_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="n">assigned_parameter_numpy_variables</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
-            <span class="p">):</span>
-                <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
-
-                <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-                <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
-                <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
-                <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="mf">0.0</span>
-
-                <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                    <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">size</span> <span class="o">!=</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">():</span>
-                    <span class="n">parameter</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">()</span> <span class="o">-</span> <span class="n">size</span><span class="p">))</span>
-
-                <span class="k">if</span> <span class="n">include_jacobian</span><span class="p">:</span>
-                    <span class="n">total</span> <span class="o">+=</span> <span class="n">constraints_jacobian_adjustment</span>
-                <span class="n">parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span>
+            <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">constrained_variables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">)</span>
+            <span class="n">device_variables</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">include_jacobian</span><span class="p">:</span>
+                <span class="n">total</span> <span class="o">=</span> <span class="n">jacobian_adjustment</span>
 
             <span class="k">for</span> <span class="n">line_function</span> <span class="ow">in</span> <span class="n">line_functions</span><span class="p">:</span>
-                <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">data_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
-                <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
+                <span class="n">data_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">data_variable_names</span><span class="p">]</span>
+                <span class="n">parameter_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">parameter_variable_names</span><span class="p">]</span>
                 <span class="n">assigned_parameter_arguments</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="n">assigned_parameter_numpy_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
+                    <span class="n">device_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">line_function</span><span class="o">.</span><span class="n">assigned_parameter_variables_names</span>
                 <span class="p">]</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line_function</span><span class="p">,</span> <span class="n">compiler</span><span class="o">.</span><span class="n">AssignLineFunction</span><span class="p">):</span>
-                    <span class="n">assigned_parameter_numpy_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
+                    <span class="n">device_variables</span><span class="p">[</span><span class="n">line_function</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_function</span><span class="p">(</span>
                         <span class="o">*</span><span class="n">data_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">parameter_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">assigned_parameter_arguments</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
@@ -737,19 +649,94 @@
     
 
                             </div>
+                            <div id="Model.constrain" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Model.constrain">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">constrain</span><span class="signature">(self, unconstrained_parameter_vector, pad=True)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">constrain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="n">constrained_variables</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">unconstrained_parameter_vector</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span>
+        
+            <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
+            <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
+            <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="mf">0.0</span>
+        
+            <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+                <span class="n">parameter</span><span class="p">,</span> <span class="n">constraints_jacobian_adjustment</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
+        
+            <span class="k">if</span> <span class="n">pad</span> <span class="ow">and</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">size</span> <span class="o">!=</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">():</span>
+                <span class="n">parameter</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">variable</span><span class="o">.</span><span class="n">padded_size</span><span class="p">()</span> <span class="o">-</span> <span class="n">size</span><span class="p">))</span>
+        
+            <span class="n">total</span> <span class="o">+=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">constraints_jacobian_adjustment</span><span class="p">)</span>
+            <span class="n">constrained_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter</span>
+
+        <span class="k">return</span> <span class="n">total</span><span class="p">,</span> <span class="n">constrained_variables</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                            <div id="Model.prepare_draws_and_dfs" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Model.prepare_draws_and_dfs">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">prepare_draws_and_dfs</span><span class="signature">(self, unconstrained_draws)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_draws</span><span class="p">):</span>
+        <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">device_constrained_draws</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constrain</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">,</span> <span class="n">pad</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># Copy back to numpy arrays</span>
+        <span class="n">constrained_draws</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">device_constrained_draws</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">constrained_draws</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
                             <div id="Model.optimize" class="classattr">
                                         <div class="attr function"><a class="headerlink" href="#Model.optimize">#&nbsp;&nbsp</a>
 
         
             <span class="def">def</span>
-            <span class="name">optimize</span><span class="signature">(self, init=2, chains=4, retries=5) -&gt; <a href="fit.html#Fit">rat.fit.Fit</a></span>:
+            <span class="name">optimize</span><span class="signature">(self, init=2, chains=4, retries=5, tolerance=0.01)</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fit</span><span class="p">:</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
-
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
         <span class="k">def</span> <span class="nf">nlpdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
             <span class="k">return</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf_no_jac</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
 
@@ -759,67 +746,21 @@
             <span class="n">grad_device_array</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grad_device_array</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
-        <span class="n">solutions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">chains</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">chain</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">chains</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">retry</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retries</span><span class="p">):</span>
-                <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">nlpdf</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">-</span> <span class="n">init</span>
+
+                <span class="n">solution</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">optimize</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">nlpdf</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="n">grad_double</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;L-BFGS-B&quot;</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">solution</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-                    <span class="n">solutions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">solution</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+                    <span class="n">unconstrained_draws</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">solution</span><span class="o">.</span><span class="n">x</span>
                     <span class="k">break</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solutions</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimization failed on chain </span><span class="si">{</span><span class="n">chain</span><span class="si">}</span><span class="s2"> with message: </span><span class="si">{</span><span class="n">solution</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="n">draw_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_draw_dfs</span><span class="p">(</span><span class="n">solutions</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">OptimizationFit</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">)</span>
-</pre></div>
-
-        </details>
-
-    
-
-                            </div>
-                            <div id="Model.build_draw_dfs" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#Model.build_draw_dfs">#&nbsp;&nbsp</a>
-
-        
-            <span class="def">def</span>
-            <span class="name">build_draw_dfs</span><span class="signature">(self, states: List[&lt;built-in function array&gt;])</span>:
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">build_draw_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">states</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]):</span>
-        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">draw_series</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">states</span><span class="p">)))</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">draw</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">states</span><span class="p">):</span>
-                    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw</span>
-                    <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">series</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">]</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">series</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">:</span> <span class="n">draw_series</span><span class="p">})</span>
-
-            <span class="n">variable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-            <span class="n">lower</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">lower</span>
-            <span class="n">upper</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">upper</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">lower</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">lower</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">lower</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">upper</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">upper</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
-                <span class="n">value</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">finite</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">)</span>
-            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-
-            <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
-        <span class="k">return</span> <span class="n">draw_dfs</span>
+        <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fit</span><span class="o">.</span><span class="n">OptimizationFit</span><span class="p">(</span><span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">)</span>
 </pre></div>
 
         </details>
@@ -832,48 +773,64 @@
 
         
             <span class="def">def</span>
-            <span class="name">sample</span><span class="signature">(self, num_steps=200, step_size=0.001) -&gt; <a href="fit.html#Fit">rat.fit.Fit</a></span>:
+            <span class="name">sample</span><span class="signature">(
+    self,
+    num_draws=200,
+    num_warmup=200,
+    chains=4,
+    init=2,
+    step_size=0.01
+)</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fit</span><span class="p">:</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_draws</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">num_warmup</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
+        <span class="c1"># Currently only doing warmup on one chain</span>
+        <span class="n">initial_position</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">init</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span> <span class="o">-</span> <span class="n">init</span>
 
-        <span class="c1"># Build the kernel</span>
-        <span class="n">inverse_mass_matrix</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
-        <span class="n">kernel</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">,</span> <span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">)</span>
-        <span class="n">kernel</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">kernel</span><span class="p">)</span>  <span class="c1"># try without to see the speedup</span>
+        <span class="k">def</span> <span class="nf">kernel_generator</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">,</span> <span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">)</span>
+
+        <span class="c1"># inverse_mass_matrix = jax.numpy.exp(jax.numpy.zeros(self.size))</span>
+        <span class="c1"># kernel = blackjax.nuts.kernel(self.lpdf, step_size, inverse_mass_matrix)</span>
+        <span class="c1"># kernel = jax.jit(kernel)</span>
 
         <span class="c1"># Initialize the state</span>
-        <span class="n">initial_position</span> <span class="o">=</span> <span class="n">params</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">(</span><span class="n">initial_position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+        <span class="n">initial_state</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">(</span><span class="n">initial_position</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+        <span class="c1"># positions = jax.numpy.array(chains * [initial_position])</span>
+        <span class="c1"># initial_states = jax.vmap(blackjax.nuts.new_state, in_axes = (0, None))(positions, self.lpdf)</span>
 
-        <span class="n">states</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">blackjax</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">HMCState</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="p">]</span>
-
-        <span class="c1"># Iterate</span>
+        <span class="c1"># Do one-chain warmup</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">draw</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_steps</span><span class="p">):</span>
-            <span class="n">key</span><span class="p">,</span> <span class="n">subkey</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-            <span class="n">state</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
-            <span class="n">states</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">warmup_key</span><span class="p">,</span> <span class="n">key</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">state</span><span class="p">,</span> <span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">),</span> <span class="n">info</span> <span class="o">=</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">stan_warmup</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">warmup_key</span><span class="p">,</span>
+            <span class="n">kernel_generator</span><span class="p">,</span>
+            <span class="n">initial_state</span><span class="p">,</span>
+            <span class="n">num_warmup</span><span class="p">,</span>
+        <span class="p">)</span>
 
-        <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">draw_series</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">num_steps</span><span class="p">))</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_offsets</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_sizes</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">draw</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">states</span><span class="p">):</span>
-                    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-                    <span class="n">df</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">]</span>
-                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;draw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">draw</span>
-                    <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-                <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">series</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">[</span><span class="n">offset</span><span class="p">]</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">]</span>
-                <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="n">name</span><span class="p">:</span> <span class="n">series</span><span class="p">,</span> <span class="s2">&quot;draw&quot;</span><span class="p">:</span> <span class="n">draw_series</span><span class="p">})</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">kernel_generator</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="n">Fit</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">)</span>
+        <span class="n">positions</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">chains</span> <span class="o">*</span> <span class="p">[</span><span class="n">state</span><span class="o">.</span><span class="n">position</span><span class="p">])</span>
+        <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">new_state</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))(</span><span class="n">positions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lpdf</span><span class="p">)</span>
+
+        <span class="c1"># Sample chains</span>
+        <span class="k">def</span> <span class="nf">one_step</span><span class="p">(</span><span class="n">chain_states</span><span class="p">,</span> <span class="n">rng_key</span><span class="p">):</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">rng_key</span><span class="p">,</span> <span class="n">chains</span><span class="p">)</span>
+            <span class="n">new_chain_states</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">vmap</span><span class="p">(</span><span class="n">kernel</span><span class="p">)(</span><span class="n">keys</span><span class="p">,</span> <span class="n">chain_states</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">new_chain_states</span><span class="p">,</span> <span class="n">new_chain_states</span>
+
+        <span class="n">keys</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">num_draws</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">states</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">one_step</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
+
+        <span class="c1"># Reorder as (param, draws, chains) from (draws, chains, param)</span>
+        <span class="n">unconstrained_draws</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+        <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">fit</span><span class="o">.</span><span class="n">SampleFit</span><span class="p">(</span><span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
 </pre></div>
 
         </details>
