@@ -21,6 +21,7 @@ from .parser import Parser
 from . import fit
 
 
+
 class Model:
     lpdf: Callable[[numpy.array], float]
     size: int
@@ -28,6 +29,41 @@ class Model:
     parameter_names: List[str]
     parameter_offsets: List[int]
     parameter_sizes: List[Union[None, int]]
+
+
+    def constrain(self, unconstrained_parameter_vector, pad = True):
+        constrained_variables = {}
+        total = 0.0
+        for name, offset, size in zip(
+            self.parameter_names,
+            self.parameter_offsets,
+            self.parameter_sizes,
+        ):
+            if size is not None:
+                parameter = unconstrained_parameter_vector[offset : offset + size]
+            else:
+                parameter = unconstrained_parameter_vector[offset]
+        
+            variable = self.parameter_variables[name]
+            lower = variable.lower
+            upper = variable.upper
+            constraints_jacobian_adjustment = 0.0
+        
+            if lower > float("-inf") and upper == float("inf"):
+                parameter, constraints_jacobian_adjustment = constraints.lower(parameter, lower)
+            elif lower == float("inf") and upper < float("inf"):
+                parameter, constraints_jacobian_adjustment = constraints.upper(parameter, upper)
+            elif lower > float("inf") and upper < float("inf"):
+                parameter, constraints_jacobian_adjustment = constraints.finite(parameter, lower, upper)
+        
+            if pad and size is not None and size != variable.padded_size():
+                parameter = jax.numpy.pad(parameter, (0, variable.padded_size() - size))
+        
+            total += jax.numpy.sum(constraints_jacobian_adjustment)
+            constrained_variables[name] = parameter
+
+        return total, constrained_variables
+
 
     def __init__(
         self,
@@ -64,9 +100,9 @@ class Model:
         self.parameter_sizes = []
 
         # Copy data to jax device
-        data_numpy_variables = {}
+        device_variables = {}
         for name, data in data_variables.items():
-            data_numpy_variables[name] = jax.device_put(data.to_numpy())
+            device_variables[name] = jax.device_put(data.to_numpy())
 
         # Get parameter dimensions so can build individual arguments from
         # unconstrained vector
@@ -82,69 +118,22 @@ class Model:
             else:
                 unconstrained_parameter_size += 1
 
-        # identify which values are needed for each assigned_param
-        assigned_param_dependencies = {}
-        for name, param in assigned_parameter_variables.items():
-            dependant_data = set()
-            dependant_param = set()
-            dependant_assigned_param = set()
-            for expr in ops.search_tree(param.rhs, ops.Data, ops.Param):
-                if isinstance(expr, ops.Data):
-                    dependant_data.add(expr.get_key())
-                elif isinstance(expr, ops.Param):
-                    if expr.get_key() in assigned_parameter_variables:
-                        dependant_assigned_param.add(expr.get_key())
-                    else:
-                        dependant_param.add(expr.get_key())
-
-            assigned_param_dependencies[name] = {
-                "param": tuple(dependant_param),
-                "data": tuple(dependant_data),
-                "assigned_param": tuple(dependant_assigned_param),
-            }
-
         # This is the likelihood function we'll expose!
         def lpdf(include_jacobian, unconstrained_parameter_vector):
-            parameter_numpy_variables = {}
-            assigned_parameter_numpy_variables = {}
             total = 0.0
-            for name, offset, size in zip(
-                self.parameter_names,
-                self.parameter_offsets,
-                self.parameter_sizes,
-            ):
-                if size is not None:
-                    parameter = unconstrained_parameter_vector[offset : offset + size]
-                else:
-                    parameter = unconstrained_parameter_vector[offset]
-
-                variable = self.parameter_variables[name]
-                lower = variable.lower
-                upper = variable.upper
-                constraints_jacobian_adjustment = 0.0
-
-                if lower > float("-inf") and upper == float("inf"):
-                    parameter, constraints_jacobian_adjustment = constraints.lower(parameter, lower)
-                elif lower == float("inf") and upper < float("inf"):
-                    parameter, constraints_jacobian_adjustment = constraints.upper(parameter, upper)
-                elif lower > float("inf") and upper < float("inf"):
-                    parameter, constraints_jacobian_adjustment = constraints.finite(parameter, lower, upper)
-
-                if size is not None and size != variable.padded_size():
-                    parameter = jax.numpy.pad(parameter, (0, variable.padded_size() - size))
-
-                if include_jacobian:
-                    total += constraints_jacobian_adjustment
-                parameter_numpy_variables[name] = parameter
+            jacobian_adjustment, constrained_variables = self.constrain(unconstrained_parameter_vector)
+            device_variables.update(constrained_variables)
+            if include_jacobian:
+                total = jacobian_adjustment
 
             for line_function in line_functions:
-                data_arguments = [data_numpy_variables[name] for name in line_function.data_variable_names]
-                parameter_arguments = [parameter_numpy_variables[name] for name in line_function.parameter_variable_names]
+                data_arguments = [device_variables[name] for name in line_function.data_variable_names]
+                parameter_arguments = [device_variables[name] for name in line_function.parameter_variable_names]
                 assigned_parameter_arguments = [
-                    assigned_parameter_numpy_variables[name] for name in line_function.assigned_parameter_variables_names
+                    device_variables[name] for name in line_function.assigned_parameter_variables_names
                 ]
                 if isinstance(line_function, compiler.AssignLineFunction):
-                    assigned_parameter_numpy_variables[line_function.name] = line_function(
+                    device_variables[line_function.name] = line_function(
                         *data_arguments, *parameter_arguments, *assigned_parameter_arguments
                     )
                 else:
@@ -157,6 +146,18 @@ class Model:
         self.lpdf_no_jac = jax.jit(functools.partial(lpdf, False))
         self.size = unconstrained_parameter_size
 
+    def prepare_draws_and_dfs(self, unconstrained_draws):
+        jacobian_adjustment, device_constrained_draws = self.constrain(unconstrained_draws, pad = False)
+        # Copy back to numpy arrays
+        constrained_draws = {key: numpy.array(value) for key, value in device_constrained_draws.items()}
+        base_dfs = {}
+        for name in constrained_draws:
+            if self.parameter_variables[name].index is not None:
+                base_dfs[name] = self.parameter_variables[name].index.base_df.copy()
+            else:
+                base_dfs[name] = pandas.DataFrame()
+        return constrained_draws, base_dfs
+
     def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
         def nlpdf(x):
             return -self.lpdf_no_jac(x.astype(numpy.float32))
@@ -167,7 +168,7 @@ class Model:
             grad_device_array = grad(x)
             return numpy.array(grad_device_array).astype(numpy.float64)
 
-        unconstrained_draws = numpy.zeros((chains, 1, self.size))
+        unconstrained_draws = numpy.zeros((self.size, 1, chains))
         for chain in range(chains):
             for retry in range(retries):
                 params = 2 * init * numpy.random.uniform(size=self.size) - init
@@ -175,43 +176,13 @@ class Model:
                 solution = scipy.optimize.minimize(nlpdf, params, jac=grad_double, method="L-BFGS-B", tol=1e-9)
 
                 if solution.success:
-                    unconstrained_draws[chain, 0] = solution.x
+                    unconstrained_draws[:, 0, chain] = solution.x
                     break
             else:
                 raise Exception(f"Optimization failed on chain {chain} with message: {solution.message}")
 
-        return fit.OptimizationFit(self, unconstrained_draws, tolerance=tolerance)
-
-    def build_draw_dfs(self, states: List[numpy.array]):
-        draw_dfs: Dict[str, pandas.DataFrame] = {}
-        draw_series = list(range(len(states)))
-        for name, offset, size in zip(self.parameter_names, self.parameter_offsets, self.parameter_sizes):
-            if size is not None:
-                dfs = []
-                for draw, state in enumerate(states):
-                    df = self.parameter_variables[name].index.base_df.copy()
-                    df["value"] = state[offset : offset + size]
-                    df["draw"] = draw
-                    dfs.append(df)
-                df = pandas.concat(dfs, ignore_index=True)
-            else:
-                series = [state[offset] for state in states]
-                df = pandas.DataFrame({"value": series, "draw": draw_series})
-
-            variable = self.parameter_variables[name]
-            lower = variable.lower
-            upper = variable.upper
-            value = df["value"].to_numpy()
-            if lower > float("-inf") and upper == float("inf"):
-                value, _ = constraints.lower(value, lower)
-            elif lower == float("inf") and upper < float("inf"):
-                value, _ = constraints.upper(value, upper)
-            elif lower > float("inf") and upper < float("inf"):
-                value, _ = constraints.finite(value, lower, upper)
-            df["value"] = value
-
-            draw_dfs[name] = df
-        return draw_dfs
+        constrained_draws, base_dfs = self.prepare_draws_and_dfs(unconstrained_draws)
+        return fit.OptimizationFit(constrained_draws, base_dfs, tolerance=tolerance)
 
     def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1e-2):
         # Currently only doing warmup on one chain
@@ -253,6 +224,10 @@ class Model:
         keys = jax.random.split(key, num_draws)
         _, states = jax.lax.scan(one_step, states, keys)
 
-        unconstrained_draws = numpy.swapaxes(states.position, 0, 1)
+        # Reorder as (param, draws, chains) from (draws, chains, param)
+        unconstrained_draws = numpy.moveaxis(states.position, (0, 1, 2), (1, 2, 0))
 
-        return fit.SampleFit(self, unconstrained_draws)
+        constrained_draws, base_dfs = self.prepare_draws_and_dfs(unconstrained_draws)
+
+        return fit.SampleFit(constrained_draws, base_dfs)
+

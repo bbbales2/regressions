@@ -11,71 +11,42 @@ from . import model
 
 
 class Fit:
-    model: model.Model
+    constrained_variables: Dict[str, numpy.array]
+    base_dfs: Dict[str, pandas.DataFrame]
     draw_dfs: Dict[str, pandas.DataFrame]
 
-    def constrain_draws(self, unconstrained_draws: numpy.array) -> numpy.array:
+    
+    def build_constrained_dfs(
+        self,
+        constrained_variables: Dict[str, numpy.array],
+        base_dfs: Dict[str, pandas.DataFrame]
+    ) -> Dict[str, pandas.DataFrame]:
         """
-        Map input array of size (num_chains, num_draws, num_parameters) to
-        output with the same shape, but constrain the packed parameters in the
-        last dimension
-        """
-        draws = numpy.zeros(unconstrained_draws.shape)
+        Re-sort parameters stored as dictionary of arrays into dataframes
 
-        for name, offset, size in zip(self.model.parameter_names, self.model.parameter_offsets, self.model.parameter_sizes):
-            filled_size = size if size is not None else 1
-
-            value = unconstrained_draws[:, :, offset : offset + filled_size]
-
-            variable = self.model.parameter_variables[name]
-            lower = variable.lower
-            upper = variable.upper
-            if lower > float("-inf") and upper == float("inf"):
-                value, _ = constraints.lower(value, lower)
-            elif lower == float("inf") and upper < float("inf"):
-                value, _ = constraints.upper(value, upper)
-            elif lower > float("inf") and upper < float("inf"):
-                value, _ = constraints.finite(value, lower, upper)
-
-            draws[:, :, offset : offset + filled_size] = value
-
-        return draws
-
-    def build_draw_dfs(self, draws: numpy.array) -> Dict[str, pandas.DataFrame]:
-        """
-        Unpack parameters from draws stored in array of shape
-        (num_chains, num_draws, num_parameters) into long-format
-        dataframes indexed by parameter name
+        Scalar parameter arrays are expected to have shape (num_draws, num_chains) or (1, num_draws, num_chains)
+        Vector parameter arrays are expected to have shape (size, num_draws, num_chains)
         """
         draw_dfs: Dict[str, pandas.DataFrame] = {}
-        num_chains = draws.shape[0]
-        num_draws = draws.shape[1]
-        draw_series = list(range(num_draws))
-        for name, offset, size in zip(self.model.parameter_names, self.model.parameter_offsets, self.model.parameter_sizes):
-            filled_size = size if size is not None else 1
+        for name in constrained_variables:
+            constrained_variable = constrained_variables[name]
+            if len(constrained_variable.shape) == 2:
+                size = 1
+            else:
+                size = constrained_variable.shape[0]
+            num_draws = constrained_variable.shape[-2]
+            num_chains = constrained_variable.shape[-1]
+            
+            base_df = base_dfs[name]
 
-            dfs = []
-            for chain in range(num_chains):
-                if size is not None:
-                    df = self.model.parameter_variables[name].index.base_df.copy()
-                    for draw in range(num_draws):
-                        df["value"] = draws[chain, draw, offset : offset + size]
-                        if num_chains > 1:
-                            df["chain"] = chain
-                        if num_draws > 1:
-                            df["draw"] = draw
-                        dfs.append(df.copy())
-                else:
-                    series = draws[chain, :, offset]
-                    df = pandas.DataFrame({"value": series})
-                    if num_chains > 1:
-                        df["chain"] = chain
-                    if num_draws > 1:
-                        df["draw"] = draw_series
-                    dfs.append(df)
+            df = pandas.concat([base_df] * num_draws * num_chains, ignore_index=True)
+            df["chain"] = numpy.repeat(numpy.arange(num_chains), size * num_draws)
+            df["draw"] = numpy.tile(numpy.repeat(numpy.arange(num_draws), size), num_chains)
+            df["value"] = constrained_variable.flatten(order = "F")
+            draw_dfs[name] = df
 
-            draw_dfs[name] = pandas.concat(dfs, ignore_index=True)
         return draw_dfs
+
 
     def draws(self, parameter_name: str) -> pandas.DataFrame:
         return self.draw_dfs[parameter_name]
@@ -119,35 +90,35 @@ class OptimizationFit(Fit):
 
         return output_draw_dfs
 
-    def __init__(self, model: model.Model, unconstrained_draws: numpy.array, tolerance):
-        self.model = model
-        draws = self.constrain_draws(unconstrained_draws)
-        draw_dfs = self.build_draw_dfs(draws)
+    def __init__(self, constrained_variables: Dict[str, numpy.array], base_dfs: Dict[str, pandas.DataFrame], tolerance):
+        self.constrained_variables = constrained_variables
+        self.base_dfs = base_dfs
+        draw_dfs = self.build_constrained_dfs(constrained_variables, base_dfs)
         self.draw_dfs = self.check_convergence_and_select_one_chain(draw_dfs, tolerance)
 
 
 class SampleFit(Fit):
-    ess_dfs: pandas.DataFrame
-    rhat_dfs: pandas.DataFrame
+    diag_dfs: pandas.DataFrame
 
-    def __init__(self, model: model.Model, unconstrained_draws: numpy.array):
-        self.model = model
-        # Constrain the draws
-        draws = self.constrain_draws(unconstrained_draws)
-
-        # Compute ess/rhat
-        x_draws = arviz.convert_to_dataset(draws)
-        ess = arviz.ess(x_draws)["x"].to_numpy().reshape((1, 1, -1))
-        rhat = arviz.rhat(x_draws)["x"].to_numpy().reshape((1, 1, -1))
-
-        self.ess_dfs = self.build_draw_dfs(ess)
-        self.rhat_dfs = self.build_draw_dfs(rhat)
+    def __init__(self, constrained_variables: Dict[str, numpy.array], base_dfs: Dict[str, pandas.DataFrame]):
+        self.constrained_variables = constrained_variables
+        self.base_dfs = base_dfs
 
         # Unpack draws into dataframes
-        self.draw_dfs = self.build_draw_dfs(draws)
+        self.draw_dfs = self.build_constrained_dfs(constrained_variables, base_dfs)
 
-    def ess(self, parameter_name: str) -> pandas.DataFrame:
-        return self.ess_dfs[parameter_name]
+        self.diag_dfs = {}
+        for name, constrained_variable in constrained_variables.items():
+            # Compute ess/rhat, must reshape from (param, draw, chain) to (chain, draw, param)
+            if len(constrained_variable.shape) == 3:
+                arviz_constrained_variable = numpy.swapaxes(constrained_variable, 0, 2)
+            else:
+                arviz_constrained_variable = numpy.expand_dims(constrained_variable.transpose(), 2)
+            x_draws = arviz.convert_to_dataset(arviz_constrained_variable)
+            ess = arviz.ess(x_draws)["x"].to_numpy()
+            rhat = arviz.rhat(x_draws)["x"].to_numpy()
 
-    def rhat(self, parameter_name: str) -> pandas.DataFrame:
-        return self.rhat_dfs[parameter_name]
+            self.diag_dfs[name] = base_dfs[name].assign(ess = ess, rhat = rhat)
+
+    def diag(self, parameter_name: str) -> pandas.DataFrame:
+        return self.diag_dfs[parameter_name]

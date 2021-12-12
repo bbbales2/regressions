@@ -62,13 +62,13 @@ def test_optimize_eight_schools(eight_schools_model):
 def test_sample_eight_schools(eight_schools_model):
     fit = eight_schools_model.sample(init=0.1, num_draws=1000, num_warmup=1000)
 
-    mu_ess_df = fit.ess("mu")
-    tau_ess_df = fit.ess("tau")
-    z_ess_df = fit.ess("z")
+    mu_diag_df = fit.diag("mu")
+    tau_diag_df = fit.diag("tau")
+    z_diag_df = fit.diag("z")
 
-    assert (mu_ess_df["value"] > 1000).all()
-    assert (tau_ess_df["value"] > 1000).all()
-    assert (z_ess_df["value"] > 1000).all()
+    assert (mu_diag_df["ess"] > 1000).all()
+    assert (tau_diag_df["ess"] > 1000).all()
+    assert (z_diag_df["ess"] > 1000).all()
 
     mu_df = fit.draws("mu")
     tau_df = fit.draws("tau")
