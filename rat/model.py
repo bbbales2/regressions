@@ -44,7 +44,7 @@ class Model:
                 line = line.lstrip().rstrip()
                 if not line:
                     continue
-                parsed_line = Parser(scanner(line), data_names).statement()
+                parsed_line = Parser(scanner(line), data_names, line).statement()
                 parsed_lines.append(parsed_line)
         else:
             if parsed_lines is None:

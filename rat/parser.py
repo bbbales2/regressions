@@ -17,6 +17,10 @@ import warnings
 
 # define group parsing rules for operators
 class PrefixOps:
+    """
+    A utility class that's used to identify and build prefix-operation expressions.
+    """
+
     ops = ["!", "-"]
 
     @staticmethod
@@ -44,6 +48,12 @@ class PostfixOps:  # not used atm
 
 
 class InfixOps:
+    """
+    A utility class that's used to indentify and build binary operation expressions.
+    Currently supported operations are:
+    `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`
+    """
+
     ops = ["+", "-", "*", "^", "/", "%", "||", "&&", "==", "!=", "<", "<=", ">", ">="]
 
     @staticmethod
@@ -60,6 +70,8 @@ class InfixOps:
             return Diff(lhs, rhs)
         elif token.value == "*":
             return Mul(lhs, rhs)
+        elif token.value == "/":
+            return Div(lhs, rhs)
         elif token.value == "^":
             return Pow(lhs, rhs)
         elif token.value == "%":
@@ -88,6 +100,12 @@ class InfixOps:
 
 
 class AssignmentOps:
+    """
+    A utility class that's used to identify and build assignments in statements.
+    Currently supports the following assignment types:
+    `ops.Assignment`
+    """
+
     ops = ["=", "+=", "-=", "*=", "/="]
 
     @staticmethod
@@ -111,7 +129,11 @@ class AssignmentOps:
 
 
 class UnaryFunctions:
-    names = ["exp", "abs", "floor", "ceil", "round"]
+    """
+    A utility class that's used to identify and build unary functions.
+    """
+
+    names = ["exp", "log", "abs", "floor", "ceil", "round", "sin", "cos", "tan", "arcsin", "arccos", "arctan", "logit", "inverse_logit"]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -123,6 +145,8 @@ class UnaryFunctions:
     def generate(subexpr: Expr, func_type: Identifier):
         if func_type.value == "exp":
             return Exp(subexpr)
+        elif func_type.value == "log":
+            return Log(subexpr)
         elif func_type.value == "abs":
             return Abs(subexpr)
         elif func_type.value == "floor":
@@ -131,10 +155,32 @@ class UnaryFunctions:
             return Ceil(subexpr)
         elif func_type.value == "round":
             return Round(subexpr)
+        elif func_type.value == "sin":
+            return Sin(subexpr)
+        elif func_type.value == "cos":
+            return Cos(subexpr)
+        elif func_type.value == "tan":
+            return Tan(subexpr)
+        elif func_type.value == "arcsin":
+            return Arcsin(subexpr)
+        elif func_type.value == "arccos":
+            return Arccos(subexpr)
+        elif func_type.value == "arctan":
+            return Arctan(subexpr)
+        elif func_type.value == "logit":
+            return Logit(subexpr)
+        elif func_type.value == "inverse_logit":
+            return InverseLogit(subexpr)
 
 
 class Distributions:
-    names = ["normal", "bernoulli_logit", "log_normal"]
+    """
+    A utility class that's used to identify and build distributions.
+    Currently supported distributions are:
+    `ops.Normal`, `ops.BernoulliLogit`, `ops.LogNormal`
+    """
+
+    names = ["normal", "bernoulli_logit", "log_normal", "cauchy"]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -156,15 +202,51 @@ class Distributions:
             if len(expressions) != 2:
                 raise Exception(f"log_normal distribution needs 2 parameters, but got {len(expressions)}!")
             return LogNormal(lhs, expressions[0], expressions[1])
+        elif dist_type.value == "cauchy":
+            if len(expressions) != 2:
+                raise Exception(f"cauchy distribution needs 2 parameters, but got {len(expressions)}!")
+            return Cauchy(lhs, expressions[0], expressions[1])
+
+
+class ParseError(Exception):
+    def __init__(self, message, code_string="", column_num=None):
+        if code_string:
+            code_string += "\n"
+            if column_num:
+                column_indicator_string = " " * column_num + "^\n\n"
+            else:
+                column_indicator_string = "\n"
+        else:
+            column_indicator_string = ""
+        exception_message = f"An error occured{' during processing the following line' if code_string else ''}:\n{code_string}{column_indicator_string}{message}"
+        super().__init__(exception_message)
 
 
 class Parser:
-    def __init__(self, tokens: List[Type[Token]], data_names: List[str]):
+    """
+    The parser for rat is a modified top-down, leftmost derivative LL parser.
+    Since rat programs are defined within the context of data, the parser needs to know
+    the column names of the data.
+    """
+
+    def __init__(self, tokens: List[Type[Token]], data_names: List[str], code_string: str = ""):
+        """
+        Initialize the parser
+        :param tokens: A list of `scanner.Token`. This should be the output format of `scanner.scanner`
+        :param data_names: A list of data column names
+        :param code_string: Optional. The original code string. If supplied, used to generate detailed errors.
+        """
         self.out_tree = []
         self.tokens = tokens
         self.data_names = data_names
+        self.code_string = code_string
 
     def peek(self, k=0) -> Type[Token]:
+        """
+        k-token lookahead. Returns `scanner.NullToken` if there are no tokens in the token stack.
+        :param k:
+        :return:
+        """
         if k >= len(self.tokens):
             return NullToken()
         return self.tokens[k]
@@ -179,6 +261,14 @@ class Parser:
         remove=False,
         lookahead=0,
     ):
+        """
+        Checks if the next token in the token stack is of designated type and value. If not, raise an Exception.
+        :param token_types: A list of `scanner.Token` types or a single `scanner.Token` type that's allowed.
+        :param token_value: A single or a list of allowed token value strings
+        :param remove: Boolean, whether to remove the token after checking or not. Defaults to False
+        :param lookahead: lookahead. Defaults to 0(immediate token)
+        :return: None
+        """
         next_token = self.peek(lookahead)
         if not token_value:
             token_value = [next_token.value]
@@ -195,11 +285,27 @@ class Parser:
                     self.remove()
                 return True
 
-        raise Exception(
-            f"Expected token types {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!"
+        raise ParseError(
+            f"Expected token type(s) {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!",
+            self.code_string,
+            next_token.column_index,
         )
 
     def expressions(self, entry_token_value, allow_shift=False) -> Tuple[List[Expr], Tuple[int]]:
+        """
+        expressions are used to evaluate repeated, comma-separeted expressions in the form "expr, expr, expr"
+        It's primarily used to evaluate subscripts or function arguments. In the case it's evaluating subscripts, it
+        will also return the shift amounts of each subscript.
+        :param entry_token_value: A single character which denotes the boundary token that starts the expression
+        sequence. For example, "myFunc(expr1, expr2, expr3)" would mean the 3-expression sequence is present between the
+        parantheses. So the entry token would be "(" and exit token ")".
+        For subscripts, it would be something like "my_variable[sub_1, shift(sub_2, 1)]. That would mean entry token
+        "[" and exit token "]".
+        :param allow_shift: This is for a quick sanity check that checks whether shift() is allowed to be used within
+        the expression sequence.
+        :return: A Tuple of length 2, with the first value being a list of expressions, and second value being a Tuple
+        of integers denoting shift amounts, if any.
+        """
         if entry_token_value == "[":
             exit_value = "]"
         elif entry_token_value == "(":
@@ -235,7 +341,7 @@ class Parser:
                     continue
             elif isinstance(token, Identifier) and token.value == "shift":
                 if not allow_shift:
-                    raise Exception("shift() has been used in a position that is not allowed.")
+                    raise ParseError("shift() has been used in a position that is not allowed.", self.code_string, token.column_index)
                 # parse lag(index, integer)
                 self.remove()  # identifier "lag"
                 self.expect_token(Special, "(")
@@ -243,7 +349,7 @@ class Parser:
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise Exception("index specified with shift() must be in data columns.")
+                    raise ParseError("Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index)
                 expression = Data(subscript_name.value)
                 self.remove()  # index name
                 self.expect_token(Special, ",")
@@ -261,6 +367,12 @@ class Parser:
         return expressions, tuple(shift_amounts)
 
     def expression(self, allow_subscripts=False):
+        """
+        This function is used to evaluate an expression. Please refer to the BNF grammer to see what types of
+        rules are being applied.
+        :param allow_subscripts:
+        :return: An `ops.Expr` object.
+        """
         token = self.peek()
 
         exp = Expr()
@@ -313,7 +425,7 @@ class Parser:
                             if self.peek(idx).value == ">":
                                 if n_openbrackets == 0:
                                     # switch from Operator to Special
-                                    self.tokens[idx] = Special(">")
+                                    self.tokens[idx] = Special(">", self.peek(idx).column_index)
                                     break
                                 else:
                                     n_openbrackets -= 1
@@ -343,7 +455,11 @@ class Parser:
                                 self.remove()  # >
                                 break
                             else:
-                                raise Exception(f"Found unknown token with value {lookahead_1.value} when evaluating constraints")
+                                raise ParseError(
+                                    f"Found unknown token with value {lookahead_1.value} when evaluating constraints",
+                                    self.code_string,
+                                    lookahead_1.column_index,
+                                )
 
                         # the for loop takes of the portion "<lower= ... >
                         # this means the constraint part of been processed and
@@ -390,9 +506,14 @@ class Parser:
         return exp
 
     def statement(self):
+        """
+        Evaluates a single statement. Statements in rat are either assignments or sampling statements. They will get
+        resolved into an `ops.Assignment` or an `ops.Distr` object.
+        :return:
+        """
         token = self.peek()
         if Distributions.check(token):
-            raise Exception("Cannot assign to a distribution.")
+            raise ParseError("Cannot assign to a distribution.", self.code_string, token.column_index)
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.expression()
@@ -420,6 +541,6 @@ class Parser:
                 return Distributions.generate(distribution, lhs, expressions)
 
             else:
-                raise Exception("Statement finished without assignment")
+                raise ParseError("Statement finished without assignment", self.code_string)
 
         return Expr()

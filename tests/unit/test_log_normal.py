@@ -9,7 +9,7 @@ from rat.compiler import log_normal
 def test_log_normal_parser():
     model_string = "y ~ log_normal(mu, sigma);"
 
-    parsed = Parser(scanner(model_string), ["y", "mu", "sigma"]).statement()
+    parsed = Parser(scanner(model_string), ["y", "mu", "sigma"], model_string).statement()
 
     assert str(parsed) == "LogNormal(Data(y), Data(mu), Data(sigma))"
 

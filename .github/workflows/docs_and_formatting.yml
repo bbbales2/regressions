@@ -11,10 +11,10 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '3.7'
-    - name: Upgrade pip & install pdoc
+    - name: Upgrade pip & install pdoc & the package
       run: |
         python -m pip install --upgrade pip
-        pip install pdoc black
+        pip install pdoc black .
     - name: Run pdoc and black and commit
       run: |
         black --line-length 140 .

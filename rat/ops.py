@@ -164,6 +164,22 @@ class LogNormal(Distr):
 
 
 @dataclass(frozen=True)
+class Cauchy(Distr):
+    variate: Expr
+    location: Expr
+    scale: Expr
+
+    def __iter__(self):
+        return iter([self.variate, self.location, self.scale])
+
+    def code(self):
+        return f"jax.scipy.stats.cauchy.logpdf({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
+
+    def __str__(self):
+        return f"Cauchy({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
+
+
+@dataclass(frozen=True)
 class Diff(Expr):
     lhs: Expr
     rhs: Expr
@@ -247,7 +263,7 @@ class Mod(Expr):
         return iter([self.left, self.right])
 
     def code(self):
-        return f"{self.left.code()} $ {self.right.code()}"
+        return f"{self.left.code()} % {self.right.code()}"
 
     def __str__(self):
         return f"Mod({self.left.__str__(), self.right.__str__()})"
@@ -477,6 +493,20 @@ class DivAssignment(Expr):
 
 
 @dataclass(frozen=True)
+class Log(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.log({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Log({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
 class Exp(Expr):
     subexpr: Expr
 
@@ -484,7 +514,7 @@ class Exp(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"exp({self.subexpr.code()})"
+        return f"jax.numpy.exp({self.subexpr.code()})"
 
     def __str__(self):
         return f"Exp({self.subexpr.__str__()})"
@@ -498,7 +528,7 @@ class Abs(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"abs({self.subexpr.code()})"
+        return f"jax.numpy.abs({self.subexpr.code()})"
 
     def __str__(self):
         return f"Abs({self.subexpr.__str__()})"
@@ -512,7 +542,7 @@ class Floor(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"floor({self.subexpr.code()})"
+        return f"jax.numpy.floor({self.subexpr.code()})"
 
     def __str__(self):
         return f"Floor({self.subexpr.__str__()})"
@@ -526,7 +556,7 @@ class Ceil(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"ceil({self.subexpr.code()})"
+        return f"jax.numpy.ceil({self.subexpr.code()})"
 
     def __str__(self):
         return f"Ceil({self.subexpr.__str__()})"
@@ -540,10 +570,122 @@ class Round(Expr):
         return iter([self.subexpr])
 
     def code(self):
-        return f"round({self.subexpr.code()})"
+        return f"jax.numpy.round({self.subexpr.code()})"
 
     def __str__(self):
         return f"Round({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Sin(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.sin({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Sin({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Cos(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.cos({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Cos({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Tan(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.tan({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Tan({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Arcsin(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.arcsin({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Arcsin({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Arccos(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.arccos({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Arccos({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Arctan(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.arctan({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Arctan({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class Logit(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.scipy.special.logit({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"Logit({self.subexpr.__str__()})"
+
+
+@dataclass(frozen=True)
+class InverseLogit(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.scipy.special.expit({self.subexpr.code()})"
+
+    def __str__(self):
+        return f"InverseLogit({self.subexpr.__str__()})"
 
 
 @dataclass
