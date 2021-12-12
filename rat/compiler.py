@@ -30,6 +30,7 @@ class LineFunction:
     data_variable_names: List[str]
     parameter_variable_names: List[str]
     index_use_numpy: List[numpy.array]
+    required_key_size: bool
 
     def __init__(
         self,
@@ -38,6 +39,7 @@ class LineFunction:
         assigned_parameter_variables: Iterable[variables.AssignedParam],
         index_use_variables: Iterable[variables.IndexUse],
         line: ops.Expr,
+        required_key_size: bool,
     ):
         self.data_variables = data_variables
         self.parameter_variables = parameter_variables
@@ -47,9 +49,11 @@ class LineFunction:
         self.assigned_parameter_variables_names = [parameter.ops_param.name for parameter in assigned_parameter_variables]
         self.index_use_variables = list(index_use_variables)
         self.line = line
+        self.required_key_size = required_key_size
 
         vectorize_arguments = (
-            [0] * len(self.data_variables)
+            ([0] if self.required_key_size else [])
+            + [0] * len(self.data_variables)
             + [None] * len(self.parameter_variables)
             + [None] * len(self.assigned_parameter_variables)
             + [0] * len(self.index_use_variables)
@@ -64,7 +68,7 @@ class LineFunction:
 
     def code(self):
         argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.index_use_variables
-        args = [variable.code() for variable in argument_variables]
+        args = (["key"] if self.required_key_size else []) + [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
 
     def compiled_function_sum(self, *args):
@@ -85,13 +89,14 @@ class AssignLineFunction(LineFunction):
         assigned_parameter_variables: Iterable[variables.AssignedParam],
         index_use_variables: Iterable[variables.IndexUse],
         line: ops.Expr,
+        required_key_size: bool,
     ):
         self.name = name
-        super().__init__(data_variables, parameter_variables, assigned_parameter_variables, index_use_variables, line)
+        super().__init__(data_variables, parameter_variables, assigned_parameter_variables, index_use_variables, line, required_key_size=required_key_size)
 
     def code(self):
         argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.index_use_variables
-        args = [variable.code() for variable in argument_variables]
+        args = (["key"] if self.required_key_size else []) + [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.rhs.code()}"])
 
     def __call__(self, *args):
@@ -101,6 +106,7 @@ class AssignLineFunction(LineFunction):
 # Iterate over the rhs variables, and store them in the graph
 def generate_dependency_graph(parsed_lines: List[ops.Expr], reversed: bool = True):
     out_graph = {}
+
     for line in parsed_lines:
         if isinstance(line, ops.Distr):
             lhs = line.variate
@@ -159,6 +165,14 @@ def topological_sort(graph):
 
 def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     logging.info(f"rat compiler - starting code generation for {len(parsed_lines)} line(s) of code.")
+
+    rng_parsed_lines = []
+    for line in parsed_lines:
+        if isinstance(line, ops.Distr) and isinstance(line.variate, ops.Data):
+            rep_op = ops.Data(line.variate.name + "_rep")
+            rng_parsed_lines.append(ops.Assignment(rep_op, line.to_rng()))
+    parsed_lines += rng_parsed_lines
+
     dependency_graph: Dict[str, Set[str]] = {}
     """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
     If we think of it as rhs | lhs, the dependency graph is an *acyclic* graph that has directed edges going 
@@ -184,9 +198,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     parameter_index_columns: Dict[str, List[Set[str]]] = {}
 
     # this set keep track of variable names that are not parameters, i.e. assigned by assignment
+    assigned_data_keys: Set[str] = set()
     assigned_parameter_keys: Set[str] = set()
 
     data_variables: Dict[str, variables.Data] = {}
+    assigned_data_variables: Dict[str, variables.AssignedData] = {}
     parameter_variables: Dict[str, variables.Param] = {}
     assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
     variable_indexes: Dict[str, variables.Index] = {}
@@ -202,12 +218,15 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 lhs = line.variate
             elif isinstance(line, ops.Assignment):
                 lhs = line.lhs
-                assigned_parameter_keys.add(lhs.get_key())
-                if lhs.get_key() == target_op_name:
-                    if lhs.index:
-                        if lhs.get_key() not in parameter_base_df:
-                            raise Exception(f"Can't resolve {lhs.get_key()}")
-                        target_op_index_key = lhs.index.get_key()
+                if isinstance(lhs, ops.Param):
+                    assigned_parameter_keys.add(lhs.get_key())
+                    if lhs.get_key() == target_op_name:
+                        if lhs.index:
+                            if lhs.get_key() not in parameter_base_df:
+                                raise Exception(f"Can't resolve {lhs.get_key()}")
+                            target_op_index_key = lhs.index.get_key()
+                else:
+                    assigned_data_keys.add(lhs.get_key())
 
             if not lhs.get_key() == target_op_name:
                 continue
@@ -232,7 +251,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
             # Find all the data referenced in the line
             for subexpr in ops.search_tree(line, ops.Data):
-                data_variables[subexpr.get_key()] = variables.Data(subexpr.get_key(), data_df[subexpr.get_key()])
+                key = subexpr.get_key()
+                if key in assigned_data_keys:
+                    assigned_data_variables[subexpr.get_key()] = variables.AssignedData(subexpr.get_key())
+                else:
+                    data_variables[subexpr.get_key()] = variables.Data(subexpr.get_key(), data_df[subexpr.get_key()])
 
             # Find all the ways that each parameter is indexed
             for subexpr in ops.search_tree(line, ops.Param):
@@ -304,10 +327,12 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
 
         for line in parsed_lines:
             # the sets below denote variables needed in this line
-            data_vars_used: Set[variables.Data] = set()
-            parameter_vars_used: Set[variables.Param] = set()
-            assigned_parameter_vars_used: Set[variables.AssignedParam] = set()
+            data_vars_used: Set[str] = set()
+            assigned_data_vars_used: Set[str] = set()
+            parameter_vars_used: Set[str] = set()
+            assigned_parameter_vars_used: Set[str] = set()
             index_use_vars: Dict[Tuple, variables.IndexUse] = {}
+            required_key_size = 0
 
             if isinstance(line, ops.Distr):
                 lhs = line.variate
@@ -342,27 +367,38 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     lhs.variable = parameter_variables[lhs_key]
 
             elif isinstance(line, ops.Assignment):
-                assert isinstance(line.lhs, ops.Param), "lhs of assignment must be an Identifier denoting a variable name"
                 # assignment lhs are set as variables.AssignedParam, since they're not subject for sampling
 
-                if lhs.index:
-                    subexpr = variables.AssignedParam(lhs, line.rhs, variable_indexes[lhs_key])
-                    variable_indexes[lhs.get_key()].incorporate_shifts(lhs.index.shifts)
-                    subexpr.ops_param.index.variable = variables.IndexUse(
-                        lhs.index.get_key(), parameter_base_df[lhs.get_key()], variable_indexes[lhs_key]
-                    )
+                if isinstance(lhs, ops.Param):
+                    if lhs.index:
+                        subexpr = variables.AssignedParam(lhs, line.rhs, variable_indexes[lhs_key])
+                        variable_indexes[lhs.get_key()].incorporate_shifts(lhs.index.shifts)
+                        subexpr.ops_param.index.variable = variables.IndexUse(
+                            lhs.index.get_key(), parameter_base_df[lhs.get_key()], variable_indexes[lhs_key]
+                        )
+                    else:
+                        subexpr = variables.AssignedParam(lhs, line.rhs)
+                    assigned_parameter_variables[lhs_key] = subexpr
                 else:
-                    subexpr = variables.AssignedParam(lhs, line.rhs)
-                assigned_parameter_variables[lhs_key] = subexpr
+                    subexpr = assigned_data_variables[lhs.get_key()]
+
                 lhs.variable = subexpr
+                if isinstance(line.rhs, ops.Rng):
+                    required_key_size = len(line_df)
 
             # once variable/parameter lhs declarations/sampling are handled, we process rhs
             for op in ops.search_tree(line, ops.Data):
                 op_key = op.get_key()
-                data_vars_used.add(op_key)
+                if op_key in assigned_data_variables:
+                    assigned_data_vars_used.add(op_key)
+                else:
+                    data_vars_used.add(op_key)
                 if op_key == lhs_key:
                     continue
-                op.variable = data_variables[op_key]
+                if op_key in assigned_data_variables:
+                    op.variable = assigned_data_variables[op_key]
+                else:
+                    op.variable = data_variables[op_key]
 
             for op in ops.search_tree(line, ops.Param):
                 op_key = op.get_key()
@@ -414,6 +450,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
                     index_use_vars.values(),
                     line,
+                    required_key_size=required_key_size,
                 )
             elif isinstance(line, ops.Assignment):
                 line_function = AssignLineFunction(
@@ -423,6 +460,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
                     index_use_vars.values(),
                     line,
+                    required_key_size=required_key_size,
                 )
             line_functions.append(line_function)
             logging.debug("-------------------")
@@ -432,4 +470,4 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     logging.debug(f"data: {list(data_variables.keys())}")
     logging.debug(f"parameters: {list(parameter_variables.keys())}")
     logging.debug(f"assigned parameters {list(assigned_parameter_variables.keys())}")
-    return data_variables, parameter_variables, assigned_parameter_variables, variable_indexes, line_functions
+    return data_variables, assigned_data_variables, parameter_variables, assigned_parameter_variables, variable_indexes, line_functions

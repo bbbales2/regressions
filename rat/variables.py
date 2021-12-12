@@ -143,6 +143,13 @@ class Data:
     def code(self):
         return f"data__{self.name}"
 
+@dataclass
+class AssignedData:
+    name: str
+    index: Index = None
+
+    def code(self):
+        return f"assigned_data__{self.name}"
 
 @dataclass
 class Param:
