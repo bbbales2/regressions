@@ -66,7 +66,7 @@ class Model:
 
         return total, constrained_variables
 
-    def evaluate_program(self, key = None, **device_variables):
+    def evaluate_program(self, key=None, **device_variables):
         total = 0.0
         for line_function in self.line_functions:
             data_arguments = [device_variables[name] for name in line_function.data_variable_names]
@@ -83,7 +83,9 @@ class Model:
                 rng_key_argument = []
 
             if isinstance(line_function, compiler.AssignLineFunction):
-                device_variables[line_function.name] = line_function(*rng_key_argument, *data_arguments, *parameter_arguments, *assigned_parameter_arguments)
+                device_variables[line_function.name] = line_function(
+                    *rng_key_argument, *data_arguments, *parameter_arguments, *assigned_parameter_arguments
+                )
             else:
                 total += line_function(*rng_key_argument, *data_arguments, *parameter_arguments, *assigned_parameter_arguments)
 
@@ -93,16 +95,18 @@ class Model:
         jacobian_adjustment, constrained_variables = self.constrain(unconstrained_parameter_vector)
         constrained_variables.update(self.device_data_variables)
 
-        target_program, key, constrained_variables = self.evaluate_program(key = None, **constrained_variables)
+        target_program, key, constrained_variables = self.evaluate_program(key=None, **constrained_variables)
         return target_program + (jacobian_adjustment if include_jacobian else 0.0)
 
     def prepare_draws_and_dfs(self, key, device_unconstrained_draws):
         unconstrained_draws = numpy.array(device_unconstrained_draws)
         num_draws = unconstrained_draws.shape[0]
         num_chains = unconstrained_draws.shape[1]
-        variables_to_extract = set(itertools.chain(self.assigned_data_variables.keys(), self.parameter_variables.keys(), self.assigned_parameter_variables.keys()))
+        variables_to_extract = set(
+            itertools.chain(self.assigned_data_variables.keys(), self.parameter_variables.keys(), self.assigned_parameter_variables.keys())
+        )
         constrained_draws = {}
-        evaluate_program_with_data = jax.jit(functools.partial(self.evaluate_program, **self.device_data_variables), backend = "cpu")
+        evaluate_program_with_data = jax.jit(functools.partial(self.evaluate_program, **self.device_data_variables), backend="cpu")
         for draw in range(num_draws):
             for chain in range(num_chains):
                 jacobian_adjustment, constrained_variables = self.constrain(unconstrained_draws[draw, chain], pad=False)
@@ -117,13 +121,15 @@ class Model:
 
         ## This is probably faster than above but uses more device memory
         ## Hasn't been update to support rngs
-        #jacobian_adjustment, device_constrained_variables = self.constrain(unconstrained_draws, pad=False)
-        #device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}
-        #target, device_constrained_variables = jax.vmap(jax.vmap(evaluate_program_with_data))(**device_constrained_variables)
+        # jacobian_adjustment, device_constrained_variables = self.constrain(unconstrained_draws, pad=False)
+        # device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}
+        # target, device_constrained_variables = jax.vmap(jax.vmap(evaluate_program_with_data))(**device_constrained_variables)
 
         # Copy back to numpy arrays
         base_dfs = {}
-        for name, variable in itertools.chain(self.assigned_data_variables.items(), self.parameter_variables.items(), self.assigned_parameter_variables.items()):
+        for name, variable in itertools.chain(
+            self.assigned_data_variables.items(), self.parameter_variables.items(), self.assigned_parameter_variables.items()
+        ):
             if variable.index is not None:
                 base_dfs[name] = variable.index.base_df.copy()
             else:

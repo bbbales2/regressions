@@ -115,8 +115,10 @@ class Param(Expr):
 class Distr(Expr):
     pass
 
+
 class Rng(Expr):
     pass
+
 
 @dataclass(frozen=True)
 class NormalRng(Rng):
@@ -132,6 +134,7 @@ class NormalRng(Rng):
     def __str__(self):
         return f"NormalRng({self.mean.__str__()}, {self.std.__str__()})"
 
+
 @dataclass(frozen=True)
 class Normal(Distr):
     variate: Expr
@@ -143,12 +146,13 @@ class Normal(Distr):
 
     def code(self):
         return f"jax.scipy.stats.norm.logpdf({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
-    
+
     def to_rng(self):
         return NormalRng(self.mean, self.std)
 
     def __str__(self):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+
 
 @dataclass(frozen=True)
 class BernoulliLogitRng(Rng):
@@ -180,6 +184,7 @@ class BernoulliLogit(Distr):
 
     def __str__(self):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+
 
 @dataclass(frozen=True)
 class LogNormalRng(Rng):
@@ -213,6 +218,7 @@ class LogNormal(Distr):
 
     def __str__(self):
         return f"LogNormal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+
 
 @dataclass(frozen=True)
 class CauchyRng(Rng):

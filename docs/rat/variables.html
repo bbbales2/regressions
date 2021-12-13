@@ -90,6 +90,21 @@
 
             </li>
             <li>
+                    <a class="class" href="#AssignedData">AssignedData</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#AssignedData.__init__">AssignedData</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#AssignedData.index">index</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#AssignedData.code">code</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
                     <a class="class" href="#Param">Param</a>
                             <ul class="memberlist">
                         <li>
@@ -322,6 +337,13 @@
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;data__</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
 
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">AssignedData</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;assigned_data__</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">Param</span><span class="p">:</span>
@@ -834,6 +856,71 @@ and returns the default singular column names.
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;data__</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                </section>
+                <section id="AssignedData">
+                                <div class="attr class">
+        <a class="headerlink" href="#AssignedData">#&nbsp;&nbsp</a>
+
+        
+        <span class="def">class</span>
+        <span class="name">AssignedData</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">AssignedData</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;assigned_data__</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>AssignedData(name: str, index: <a href="#Index">rat.variables.Index</a> = None)</p>
+</div>
+
+
+                            <div id="AssignedData.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#AssignedData.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">AssignedData</span><span class="signature">(name: str, index: <a href="#Index">rat.variables.Index</a> = None)</span>
+    </div>
+
+        
+    
+
+                            </div>
+                            <div id="AssignedData.index" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#AssignedData.index">#&nbsp;&nbsp</a>
+
+        <span class="name">index</span><span class="annotation">: <a href="#Index">rat.variables.Index</a></span><span class="default_value"> = None</span>
+    </div>
+
+    
+
+                            </div>
+                            <div id="AssignedData.code" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#AssignedData.code">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">code</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;assigned_data__</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 
         </details>

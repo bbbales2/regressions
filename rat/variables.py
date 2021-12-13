@@ -143,6 +143,7 @@ class Data:
     def code(self):
         return f"data__{self.name}"
 
+
 @dataclass
 class AssignedData:
     name: str
@@ -150,6 +151,7 @@ class AssignedData:
 
     def code(self):
         return f"assigned_data__{self.name}"
+
 
 @dataclass
 class Param:

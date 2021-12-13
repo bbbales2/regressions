@@ -165,6 +165,27 @@
 
             </li>
             <li>
+                    <a class="class" href="#Rng">Rng</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#Rng.__init__">Rng</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#NormalRng">NormalRng</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#NormalRng.__init__">NormalRng</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#NormalRng.code">code</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
                     <a class="class" href="#Normal">Normal</a>
                             <ul class="memberlist">
                         <li>
@@ -172,6 +193,21 @@
                         </li>
                         <li>
                                 <a class="function" href="#Normal.code">code</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#Normal.to_rng">to_rng</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#BernoulliLogitRng">BernoulliLogitRng</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#BernoulliLogitRng.__init__">BernoulliLogitRng</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#BernoulliLogitRng.code">code</a>
                         </li>
                 </ul>
 
@@ -185,6 +221,21 @@
                         <li>
                                 <a class="function" href="#BernoulliLogit.code">code</a>
                         </li>
+                        <li>
+                                <a class="function" href="#BernoulliLogit.to_rng">to_rng</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#LogNormalRng">LogNormalRng</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#LogNormalRng.__init__">LogNormalRng</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#LogNormalRng.code">code</a>
+                        </li>
                 </ul>
 
             </li>
@@ -197,6 +248,21 @@
                         <li>
                                 <a class="function" href="#LogNormal.code">code</a>
                         </li>
+                        <li>
+                                <a class="function" href="#LogNormal.to_rng">to_rng</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#CauchyRng">CauchyRng</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#CauchyRng.__init__">CauchyRng</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#CauchyRng.code">code</a>
+                        </li>
                 </ul>
 
             </li>
@@ -208,6 +274,9 @@
                         </li>
                         <li>
                                 <a class="function" href="#Cauchy.code">code</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#Cauchy.to_rng">to_rng</a>
                         </li>
                 </ul>
 
@@ -786,6 +855,22 @@
 <span class="k">class</span> <span class="nc">Distr</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="k">pass</span>
 
+<span class="k">class</span> <span class="nc">Rng</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">NormalRng</span><span class="p">(</span><span class="n">Rng</span><span class="p">):</span>
+    <span class="n">mean</span><span class="p">:</span> <span class="n">Expr</span>
+    <span class="n">std</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.normal(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;NormalRng(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">Normal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
@@ -798,9 +883,25 @@
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.scipy.stats.norm.logpdf(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+    
+    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">NormalRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Normal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">BernoulliLogitRng</span><span class="p">(</span><span class="n">Rng</span><span class="p">):</span>
+    <span class="n">logit_p</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.random.bernoulli(key, jax.scipy.special.expit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">))&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;BernoulliLogitRng(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -814,8 +915,25 @@
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;bernoulli_logit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
+    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">BernoulliLogitRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="p">)</span>
+
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Normal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LogNormalRng</span><span class="p">(</span><span class="n">Rng</span><span class="p">):</span>
+    <span class="n">mean</span><span class="p">:</span> <span class="n">Expr</span>
+    <span class="n">std</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.numpy.exp(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.normal(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;LogNormalRng(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -830,8 +948,25 @@
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;log_normal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
+    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LogNormalRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">)</span>
+
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;LogNormal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">CauchyRng</span><span class="p">(</span><span class="n">Rng</span><span class="p">):</span>
+    <span class="n">location</span><span class="p">:</span> <span class="n">Expr</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.cauchy(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;CauchyRng(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -845,6 +980,9 @@
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.scipy.stats.cauchy.logpdf(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">CauchyRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Cauchy(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
@@ -1991,6 +2129,108 @@
                                 </dl>
                             </div>
                 </section>
+                <section id="Rng">
+                                <div class="attr class">
+        <a class="headerlink" href="#Rng">#&nbsp;&nbsp</a>
+
+        
+        <span class="def">class</span>
+        <span class="name">Rng</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Rng</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+    <span class="k">pass</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            <div id="Rng.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Rng.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">Rng</span><span class="signature">()</span>
+    </div>
+
+        
+    
+
+                            </div>
+                            <div class="inherited">
+                                <h5>Inherited Members</h5>
+                                <dl>
+                                    <div><dt><a href="#Expr">Expr</a></dt>
+                                <dd id="Rng.code" class="function"><a href="#Expr.code">code</a></dd>
+
+            </div>
+                                </dl>
+                            </div>
+                </section>
+                <section id="NormalRng">
+                                <div class="attr class">
+        <a class="headerlink" href="#NormalRng">#&nbsp;&nbsp</a>
+
+        
+        <span class="def">class</span>
+        <span class="name">NormalRng</span><wbr>(<span class="base"><a href="#Rng">Rng</a></span>):
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">NormalRng</span><span class="p">(</span><span class="n">Rng</span><span class="p">):</span>
+    <span class="n">mean</span><span class="p">:</span> <span class="n">Expr</span>
+    <span class="n">std</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.normal(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;NormalRng(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>NormalRng(mean: <a href="#Expr">rat.ops.Expr</a>, std: <a href="#Expr">rat.ops.Expr</a>)</p>
+</div>
+
+
+                            <div id="NormalRng.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#NormalRng.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">NormalRng</span><span class="signature">(mean: <a href="#Expr">rat.ops.Expr</a>, std: <a href="#Expr">rat.ops.Expr</a>)</span>
+    </div>
+
+        
+    
+
+                            </div>
+                            <div id="NormalRng.code" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#NormalRng.code">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">code</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.normal(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                </section>
                 <section id="Normal">
                                 <div class="attr class">
         <a class="headerlink" href="#Normal">#&nbsp;&nbsp</a>
@@ -2012,6 +2252,9 @@
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.scipy.stats.norm.logpdf(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+    
+    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">NormalRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Normal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
@@ -2053,6 +2296,86 @@
     
 
                             </div>
+                            <div id="Normal.to_rng" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Normal.to_rng">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">to_rng</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">NormalRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">)</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                </section>
+                <section id="BernoulliLogitRng">
+                                <div class="attr class">
+        <a class="headerlink" href="#BernoulliLogitRng">#&nbsp;&nbsp</a>
+
+        
+        <span class="def">class</span>
+        <span class="name">BernoulliLogitRng</span><wbr>(<span class="base"><a href="#Rng">Rng</a></span>):
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">BernoulliLogitRng</span><span class="p">(</span><span class="n">Rng</span><span class="p">):</span>
+    <span class="n">logit_p</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.random.bernoulli(key, jax.scipy.special.expit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">))&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;BernoulliLogitRng(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>BernoulliLogitRng(logit_p: <a href="#Expr">rat.ops.Expr</a>)</p>
+</div>
+
+
+                            <div id="BernoulliLogitRng.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#BernoulliLogitRng.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">BernoulliLogitRng</span><span class="signature">(logit_p: <a href="#Expr">rat.ops.Expr</a>)</span>
+    </div>
+
+        
+    
+
+                            </div>
+                            <div id="BernoulliLogitRng.code" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#BernoulliLogitRng.code">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">code</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.random.bernoulli(key, jax.scipy.special.expit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">))&quot;</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
                 </section>
                 <section id="BernoulliLogit">
                                 <div class="attr class">
@@ -2074,6 +2397,9 @@
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;bernoulli_logit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">BernoulliLogitRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Normal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
@@ -2115,6 +2441,87 @@
     
 
                             </div>
+                            <div id="BernoulliLogit.to_rng" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#BernoulliLogit.to_rng">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">to_rng</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">BernoulliLogitRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="p">)</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                </section>
+                <section id="LogNormalRng">
+                                <div class="attr class">
+        <a class="headerlink" href="#LogNormalRng">#&nbsp;&nbsp</a>
+
+        
+        <span class="def">class</span>
+        <span class="name">LogNormalRng</span><wbr>(<span class="base"><a href="#Rng">Rng</a></span>):
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LogNormalRng</span><span class="p">(</span><span class="n">Rng</span><span class="p">):</span>
+    <span class="n">mean</span><span class="p">:</span> <span class="n">Expr</span>
+    <span class="n">std</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.numpy.exp(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.normal(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;LogNormalRng(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>LogNormalRng(mean: <a href="#Expr">rat.ops.Expr</a>, std: <a href="#Expr">rat.ops.Expr</a>)</p>
+</div>
+
+
+                            <div id="LogNormalRng.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#LogNormalRng.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">LogNormalRng</span><span class="signature">(mean: <a href="#Expr">rat.ops.Expr</a>, std: <a href="#Expr">rat.ops.Expr</a>)</span>
+    </div>
+
+        
+    
+
+                            </div>
+                            <div id="LogNormalRng.code" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#LogNormalRng.code">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">code</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.numpy.exp(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.normal(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
                 </section>
                 <section id="LogNormal">
                                 <div class="attr class">
@@ -2137,6 +2544,9 @@
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;log_normal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LogNormalRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;LogNormal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
@@ -2178,6 +2588,87 @@
     
 
                             </div>
+                            <div id="LogNormal.to_rng" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#LogNormal.to_rng">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">to_rng</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">LogNormalRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">)</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                </section>
+                <section id="CauchyRng">
+                                <div class="attr class">
+        <a class="headerlink" href="#CauchyRng">#&nbsp;&nbsp</a>
+
+        
+        <span class="def">class</span>
+        <span class="name">CauchyRng</span><wbr>(<span class="base"><a href="#Rng">Rng</a></span>):
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">CauchyRng</span><span class="p">(</span><span class="n">Rng</span><span class="p">):</span>
+    <span class="n">location</span><span class="p">:</span> <span class="n">Expr</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.cauchy(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;CauchyRng(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>CauchyRng(location: <a href="#Expr">rat.ops.Expr</a>, scale: <a href="#Expr">rat.ops.Expr</a>)</p>
+</div>
+
+
+                            <div id="CauchyRng.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#CauchyRng.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">CauchyRng</span><span class="signature">(location: <a href="#Expr">rat.ops.Expr</a>, scale: <a href="#Expr">rat.ops.Expr</a>)</span>
+    </div>
+
+        
+    
+
+                            </div>
+                            <div id="CauchyRng.code" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#CauchyRng.code">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">code</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> * jax.random.cauchy(key) + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
                 </section>
                 <section id="Cauchy">
                                 <div class="attr class">
@@ -2200,6 +2691,9 @@
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.scipy.stats.cauchy.logpdf(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">CauchyRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Cauchy(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
@@ -2234,6 +2728,25 @@
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.scipy.stats.cauchy.logpdf(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                            <div id="Cauchy.to_rng" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Cauchy.to_rng">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">to_rng</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">to_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">CauchyRng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
 </pre></div>
 
         </details>

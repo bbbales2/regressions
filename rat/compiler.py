@@ -92,7 +92,14 @@ class AssignLineFunction(LineFunction):
         required_key_size: bool,
     ):
         self.name = name
-        super().__init__(data_variables, parameter_variables, assigned_parameter_variables, index_use_variables, line, required_key_size=required_key_size)
+        super().__init__(
+            data_variables,
+            parameter_variables,
+            assigned_parameter_variables,
+            index_use_variables,
+            line,
+            required_key_size=required_key_size,
+        )
 
     def code(self):
         argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.index_use_variables
