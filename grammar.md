@@ -80,6 +80,7 @@ expression ::= expression infixOps expression
              | integer_literal
              | '(' expression ')'
              | unaryFunction '(' expression ')'
+             | binary '(' expression ',' expression ')'
 
 
 ; multiple arguments for standard functions
@@ -95,7 +96,9 @@ infixOps ::= ("+", "-", "*", "/", "%",
 
 prefixOps ::= ("!", "-")
 
-unaryFunction ::= ("exp", "abs", "floor", "ceil", "round")
+unaryFunction ::= ("log", exp", "abs", "floor", "ceil", "round",
+                   "cos", "sin", "tan", "arcsin", "arccos", "arctan",
+                   "logit", "inverse_logit")
 
 ; didn't implement control flow yet
 statement ::= atomic_statement
@@ -107,7 +110,7 @@ constraint_range ::= 'lower' '=' expressioni ',' 'upper' = expression
                    | 'lower' '=' expression
                    | 'upper' '=' expression
 
-Distribution ::= ("normal")
+Distribution ::= ("normal", "bernoulli_logit", "log_normal", "cauchy")
 
 lhs ::= identifier constraint ('[' expressions ']')*
 assignmentOp ::= ("=", "+=", "-=", "*=", "/=")

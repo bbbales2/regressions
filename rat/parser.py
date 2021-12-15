@@ -106,7 +106,7 @@ class AssignmentOps:
     `ops.Assignment`
     """
 
-    ops = ["=", "+=", "-=", "*=", "/="]
+    ops = ["="]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -116,16 +116,9 @@ class AssignmentOps:
 
     @staticmethod
     def generate(lhs: Expr, operator: Operator, rhs: Expr):
+        # check() has been ran for operator
         if operator.value == "=":
             return Assignment(lhs, rhs)
-        elif operator.value == "+=":
-            return AddAssignment(lhs, rhs)
-        elif operator.value == "-=":
-            return DiffAssignment(lhs, rhs)
-        elif operator.value == "*=":
-            return MulAssignment(lhs, rhs)
-        elif operator.value == "/=":
-            return DivAssignment(lhs, rhs)
 
 
 class UnaryFunctions:
@@ -334,6 +327,7 @@ class Parser:
             token = self.peek()
             shift_amount = None
             if isinstance(token, Special):
+                self.expect_token(Special, (exit_value, ","))
                 if token.value == exit_value:
                     break
                 elif token.value == ",":
@@ -379,7 +373,7 @@ class Parser:
         if isinstance(token, RealLiteral):  # if just a real number, return it
             exp = RealConstant(float(token.value))
             self.remove()  # real
-        if isinstance(token, IntLiteral):  # if just a integer, return it
+        if isinstance(token, IntLiteral):  # if just an integer, return it
             exp = IntegerConstant(int(token.value))
             self.remove()  # integer
 
@@ -400,6 +394,8 @@ class Parser:
                 if token.value in self.data_names:
                     exp = Data(token.value)
                     self.remove()  # identifier
+                elif token.value in Distributions.names:
+                    raise ParseError("A distribution has been found in an expressions", self.code_string, token.column_index)
                 else:
                     exp = Param(token.value)
                     self.remove()  # identifier
@@ -541,6 +537,6 @@ class Parser:
                 return Distributions.generate(distribution, lhs, expressions)
 
             else:
-                raise ParseError("Statement finished without assignment", self.code_string)
+                raise ParseError(f"Unknown operator '{op.value}' in statement", self.code_string, op.column_index)
 
         return Expr()

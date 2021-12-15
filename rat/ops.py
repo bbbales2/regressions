@@ -433,66 +433,6 @@ class Assignment(Expr):
 
 
 @dataclass(frozen=True)
-class AddAssignment(Expr):
-    lhs: Expr
-    rhs: Expr
-
-    def __iter__(self):
-        return iter([self.lhs, self.rhs])
-
-    def code(self):
-        return f"{self.lhs.code()} += {self.rhs.code()}"
-
-    def __str__(self):
-        return f"AddAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
-class DiffAssignment(Expr):
-    lhs: Expr
-    rhs: Expr
-
-    def __iter__(self):
-        return iter([self.lhs, self.rhs])
-
-    def code(self):
-        return f"{self.lhs.code()} -= {self.rhs.code()}"
-
-    def __str__(self):
-        return f"DiffAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
-class MulAssignment(Expr):
-    lhs: Expr
-    rhs: Expr
-
-    def __iter__(self):
-        return iter([self.lhs, self.rhs])
-
-    def code(self):
-        return f"{self.lhs.code()} *= {self.rhs.code()}"
-
-    def __str__(self):
-        return f"MulAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
-class DivAssignment(Expr):
-    lhs: Expr
-    rhs: Expr
-
-    def __iter__(self):
-        return iter([self.lhs, self.rhs])
-
-    def code(self):
-        return f"{self.lhs.code()} /= {self.rhs.code()}"
-
-    def __str__(self):
-        return f"DivAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
 class Log(Expr):
     subexpr: Expr
 

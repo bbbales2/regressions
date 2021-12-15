@@ -66,7 +66,7 @@ class RealLiteral(Token):
 class Operator(Token):
     """
     The Operator token represent character(s) that represent operators. Explicitly, any single token that has the
-    following values("=","+=","-=","/=","*=","%=","+","-","*","/","^","%","!",">=","<=","==","<",">","&&","||") are
+    following values("=","+","-","*","/","^","%","!",">=","<=","==","<",">","&&","||") are
     set as an Operator.
     """
 
@@ -103,11 +103,6 @@ special_characters = [
 ]  # symbols indicating change in semantics or control flow
 operator_strings = [
     "=",
-    "+=",
-    "-=",
-    "/=",
-    "*=",
-    "%=",
     "+",
     "-",
     "*",
@@ -156,7 +151,7 @@ def scanner(model_code: str) -> List[Token]:
                 if resolved:
                     result.append(resolved)
                 charstack = ""
-            resolved = resolve_token(char, column_index - len(char))
+            resolved = resolve_token(char, column_index - 1)
             if resolved:
                 result.append(resolved)
 
@@ -217,4 +212,7 @@ def resolve_token(charstack, column_index):
     elif charstack in operator_strings:
         return Operator(charstack, column_index)
     else:
-        return Identifier(charstack, column_index)
+        if(charstack.isalnum()):
+            return Identifier(charstack, column_index)
+        else:
+            return None

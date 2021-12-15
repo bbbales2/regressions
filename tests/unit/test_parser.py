@@ -1,4 +1,6 @@
 import pytest
+
+import rat.parser
 from rat.parser import Parser
 from rat.scanner import scanner
 from rat.ops import *
@@ -99,3 +101,9 @@ def test_parser_rhs_index_shift_multiple():
     )
 
     assert statement.__str__() == expected.__str__()
+
+def test_parser_invalid_expressions():
+    with pytest.raises(IndexError):
+        test_string = "tau<lower=0.0> ~ normal(skills_mu[year?]);"
+        data_names = ["year", "skills_mu"]
+        statement = Parser(scanner(test_string), data_names, test_string).statement()
