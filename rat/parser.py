@@ -211,7 +211,7 @@ class ParseError(Exception):
                 column_indicator_string = "\n"
         else:
             column_indicator_string = ""
-        exception_message = f"An error occured{' during processing the following line' if code_string else ''}:\n{code_string}{column_indicator_string}{message}"
+        exception_message = f"An error occured{' while processing the following line' if code_string else ''}:\n{code_string}{column_indicator_string}{message}"
         super().__init__(exception_message)
 
 

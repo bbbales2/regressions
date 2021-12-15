@@ -120,6 +120,19 @@ operator_strings = [
 ]
 
 
+class TokenizeError(Exception):
+    def __init__(self, message, code_string="", column_num=None):
+        if code_string:
+            code_string += "\n"
+            if column_num:
+                column_indicator_string = " " * column_num + "^\n\n"
+            else:
+                column_indicator_string = "\n"
+        else:
+            column_indicator_string = ""
+        exception_message = f"An error occured{' while tokenizing the following line' if code_string else ''}:\n{code_string}{column_indicator_string}{message}"
+        super().__init__(exception_message)
+
 def scanner(model_code: str) -> List[Token]:
     """
     The scanner receives a string as an input and returns a list of `Token`s.
@@ -141,23 +154,26 @@ def scanner(model_code: str) -> List[Token]:
     result = []
     charstack = ""
     model_code = " ".join(model_code.split("\n"))
+    model_code_original = model_code[:]
     column_index = 0
     while model_code:
         char = model_code[0]
         model_code = model_code[1:]
         if char in delimeters:
+            # check if popped character is a delimeter
             if charstack:
-                resolved = resolve_token(charstack, column_index - len(charstack))
+                # if something already exists on the temporary stack attempt to convert to token
+                resolved = resolve_token(charstack, column_index - len(charstack), model_code_original)
                 if resolved:
                     result.append(resolved)
                 charstack = ""
-            resolved = resolve_token(char, column_index - 1)
+            resolved = resolve_token(char, column_index - 1, model_code_original)
             if resolved:
                 result.append(resolved)
 
         elif char in operator_strings:
             if charstack and charstack + char not in operator_strings:
-                resolved = resolve_token(charstack, column_index - len(charstack))
+                resolved = resolve_token(charstack, column_index - len(charstack), model_code_original)
                 if resolved:
                     result.append(resolved)
                 charstack = ""
@@ -165,12 +181,12 @@ def scanner(model_code: str) -> List[Token]:
 
         elif charstack in operator_strings:
             if charstack == "-":
-                resolved = resolve_token(charstack + char, column_index)
+                resolved = resolve_token(charstack + char, column_index, model_code_original)
                 if resolved and (isinstance(resolved, IntLiteral) or isinstance(resolved, RealLiteral)):
                     charstack += char
                     continue
             if charstack + char not in operator_strings:
-                resolved = resolve_token(charstack, column_index - len(charstack))
+                resolved = resolve_token(charstack, column_index - len(charstack), model_code_original)
                 if resolved:
                     result.append(resolved)
                 charstack = char
@@ -182,7 +198,7 @@ def scanner(model_code: str) -> List[Token]:
         column_index += 1
 
     if charstack:
-        resolved = resolve_token(charstack, column_index)
+        resolved = resolve_token(charstack, column_index, model_code_original)
         if resolved:
             result.append(resolved)
 
@@ -198,7 +214,7 @@ def casts_to_int(val):
         return True
 
 
-def resolve_token(charstack, column_index):
+def resolve_token(charstack, column_index, code_string=""):
     if charstack == " " or not charstack:
         return None
     elif charstack == ";":
@@ -212,7 +228,7 @@ def resolve_token(charstack, column_index):
     elif charstack in operator_strings:
         return Operator(charstack, column_index)
     else:
-        if(charstack.isalnum()):
+        if(charstack.isidentifier()):
             return Identifier(charstack, column_index)
         else:
-            return None
+            raise TokenizeError(f"Attempt to resolve '{charstack}' as an identifier failed, as it is not in a valid indentifier format.", code_string, column_index)
