@@ -8,7 +8,7 @@ def index():
     group1 = [2, 2, 1, 1, 1, 1]
     group2 = [2, 1, 1, 2, 3, 3]
     unprocessed_df = pandas.DataFrame(zip(group1, group2), columns=("group1", "group2"))
-    return variables.Index(unprocessed_df)
+    return variables.Index(unprocessed_df, [{"group1"}, {"group2"}])
 
 
 def test_index_constructor(index):
@@ -98,4 +98,5 @@ def test_get_numpy_indices(index):
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    logging.getLogger().setLevel(logging.DEBUG)
+    pytest.main([__file__, "-s", "-o", "log_cli=true"])

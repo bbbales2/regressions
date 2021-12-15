@@ -1,6 +1,7 @@
 import os
 import pathlib
 import pandas
+import pytest
 
 from rat import ops
 from rat import compiler
@@ -56,6 +57,7 @@ def test_full():
     # input_str = """
     # score_diff~normal(skills[home_team, year]-skills[away_team, year],sigma);
     # skills[team, year] ~ normal(skills_mu[lag(year)], tau);
+    # skills_mu[year] ~ normal(0.0, 1.0);
     # tau<lower=0.0> ~ normal(0.0, 1.0);
     # sigma<lower=0.0> ~ normal(0.0, 10.0);
     # """
@@ -74,5 +76,10 @@ def test_full():
     tau_df = fit.draws("tau")
     skills_df = fit.draws("skills")
 
-    print(tau_df)
-    print(skills_df)
+    # print(tau_df)
+    # print(skills_df)
+
+
+if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.DEBUG)
+    pytest.main([__file__, "-s", "-o", "log_cli=true"])

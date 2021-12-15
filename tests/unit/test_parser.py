@@ -102,8 +102,15 @@ def test_parser_rhs_index_shift_multiple():
 
     assert statement.__str__() == expected.__str__()
 
+
 def test_parser_invalid_expressions():
     with pytest.raises(IndexError):
         test_string = "tau<lower=0.0> ~ normal(skills_mu[year?]);"
         data_names = ["year", "skills_mu"]
         statement = Parser(scanner(test_string), data_names, test_string).statement()
+
+
+if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.DEBUG)
+    pytest.main([__file__, "-s", "-o", "log_cli=true"])
+
