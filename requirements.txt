@@ -5,3 +5,5 @@ jaxlib
 numpy
 scipy
 pandas
+pytest
+pyarrow
