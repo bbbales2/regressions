@@ -13,22 +13,25 @@ from . import model
 
 
 def _check_writeable(path, overwrite):
-    os.makedirs(os.path.dirname(path), exist_ok = True)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path) and not overwrite:
         raise FileExistsError(f"Write failed; {path} exists and overwrite is not True")
 
-def _write_dict_into_folder(dfs : Dict[str, pandas.DataFrame], folder : str, overwrite):
+
+def _write_dict_into_folder(dfs: Dict[str, pandas.DataFrame], folder: str, overwrite):
     for name, df in dfs.items():
         df_path = os.path.join(folder, name + ".parquet")
         _check_writeable(df_path, overwrite)
         df.to_parquet(df_path)
 
-def _read_folder_into_dict(folder : str):
+
+def _read_folder_into_dict(folder: str):
     dfs = {}
     for path in glob.glob(f"{folder}/*.parquet"):
         name, ext = os.path.splitext(os.path.basename(path))
         dfs[name] = pandas.read_parquet(path)
     return dfs
+
 
 def _build_constrained_dfs(
     constrained_variables: Dict[str, numpy.array], base_dfs: Dict[str, pandas.DataFrame]
@@ -58,6 +61,7 @@ def _build_constrained_dfs(
         draw_dfs[name] = df
 
     return draw_dfs
+
 
 def _check_convergence_and_select_one_chain(draw_dfs, tolerance):
     # Check that all the optimization solutions are vaguely close to each other
@@ -101,6 +105,7 @@ class Fit:
     """
     Parent class for optimization/MCMC results
     """
+
     draw_dfs: Dict[str, pandas.DataFrame]
 
     def draws(self, parameter_name: str) -> pandas.DataFrame:
@@ -110,8 +115,8 @@ class Fit:
         (the optimum) and no chains column.
         """
         return self.draw_dfs[parameter_name]
-    
-    def save(self, folder, overwrite = False):
+
+    def save(self, folder, overwrite=False):
         """
         Save results to a folder. If overwrite is true, overwrite
         existing files and folders
@@ -120,16 +125,18 @@ class Fit:
         if os.path.exists(draws_folder) and overwrite is not True:
             raise FileExistsError(f"Folder {folder} already exists and overwrite is not True")
         _write_dict_into_folder(self.draw_dfs, draws_folder, overwrite)
-        
+
         type_path = os.path.join(folder, "type")
-        _check_writeable(type_path, overwrite = overwrite)
+        _check_writeable(type_path, overwrite=overwrite)
         with open(type_path, "w") as f:
             f.write(self.__class__.__name__)
+
 
 class OptimizationFit(Fit):
     """
     Stores optimization results
     """
+
     def __init__(self, draw_dfs):
         self.draw_dfs = draw_dfs
 
@@ -138,16 +145,18 @@ class OptimizationFit(Fit):
         draw_dfs = _build_constrained_dfs(constrained_variables, base_dfs)
         return cls(_check_convergence_and_select_one_chain(draw_dfs, tolerance))
 
+
 class SampleFit(Fit):
     """
     Stores draws from an MCMC calculation
     """
+
     diag_dfs: Dict[str, pandas.DataFrame]
 
     def __init__(self, draw_dfs, diag_dfs):
         self.draw_dfs = draw_dfs
         self.diag_dfs = diag_dfs
-    
+
     @classmethod
     def _from_constrained_variables(cls, constrained_variables: Dict[str, numpy.array], base_dfs: Dict[str, pandas.DataFrame]):
         # Unpack draws into dataframes
@@ -173,18 +182,19 @@ class SampleFit(Fit):
         effective sample size and rhat
         """
         return self.diag_dfs[parameter_name]
-    
-    def save(self, folder, overwrite = False):
+
+    def save(self, folder, overwrite=False):
         """
         Save the SampleFit object to a folder. If overwrite is true, then overwrite
         existing files and use existing folders
         """
-        super(SampleFit, self).save(folder, overwrite = overwrite)
+        super(SampleFit, self).save(folder, overwrite=overwrite)
 
         sample_folder = os.path.join(folder, "SampleFit")
         _write_dict_into_folder(self.diag_dfs, sample_folder, overwrite)
 
-def load(folder : str) -> Union[OptimizationFit, SampleFit]:
+
+def load(folder: str) -> Union[OptimizationFit, SampleFit]:
     """
     Load an OptimizationFit/SampleFit from the folder in which
     it was saved
@@ -193,7 +203,7 @@ def load(folder : str) -> Union[OptimizationFit, SampleFit]:
 
     with open(type_path) as f:
         type_string = f.readline().strip()
-    
+
     draws_folder = os.path.join(folder, "draws")
     draw_dfs = _read_folder_into_dict(draws_folder)
 
