@@ -202,7 +202,7 @@ class Model:
                 raise Exception(f"Optimization failed on chain {chain} with message: {solution.message}")
 
         constrained_draws, base_dfs = self.prepare_draws_and_dfs(unconstrained_draws)
-        return fit.OptimizationFit(constrained_draws, base_dfs, tolerance=tolerance)
+        return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
 
     def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1e-2):
         # Currently only doing warmup on one chain
@@ -249,4 +249,4 @@ class Model:
 
         constrained_draws, base_dfs = self.prepare_draws_and_dfs(unconstrained_draws)
 
-        return fit.SampleFit(constrained_draws, base_dfs)
+        return fit.SampleFit._from_constrained_variables(constrained_draws, base_dfs)
