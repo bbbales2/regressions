@@ -29,7 +29,7 @@ class LineFunction:
     line: ops.Expr
     data_variable_names: List[str]
     parameter_variable_names: List[str]
-    index_use_numpy: List[numpy.array] = []
+    index_use_numpy: List[numpy.array]
 
     def __init__(
         self,

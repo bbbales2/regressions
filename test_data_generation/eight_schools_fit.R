@@ -13,3 +13,11 @@ fit = mod$optimize(data = list(
 ))
 
 fit$mle()
+
+fit_sample = mod$sample(data = list(
+  J = nrow(df),
+  y = df$y,
+  sigma = df$sigma
+), chains = 4)
+
+fit_sample$summary()

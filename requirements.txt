@@ -1,6 +1,9 @@
+arviz
 blackjax
 jax
 jaxlib
 numpy
 scipy
 pandas
+pytest
+pyarrow
