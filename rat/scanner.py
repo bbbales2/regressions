@@ -120,17 +120,17 @@ operator_strings = [
 ]
 
 delimeters = [
-        " ",
-        ";",
-        "(",
-        ")",
-        "{",
-        "}",
-        "[",
-        "]",
-        ",",
-        "~",
-    ]  # characters that ALWAYS demarcate tokens
+    " ",
+    ";",
+    "(",
+    ")",
+    "{",
+    "}",
+    "[",
+    "]",
+    ",",
+    "~",
+]  # characters that ALWAYS demarcate tokens
 
 
 class TokenizeError(Exception):
@@ -158,7 +158,7 @@ class Scanner:
 
     def scan(self) -> List[List[Token]]:
         while self.index < self.code_length:
-            #print(self.current_state.__name__)
+            # print(self.current_state.__name__)
             self.current_state()
 
         if self.register == ";":

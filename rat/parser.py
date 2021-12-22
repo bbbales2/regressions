@@ -329,7 +329,9 @@ class Parser:
                     continue
             elif isinstance(token, Identifier) and token.value == "shift":
                 if not allow_shift:
-                    raise ParseError("shift() has been used in a position that is not allowed.", self.model_string, token.line_index, token.column_index)
+                    raise ParseError(
+                        "shift() has been used in a position that is not allowed.", self.model_string, token.line_index, token.column_index
+                    )
                 # parse lag(index, integer)
                 self.remove()  # identifier "lag"
                 self.expect_token(Special, "(")
@@ -337,7 +339,12 @@ class Parser:
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise ParseError("Index specified with shift() must be in data columns.", self.model_string, subscript_name.line_index, subscript_name.column_index)
+                    raise ParseError(
+                        "Index specified with shift() must be in data columns.",
+                        self.model_string,
+                        subscript_name.line_index,
+                        subscript_name.column_index,
+                    )
                 expression = Data(subscript_name.value)
                 self.remove()  # index name
                 self.expect_token(Special, ",")
@@ -389,7 +396,9 @@ class Parser:
                     exp = Data(token.value)
                     self.remove()  # identifier
                 elif token.value in Distributions.names:
-                    raise ParseError("A distribution has been found in an expressions", self.model_string, token.line_index, token.column_index)
+                    raise ParseError(
+                        "A distribution has been found in an expressions", self.model_string, token.line_index, token.column_index
+                    )
                 else:
                     exp = Param(token.value)
                     self.remove()  # identifier

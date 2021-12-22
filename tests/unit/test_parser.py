@@ -113,4 +113,3 @@ def test_parser_invalid_expressions():
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)
     pytest.main([__file__, "-s", "-o", "log_cli=true"])
-
