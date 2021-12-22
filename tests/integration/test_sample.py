@@ -9,7 +9,7 @@ from rat import ops
 from rat import compiler
 from rat.model import Model
 from rat.parser import Parser
-from rat.scanner import scanner
+from rat.scanner import Scanner
 from pathlib import Path
 
 test_dir = pathlib.Path(__file__).parent

@@ -23,6 +23,10 @@ class RealConstant(Expr):
     value: float
 
     def code(self):
+        if self.value == float("inf"):
+            return "float('inf')"
+        elif self.value == float("-inf"):
+            return "float('-inf')"
         return f"{self.value}"
 
     def __str__(self):
@@ -84,8 +88,8 @@ class Data(Expr):
 class Param(Expr):
     name: str
     index: Index = None
-    lower: RealConstant = RealConstant(float("-inf"))
-    upper: RealConstant = RealConstant(float("inf"))
+    lower: Expr = RealConstant(float("-inf"))
+    upper: Expr = RealConstant(float("inf"))
     variable: variables.Param = None
 
     def __iter__(self):
@@ -109,7 +113,6 @@ class Param(Expr):
 
     def __str__(self):
         return f"Param({self.name}, {self.index.__str__()}, lower={self.lower}, upper={self.upper})"
-        # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
 class Distr(Expr):
@@ -181,6 +184,7 @@ class Cauchy(Distr):
 
 @dataclass(frozen=True)
 class Diff(Expr):
+    lbp = 10
     lhs: Expr
     rhs: Expr
 
@@ -211,6 +215,7 @@ class Sum(Expr):
 
 @dataclass(frozen=True)
 class Mul(Expr):
+    lbp = 30
     left: Expr
     right: Expr
 
@@ -226,6 +231,7 @@ class Mul(Expr):
 
 @dataclass(frozen=True)
 class Pow(Expr):
+    lbp = 40
     left: Expr
     right: Expr
 
@@ -241,6 +247,7 @@ class Pow(Expr):
 
 @dataclass(frozen=True)
 class Div(Expr):
+    lbp = 30
     left: Expr
     right: Expr
 
@@ -256,6 +263,7 @@ class Div(Expr):
 
 @dataclass(frozen=True)
 class Mod(Expr):
+    lbp = 30
     left: Expr
     right: Expr
 
@@ -391,6 +399,7 @@ class GreaterThanOrEqual(Expr):
 
 @dataclass(frozen=True)
 class PrefixNegation(Expr):
+    lbp = 50
     subexpr: Expr
 
     def __iter__(self):
@@ -434,6 +443,7 @@ class Assignment(Expr):
 
 @dataclass(frozen=True)
 class Log(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -448,6 +458,7 @@ class Log(Expr):
 
 @dataclass(frozen=True)
 class Exp(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -462,6 +473,7 @@ class Exp(Expr):
 
 @dataclass(frozen=True)
 class Abs(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -476,6 +488,7 @@ class Abs(Expr):
 
 @dataclass(frozen=True)
 class Floor(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -490,6 +503,7 @@ class Floor(Expr):
 
 @dataclass(frozen=True)
 class Ceil(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -504,6 +518,7 @@ class Ceil(Expr):
 
 @dataclass(frozen=True)
 class Round(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -518,6 +533,7 @@ class Round(Expr):
 
 @dataclass(frozen=True)
 class Sin(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -532,6 +548,7 @@ class Sin(Expr):
 
 @dataclass(frozen=True)
 class Cos(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -546,6 +563,7 @@ class Cos(Expr):
 
 @dataclass(frozen=True)
 class Tan(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -560,6 +578,7 @@ class Tan(Expr):
 
 @dataclass(frozen=True)
 class Arcsin(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -574,6 +593,7 @@ class Arcsin(Expr):
 
 @dataclass(frozen=True)
 class Arccos(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -588,6 +608,7 @@ class Arccos(Expr):
 
 @dataclass(frozen=True)
 class Arctan(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -602,6 +623,7 @@ class Arctan(Expr):
 
 @dataclass(frozen=True)
 class Logit(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -616,6 +638,7 @@ class Logit(Expr):
 
 @dataclass(frozen=True)
 class InverseLogit(Expr):
+    lbp = 100
     subexpr: Expr
 
     def __iter__(self):

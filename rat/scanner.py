@@ -158,7 +158,6 @@ class Scanner:
 
     def scan(self) -> List[List[Token]]:
         while self.index < self.code_length:
-            #print(self.current_state.__name__)
             self.current_state()
 
         if self.register == ";":
@@ -204,7 +203,7 @@ class Scanner:
         elif self.register in special_characters:
             token = Special(self.register, self.line_index, self.column_index - len(self.register))
         elif self.register in operator_strings:
-            token = Operator(self.register, self.line_index, self.column_index - len(self.register))
+            token = Operator(self.register, self.line_index, self.column_index - len(self.register) + 1)
         else:
             if self.register.isidentifier():
                 token = Identifier(self.register, self.line_index, self.column_index - len(self.register))
@@ -365,12 +364,14 @@ class Scanner:
             self.raise_error(f"Character '{self.current_char}' cannot be present within scientific notation!")
 
     def operator_state(self):
-        if self.model_code[self.index + 1].isnumeric() and self.register == "-":
-            # transition 1: if we find a numeric, change to integer state
-            # lookahead used, needs to be improved
-            self.register += self.current_char
-            self.current_state = self.integer_state
-
-        else:
-            self.reduce_register()
-            self.current_state = self.default_state
+        # if self.model_code[self.index].isnumeric() and self.register == "-":
+        #     # transition 1: if we find a numeric, change to integer state
+        #     # lookahead used, needs to be improved
+        #     #self.register += self.current_char
+        #     self.current_state = self.integer_state
+        #
+        # else:
+        #     self.reduce_register()
+        #     self.current_state = self.default_state
+        self.reduce_register()
+        self.current_state = self.default_state
