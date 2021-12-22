@@ -54,7 +54,7 @@ class InfixOps:
     `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`
     """
 
-    ops = ["+", "-", "*", "^", "/", "%", "||", "&&", "==", "!=", "<", "<=", ">", ">="]
+    ops = ["+", "-", "*", "^", "/", "%", "<", ">"]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -202,16 +202,9 @@ class Distributions:
 
 
 class ParseError(Exception):
-    def __init__(self, message, code_string="", column_num=None):
-        if code_string:
-            code_string += "\n"
-            if column_num:
-                column_indicator_string = " " * column_num + "^\n\n"
-            else:
-                column_indicator_string = "\n"
-        else:
-            column_indicator_string = ""
-        exception_message = f"An error occured{' while processing the following line' if code_string else ''}:\n{code_string}{column_indicator_string}{message}"
+    def __init__(self, message, code_string: str, line_num: int, column_num: int):
+        code_string = code_string.split("\n")[line_num]
+        exception_message = f"An error occured while parsing the following line({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
         super().__init__(exception_message)
 
 
@@ -222,17 +215,17 @@ class Parser:
     the column names of the data.
     """
 
-    def __init__(self, tokens: List[Type[Token]], data_names: List[str], code_string: str = ""):
+    def __init__(self, tokens: List[Type[Token]], data_names: List[str], model_string: str = ""):
         """
         Initialize the parser
         :param tokens: A list of `scanner.Token`. This should be the output format of `scanner.scanner`
         :param data_names: A list of data column names
-        :param code_string: Optional. The original code string. If supplied, used to generate detailed errors.
+        :param model_string: Optional. The original model code string. If supplied, used to generate detailed errors.
         """
         self.out_tree = []
         self.tokens = tokens
         self.data_names = data_names
-        self.code_string = code_string
+        self.model_string = model_string
 
     def peek(self, k=0) -> Type[Token]:
         """
@@ -280,7 +273,8 @@ class Parser:
 
         raise ParseError(
             f"Expected token type(s) {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!",
-            self.code_string,
+            self.model_string,
+            next_token.line_index,
             next_token.column_index,
         )
 
@@ -335,7 +329,7 @@ class Parser:
                     continue
             elif isinstance(token, Identifier) and token.value == "shift":
                 if not allow_shift:
-                    raise ParseError("shift() has been used in a position that is not allowed.", self.code_string, token.column_index)
+                    raise ParseError("shift() has been used in a position that is not allowed.", self.model_string, token.line_index, token.column_index)
                 # parse lag(index, integer)
                 self.remove()  # identifier "lag"
                 self.expect_token(Special, "(")
@@ -343,7 +337,7 @@ class Parser:
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise ParseError("Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index)
+                    raise ParseError("Index specified with shift() must be in data columns.", self.model_string, subscript_name.line_index, subscript_name.column_index)
                 expression = Data(subscript_name.value)
                 self.remove()  # index name
                 self.expect_token(Special, ",")
@@ -395,7 +389,7 @@ class Parser:
                     exp = Data(token.value)
                     self.remove()  # identifier
                 elif token.value in Distributions.names:
-                    raise ParseError("A distribution has been found in an expressions", self.code_string, token.column_index)
+                    raise ParseError("A distribution has been found in an expressions", self.model_string, token.line_index, token.column_index)
                 else:
                     exp = Param(token.value)
                     self.remove()  # identifier
@@ -421,7 +415,7 @@ class Parser:
                             if self.peek(idx).value == ">":
                                 if n_openbrackets == 0:
                                     # switch from Operator to Special
-                                    self.tokens[idx] = Special(">", self.peek(idx).column_index)
+                                    self.tokens[idx] = Special(">", self.peek(idx).line_index, self.peek(idx).column_index)
                                     break
                                 else:
                                     n_openbrackets -= 1
@@ -453,7 +447,8 @@ class Parser:
                             else:
                                 raise ParseError(
                                     f"Found unknown token with value {lookahead_1.value} when evaluating constraints",
-                                    self.code_string,
+                                    self.model_string,
+                                    lookahead_1.line_index,
                                     lookahead_1.column_index,
                                 )
 
@@ -509,7 +504,7 @@ class Parser:
         """
         token = self.peek()
         if Distributions.check(token):
-            raise ParseError("Cannot assign to a distribution.", self.code_string, token.column_index)
+            raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.expression()
@@ -537,6 +532,6 @@ class Parser:
                 return Distributions.generate(distribution, lhs, expressions)
 
             else:
-                raise ParseError(f"Unknown operator '{op.value}' in statement", self.code_string, op.column_index)
+                raise ParseError(f"Unknown operator '{op.value}' in statement", self.model_string, op.line_index, op.column_index)
 
         return Expr()
