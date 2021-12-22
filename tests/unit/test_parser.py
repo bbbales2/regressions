@@ -47,7 +47,7 @@ def test_parser_simple_constraint_sampling():
     )
     print()
     print(statement)
-    #assert statement.__str__() == expected.__str__()
+    # assert statement.__str__() == expected.__str__()
 
 
 def test_parser_complex_constraint_sampling():

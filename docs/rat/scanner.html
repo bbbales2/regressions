@@ -323,17 +323,17 @@
 <span class="p">]</span>
 
 <span class="n">delimeters</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot; &quot;</span><span class="p">,</span>
-        <span class="s2">&quot;;&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;(&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;)&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;{&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;}&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;[&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;]&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;,&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;~&quot;</span><span class="p">,</span>
-    <span class="p">]</span>  <span class="c1"># characters that ALWAYS demarcate tokens</span>
+    <span class="s2">&quot; &quot;</span><span class="p">,</span>
+    <span class="s2">&quot;;&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;(&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;)&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;{&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;}&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;[&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;]&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;,&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;~&quot;</span><span class="p">,</span>
+<span class="p">]</span>  <span class="c1"># characters that ALWAYS demarcate tokens</span>
 
 
 <span class="k">class</span> <span class="nc">TokenizeError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
@@ -361,7 +361,6 @@
 
     <span class="k">def</span> <span class="nf">scan</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Token</span><span class="p">]]:</span>
         <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_length</span><span class="p">:</span>
-            <span class="c1">#print(self.current_state.__name__)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">==</span> <span class="s2">&quot;;&quot;</span><span class="p">:</span>
@@ -407,7 +406,7 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="ow">in</span> <span class="n">special_characters</span><span class="p">:</span>
             <span class="n">token</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="ow">in</span> <span class="n">operator_strings</span><span class="p">:</span>
-            <span class="n">token</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
+            <span class="n">token</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="o">.</span><span class="n">isidentifier</span><span class="p">():</span>
                 <span class="n">token</span> <span class="o">=</span> <span class="n">Identifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
@@ -568,15 +567,17 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">raise_error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Character &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_char</span><span class="si">}</span><span class="s2">&#39; cannot be present within scientific notation!&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">operator_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_code</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isnumeric</span><span class="p">()</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
-            <span class="c1"># transition 1: if we find a numeric, change to integer state</span>
-            <span class="c1"># lookahead used, needs to be improved</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_char</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">integer_state</span>
-
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">reduce_register</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_state</span>
+        <span class="c1"># if self.model_code[self.index].isnumeric() and self.register == &quot;-&quot;:</span>
+        <span class="c1">#     # transition 1: if we find a numeric, change to integer state</span>
+        <span class="c1">#     # lookahead used, needs to be improved</span>
+        <span class="c1">#     #self.register += self.current_char</span>
+        <span class="c1">#     self.current_state = self.integer_state</span>
+        <span class="c1">#</span>
+        <span class="c1"># else:</span>
+        <span class="c1">#     self.reduce_register()</span>
+        <span class="c1">#     self.current_state = self.default_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduce_register</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_state</span>
 </pre></div>
 
         </details>
@@ -1183,7 +1184,6 @@ set as an Operator.</p>
 
     <span class="k">def</span> <span class="nf">scan</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Token</span><span class="p">]]:</span>
         <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_length</span><span class="p">:</span>
-            <span class="c1">#print(self.current_state.__name__)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">==</span> <span class="s2">&quot;;&quot;</span><span class="p">:</span>
@@ -1229,7 +1229,7 @@ set as an Operator.</p>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="ow">in</span> <span class="n">special_characters</span><span class="p">:</span>
             <span class="n">token</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="ow">in</span> <span class="n">operator_strings</span><span class="p">:</span>
-            <span class="n">token</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
+            <span class="n">token</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="o">.</span><span class="n">isidentifier</span><span class="p">():</span>
                 <span class="n">token</span> <span class="o">=</span> <span class="n">Identifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
@@ -1390,15 +1390,17 @@ set as an Operator.</p>
             <span class="bp">self</span><span class="o">.</span><span class="n">raise_error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Character &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_char</span><span class="si">}</span><span class="s2">&#39; cannot be present within scientific notation!&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">operator_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_code</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isnumeric</span><span class="p">()</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
-            <span class="c1"># transition 1: if we find a numeric, change to integer state</span>
-            <span class="c1"># lookahead used, needs to be improved</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_char</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">integer_state</span>
-
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">reduce_register</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_state</span>
+        <span class="c1"># if self.model_code[self.index].isnumeric() and self.register == &quot;-&quot;:</span>
+        <span class="c1">#     # transition 1: if we find a numeric, change to integer state</span>
+        <span class="c1">#     # lookahead used, needs to be improved</span>
+        <span class="c1">#     #self.register += self.current_char</span>
+        <span class="c1">#     self.current_state = self.integer_state</span>
+        <span class="c1">#</span>
+        <span class="c1"># else:</span>
+        <span class="c1">#     self.reduce_register()</span>
+        <span class="c1">#     self.current_state = self.default_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduce_register</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_state</span>
 </pre></div>
 
         </details>
@@ -1447,7 +1449,6 @@ set as an Operator.</p>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">scan</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Token</span><span class="p">]]:</span>
         <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_length</span><span class="p">:</span>
-            <span class="c1">#print(self.current_state.__name__)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">==</span> <span class="s2">&quot;;&quot;</span><span class="p">:</span>
@@ -1525,7 +1526,7 @@ set as an Operator.</p>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="ow">in</span> <span class="n">special_characters</span><span class="p">:</span>
             <span class="n">token</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="ow">in</span> <span class="n">operator_strings</span><span class="p">:</span>
-            <span class="n">token</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
+            <span class="n">token</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="o">.</span><span class="n">isidentifier</span><span class="p">():</span>
                 <span class="n">token</span> <span class="o">=</span> <span class="n">Identifier</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">column_index</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">register</span><span class="p">))</span>
@@ -1812,15 +1813,17 @@ set as an Operator.</p>
                 <details>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">operator_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_code</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">isnumeric</span><span class="p">()</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
-            <span class="c1"># transition 1: if we find a numeric, change to integer state</span>
-            <span class="c1"># lookahead used, needs to be improved</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">register</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_char</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">integer_state</span>
-
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">reduce_register</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_state</span>
+        <span class="c1"># if self.model_code[self.index].isnumeric() and self.register == &quot;-&quot;:</span>
+        <span class="c1">#     # transition 1: if we find a numeric, change to integer state</span>
+        <span class="c1">#     # lookahead used, needs to be improved</span>
+        <span class="c1">#     #self.register += self.current_char</span>
+        <span class="c1">#     self.current_state = self.integer_state</span>
+        <span class="c1">#</span>
+        <span class="c1"># else:</span>
+        <span class="c1">#     self.reduce_register()</span>
+        <span class="c1">#     self.current_state = self.default_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduce_register</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_state</span>
 </pre></div>
 
         </details>

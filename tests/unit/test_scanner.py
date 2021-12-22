@@ -9,12 +9,14 @@ def test_scaner_invalid():
     for val in parsed.scan()[0]:
         print(val.value.ljust(20), val.token_type)
 
+
 def test_scanner_valid_1():
     input_str = "tau<lower=0.0> ~ normal(-2.0 - 1.0, 1.0);"
     parsed = Scanner(input_str)
     print()
     for val in parsed.scan()[0]:
         print(val.value.ljust(20), val.token_type)
+
 
 def test_scanner_valid_multiline_1():
     input_str = """

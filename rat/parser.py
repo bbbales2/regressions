@@ -118,8 +118,22 @@ class UnaryFunctions:
     """
 
     names = ["exp", "log", "abs", "floor", "ceil", "round", "sin", "cos", "tan", "arcsin", "arccos", "arctan", "logit", "inverse_logit"]
-    precedence = {"exp": 100, "log": 100, "abs": 100, "floor": 100, "ceil": 100, "round": 100, "sin": 100, "cos": 100,
-                  "tan": 100, "arcsin": 100, "arccos": 100, "arctan": 100, "logit": 100, "inverse_logit": 100}
+    precedence = {
+        "exp": 100,
+        "log": 100,
+        "abs": 100,
+        "floor": 100,
+        "ceil": 100,
+        "round": 100,
+        "sin": 100,
+        "cos": 100,
+        "tan": 100,
+        "arcsin": 100,
+        "arccos": 100,
+        "arctan": 100,
+        "logit": 100,
+        "inverse_logit": 100,
+    }
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -374,8 +388,7 @@ class Parser:
                 exp = Data(token.value)
                 self.remove()  # identifier
             elif token.value in Distributions.names:
-                raise ParseError("A distribution has been found in an expressions", self.model_string, token.line_index,
-                                 token.column_index)
+                raise ParseError("A distribution has been found in an expressions", self.model_string, token.line_index, token.column_index)
             else:
                 exp = self.parse_param(is_lhs=is_lhs)
 
@@ -402,10 +415,11 @@ class Parser:
             self.remove()  # )
             return exp
         else:
-            raise ParseError(f"{token.value} can't be in the beginning of a construct!", self.model_string,
-                             token.line_index, token.column_index)
+            raise ParseError(
+                f"{token.value} can't be in the beginning of a construct!", self.model_string, token.line_index, token.column_index
+            )
 
-    def parse_param(self, is_lhs = False):
+    def parse_param(self, is_lhs=False):
         self.expect_token(Identifier)
         token = self.peek()
         exp = Param(token.value)
@@ -416,12 +430,16 @@ class Parser:
         lookahead_1 = self.peek()  # <
         lookahead_2 = self.peek(1)  # lower, upper
         if lookahead_1.value == "<" and lookahead_2.value in (
-                "lower",
-                "upper",
+            "lower",
+            "upper",
         ):
             if not is_lhs:
-                raise ParseError("Constraints for parameters/variables are only allowed on LHS.", self.model_string,
-                                 lookahead_1.line_index, lookahead_1.column_index)
+                raise ParseError(
+                    "Constraints for parameters/variables are only allowed on LHS.",
+                    self.model_string,
+                    lookahead_1.line_index,
+                    lookahead_1.column_index,
+                )
             self.remove()  # <
             # the problem is that ">" is considered as an operator, but in the case of constraints, it is
             # not an operator, but a delimeter denoting the end of the constraint region.
