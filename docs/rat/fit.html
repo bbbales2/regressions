@@ -123,22 +123,25 @@
 
 
 <span class="k">def</span> <span class="nf">_check_writeable</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">):</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">exist_ok</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Write failed; </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> exists and overwrite is not True&quot;</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">_write_dict_into_folder</span><span class="p">(</span><span class="n">dfs</span> <span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">folder</span> <span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">):</span>
+
+<span class="k">def</span> <span class="nf">_write_dict_into_folder</span><span class="p">(</span><span class="n">dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span> <span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">):</span>
     <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">df</span> <span class="ow">in</span> <span class="n">dfs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">df_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.parquet&quot;</span><span class="p">)</span>
         <span class="n">_check_writeable</span><span class="p">(</span><span class="n">df_path</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
         <span class="n">df</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">df_path</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">_read_folder_into_dict</span><span class="p">(</span><span class="n">folder</span> <span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+
+<span class="k">def</span> <span class="nf">_read_folder_into_dict</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     <span class="n">dfs</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">folder</span><span class="si">}</span><span class="s2">/*.parquet&quot;</span><span class="p">):</span>
         <span class="n">name</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
         <span class="n">dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">dfs</span>
+
 
 <span class="k">def</span> <span class="nf">_build_constrained_dfs</span><span class="p">(</span>
     <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
@@ -168,6 +171,7 @@
         <span class="n">draw_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
 
     <span class="k">return</span> <span class="n">draw_dfs</span>
+
 
 <span class="k">def</span> <span class="nf">_check_convergence_and_select_one_chain</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">):</span>
     <span class="c1"># Check that all the optimization solutions are vaguely close to each other</span>
@@ -211,6 +215,7 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Parent class for optimization/MCMC results</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">draws</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
@@ -220,8 +225,8 @@
 <span class="sd">        (the optimum) and no chains column.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
-    
-    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save results to a folder. If overwrite is true, overwrite</span>
 <span class="sd">        existing files and folders</span>
@@ -230,16 +235,18 @@
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">draws_folder</span><span class="p">)</span> <span class="ow">and</span> <span class="n">overwrite</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">True</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Folder </span><span class="si">{</span><span class="n">folder</span><span class="si">}</span><span class="s2"> already exists and overwrite is not True&quot;</span><span class="p">)</span>
         <span class="n">_write_dict_into_folder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">,</span> <span class="n">draws_folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
-        
+
         <span class="n">type_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">)</span>
-        <span class="n">_check_writeable</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="n">overwrite</span><span class="p">)</span>
+        <span class="n">_check_writeable</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+
 
 <span class="k">class</span> <span class="nc">OptimizationFit</span><span class="p">(</span><span class="n">Fit</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Stores optimization results</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">draw_dfs</span>
 
@@ -248,16 +255,18 @@
         <span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">_build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">_check_convergence_and_select_one_chain</span><span class="p">(</span><span class="n">draw_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">))</span>
 
+
 <span class="k">class</span> <span class="nc">SampleFit</span><span class="p">(</span><span class="n">Fit</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Stores draws from an MCMC calculation</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">diag_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">,</span> <span class="n">diag_dfs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">draw_dfs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span> <span class="o">=</span> <span class="n">diag_dfs</span>
-    
+
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_from_constrained_variables</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
         <span class="c1"># Unpack draws into dataframes</span>
@@ -283,18 +292,19 @@
 <span class="sd">        effective sample size and rhat</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
-    
-    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save the SampleFit object to a folder. If overwrite is true, then overwrite</span>
 <span class="sd">        existing files and use existing folders</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">SampleFit</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="n">overwrite</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SampleFit</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
 
         <span class="n">sample_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;SampleFit&quot;</span><span class="p">)</span>
         <span class="n">_write_dict_into_folder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">,</span> <span class="n">sample_folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="n">folder</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">OptimizationFit</span><span class="p">,</span> <span class="n">SampleFit</span><span class="p">]:</span>
+
+<span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">OptimizationFit</span><span class="p">,</span> <span class="n">SampleFit</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load an OptimizationFit/SampleFit from the folder in which</span>
 <span class="sd">    it was saved</span>
@@ -303,7 +313,7 @@
 
     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">type_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
         <span class="n">type_string</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-    
+
     <span class="n">draws_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;draws&quot;</span><span class="p">)</span>
     <span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">_read_folder_into_dict</span><span class="p">(</span><span class="n">draws_folder</span><span class="p">)</span>
 
@@ -335,6 +345,7 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Parent class for optimization/MCMC results</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">draw_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">draws</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
@@ -344,8 +355,8 @@
 <span class="sd">        (the optimum) and no chains column.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
-    
-    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save results to a folder. If overwrite is true, overwrite</span>
 <span class="sd">        existing files and folders</span>
@@ -354,9 +365,9 @@
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">draws_folder</span><span class="p">)</span> <span class="ow">and</span> <span class="n">overwrite</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">True</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Folder </span><span class="si">{</span><span class="n">folder</span><span class="si">}</span><span class="s2"> already exists and overwrite is not True&quot;</span><span class="p">)</span>
         <span class="n">_write_dict_into_folder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">,</span> <span class="n">draws_folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
-        
+
         <span class="n">type_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">)</span>
-        <span class="n">_check_writeable</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="n">overwrite</span><span class="p">)</span>
+        <span class="n">_check_writeable</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
 </pre></div>
@@ -416,7 +427,7 @@ subscripts. For optimization results there is only one result
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save results to a folder. If overwrite is true, overwrite</span>
 <span class="sd">        existing files and folders</span>
@@ -425,9 +436,9 @@ subscripts. For optimization results there is only one result
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">draws_folder</span><span class="p">)</span> <span class="ow">and</span> <span class="n">overwrite</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">True</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Folder </span><span class="si">{</span><span class="n">folder</span><span class="si">}</span><span class="s2"> already exists and overwrite is not True&quot;</span><span class="p">)</span>
         <span class="n">_write_dict_into_folder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span><span class="p">,</span> <span class="n">draws_folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
-        
+
         <span class="n">type_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">)</span>
-        <span class="n">_check_writeable</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="n">overwrite</span><span class="p">)</span>
+        <span class="n">_check_writeable</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">type_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
 </pre></div>
@@ -456,6 +467,7 @@ existing files and folders</p>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Stores optimization results</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">draw_dfs</span>
 
@@ -515,12 +527,13 @@ existing files and folders</p>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Stores draws from an MCMC calculation</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">diag_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">draw_dfs</span><span class="p">,</span> <span class="n">diag_dfs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">draw_dfs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span> <span class="o">=</span> <span class="n">diag_dfs</span>
-    
+
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">_from_constrained_variables</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
         <span class="c1"># Unpack draws into dataframes</span>
@@ -546,13 +559,13 @@ existing files and folders</p>
 <span class="sd">        effective sample size and rhat</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">[</span><span class="n">parameter_name</span><span class="p">]</span>
-    
-    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save the SampleFit object to a folder. If overwrite is true, then overwrite</span>
 <span class="sd">        existing files and use existing folders</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">SampleFit</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="n">overwrite</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SampleFit</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
 
         <span class="n">sample_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;SampleFit&quot;</span><span class="p">)</span>
         <span class="n">_write_dict_into_folder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">,</span> <span class="n">sample_folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
@@ -619,12 +632,12 @@ effective sample size and rhat</p>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save the SampleFit object to a folder. If overwrite is true, then overwrite</span>
 <span class="sd">        existing files and use existing folders</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">SampleFit</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span> <span class="o">=</span> <span class="n">overwrite</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SampleFit</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
 
         <span class="n">sample_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;SampleFit&quot;</span><span class="p">)</span>
         <span class="n">_write_dict_into_folder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span><span class="p">,</span> <span class="n">sample_folder</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
@@ -658,7 +671,7 @@ existing files and use existing folders</p>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="n">folder</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">OptimizationFit</span><span class="p">,</span> <span class="n">SampleFit</span><span class="p">]:</span>
+            <div class="codehilite"><pre><span></span><span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">OptimizationFit</span><span class="p">,</span> <span class="n">SampleFit</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load an OptimizationFit/SampleFit from the folder in which</span>
 <span class="sd">    it was saved</span>
@@ -667,7 +680,7 @@ existing files and use existing folders</p>
 
     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">type_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
         <span class="n">type_string</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-    
+
     <span class="n">draws_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;draws&quot;</span><span class="p">)</span>
     <span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">_read_folder_into_dict</span><span class="p">(</span><span class="n">draws_folder</span><span class="p">)</span>
 

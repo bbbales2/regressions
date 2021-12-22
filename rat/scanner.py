@@ -120,17 +120,17 @@ operator_strings = [
 ]
 
 delimeters = [
-        " ",
-        ";",
-        "(",
-        ")",
-        "{",
-        "}",
-        "[",
-        "]",
-        ",",
-        "~",
-    ]  # characters that ALWAYS demarcate tokens
+    " ",
+    ";",
+    "(",
+    ")",
+    "{",
+    "}",
+    "[",
+    "]",
+    ",",
+    "~",
+]  # characters that ALWAYS demarcate tokens
 
 
 class TokenizeError(Exception):

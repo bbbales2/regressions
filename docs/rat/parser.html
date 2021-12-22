@@ -263,7 +263,7 @@
 <span class="sd">    `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;^&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="s2">&quot;||&quot;</span><span class="p">,</span> <span class="s2">&quot;&amp;&amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;==&quot;</span><span class="p">,</span> <span class="s2">&quot;!=&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;=&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;=&quot;</span><span class="p">]</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;^&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">]</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">tok</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]):</span>
@@ -315,7 +315,7 @@
 <span class="sd">    `ops.Assignment`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="s2">&quot;+=&quot;</span><span class="p">,</span> <span class="s2">&quot;-=&quot;</span><span class="p">,</span> <span class="s2">&quot;*=&quot;</span><span class="p">,</span> <span class="s2">&quot;/=&quot;</span><span class="p">]</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;=&quot;</span><span class="p">]</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">tok</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]):</span>
@@ -325,16 +325,9 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">generate</span><span class="p">(</span><span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">operator</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span><span class="p">):</span>
+        <span class="c1"># check() has been ran for operator</span>
         <span class="k">if</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;=&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Assignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;+=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">AddAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;-=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">DiffAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;*=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">MulAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;/=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">DivAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">UnaryFunctions</span><span class="p">:</span>
@@ -418,16 +411,9 @@
 
 
 <span class="k">class</span> <span class="nc">ParseError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">code_string</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">column_num</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">code_string</span><span class="p">:</span>
-            <span class="n">code_string</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="k">if</span> <span class="n">column_num</span><span class="p">:</span>
-                <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="n">column_num</span> <span class="o">+</span> <span class="s2">&quot;^</span><span class="se">\n\n</span><span class="s2">&quot;</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="n">exception_message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;An error occured</span><span class="si">{</span><span class="s1">&#39; during processing the following line&#39;</span> <span class="k">if</span> <span class="n">code_string</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span><span class="si">}</span><span class="s2">:</span><span class="se">\n</span><span class="si">{</span><span class="n">code_string</span><span class="si">}{</span><span class="n">column_indicator_string</span><span class="si">}{</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">code_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">line_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">column_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">code_string</span> <span class="o">=</span> <span class="n">code_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)[</span><span class="n">line_num</span><span class="p">]</span>
+        <span class="n">exception_message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;An error occured while parsing the following line(</span><span class="si">{</span><span class="n">line_num</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">column_num</span><span class="si">}</span><span class="s2">):</span><span class="se">\n</span><span class="si">{</span><span class="n">code_string</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="s1">&#39; &#39;</span> <span class="o">*</span> <span class="n">column_num</span> <span class="o">+</span> <span class="s1">&#39;^&#39;</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">exception_message</span><span class="p">)</span>
 
 
@@ -438,17 +424,17 @@
 <span class="sd">    the column names of the data.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]],</span> <span class="n">data_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">code_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]],</span> <span class="n">data_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the parser</span>
 <span class="sd">        :param tokens: A list of `scanner.Token`. This should be the output format of `scanner.scanner`</span>
 <span class="sd">        :param data_names: A list of data column names</span>
-<span class="sd">        :param code_string: Optional. The original code string. If supplied, used to generate detailed errors.</span>
+<span class="sd">        :param model_string: Optional. The original model code string. If supplied, used to generate detailed errors.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">out_tree</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span> <span class="o">=</span> <span class="n">tokens</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span> <span class="o">=</span> <span class="n">data_names</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span> <span class="o">=</span> <span class="n">code_string</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span> <span class="o">=</span> <span class="n">model_string</span>
 
     <span class="k">def</span> <span class="nf">peek</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -496,7 +482,8 @@
 
         <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Expected token type(s) </span><span class="si">{</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">token_types</span><span class="p">]</span><span class="si">}</span><span class="s2"> with value in </span><span class="si">{</span><span class="n">token_value</span><span class="si">}</span><span class="s2">, but received </span><span class="si">{</span><span class="n">next_token</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> with value &#39;</span><span class="si">{</span><span class="n">next_token</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;!&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span>
+            <span class="n">next_token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span>
             <span class="n">next_token</span><span class="o">.</span><span class="n">column_index</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -543,6 +530,7 @@
             <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
             <span class="n">shift_amount</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">Special</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="p">(</span><span class="n">exit_value</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">))</span>
                 <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">exit_value</span><span class="p">:</span>
                     <span class="k">break</span>
                 <span class="k">elif</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;,&quot;</span><span class="p">:</span>
@@ -550,7 +538,7 @@
                     <span class="k">continue</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">)</span> <span class="ow">and</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;shift&quot;</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_shift</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;shift() has been used in a position that is not allowed.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;shift() has been used in a position that is not allowed.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="c1"># parse lag(index, integer)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier &quot;lag&quot;</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">)</span>
@@ -558,7 +546,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span>  <span class="c1"># index name</span>
                 <span class="n">subscript_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Index specified with shift() must be in data columns.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Index specified with shift() must be in data columns.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="n">expression</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">subscript_name</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># index name</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">)</span>
@@ -588,7 +576,7 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">RealLiteral</span><span class="p">):</span>  <span class="c1"># if just a real number, return it</span>
             <span class="n">exp</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># real</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">IntLiteral</span><span class="p">):</span>  <span class="c1"># if just a integer, return it</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">IntLiteral</span><span class="p">):</span>  <span class="c1"># if just an integer, return it</span>
             <span class="n">exp</span> <span class="o">=</span> <span class="n">IntegerConstant</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># integer</span>
 
@@ -609,6 +597,8 @@
                 <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span><span class="p">:</span>
                     <span class="n">exp</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier</span>
+                <span class="k">elif</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;A distribution has been found in an expressions&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">exp</span> <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier</span>
@@ -634,7 +624,7 @@
                             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span>
                                 <span class="k">if</span> <span class="n">n_openbrackets</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                                     <span class="c1"># switch from Operator to Special</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                                     <span class="k">break</span>
                                 <span class="k">else</span><span class="p">:</span>
                                     <span class="n">n_openbrackets</span> <span class="o">-=</span> <span class="mi">1</span>
@@ -666,7 +656,8 @@
                             <span class="k">else</span><span class="p">:</span>
                                 <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span>
                                     <span class="sa">f</span><span class="s2">&quot;Found unknown token with value </span><span class="si">{</span><span class="n">lookahead_1</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> when evaluating constraints&quot;</span><span class="p">,</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span>
+                                    <span class="n">lookahead_1</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span>
                                     <span class="n">lookahead_1</span><span class="o">.</span><span class="n">column_index</span><span class="p">,</span>
                                 <span class="p">)</span>
 
@@ -722,7 +713,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">token</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Cannot assign to a distribution.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Cannot assign to a distribution.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
 
         <span class="c1"># Step 1. evaluate lhs, assume it&#39;s expression</span>
         <span class="n">lhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expression</span><span class="p">()</span>
@@ -750,7 +741,7 @@
                 <span class="k">return</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">distribution</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">expressions</span><span class="p">)</span>
 
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Statement finished without assignment&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown operator &#39;</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; in statement&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">Expr</span><span class="p">()</span>
 </pre></div>
@@ -951,7 +942,7 @@
 <span class="sd">    `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;^&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="s2">&quot;||&quot;</span><span class="p">,</span> <span class="s2">&quot;&amp;&amp;&quot;</span><span class="p">,</span> <span class="s2">&quot;==&quot;</span><span class="p">,</span> <span class="s2">&quot;!=&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;=&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;=&quot;</span><span class="p">]</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;^&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;%&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">]</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">tok</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]):</span>
@@ -1015,7 +1006,7 @@ Currently supported operations are:
                             <div id="InfixOps.ops" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#InfixOps.ops">#&nbsp;&nbsp</a>
 
-        <span class="name">ops</span><span class="default_value"> = [&#39;+&#39;, &#39;-&#39;, &#39;*&#39;, &#39;^&#39;, &#39;/&#39;, &#39;%&#39;, &#39;||&#39;, &#39;&amp;&amp;&#39;, &#39;==&#39;, &#39;!=&#39;, &#39;&lt;&#39;, &#39;&lt;=&#39;, &#39;&gt;&#39;, &#39;&gt;=&#39;]</span>
+        <span class="name">ops</span><span class="default_value"> = [&#39;+&#39;, &#39;-&#39;, &#39;*&#39;, &#39;^&#39;, &#39;/&#39;, &#39;%&#39;, &#39;&lt;&#39;, &#39;&gt;&#39;]</span>
     </div>
 
     
@@ -1113,7 +1104,7 @@ Currently supported operations are:
 <span class="sd">    `ops.Assignment`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="s2">&quot;+=&quot;</span><span class="p">,</span> <span class="s2">&quot;-=&quot;</span><span class="p">,</span> <span class="s2">&quot;*=&quot;</span><span class="p">,</span> <span class="s2">&quot;/=&quot;</span><span class="p">]</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;=&quot;</span><span class="p">]</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">tok</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]):</span>
@@ -1123,16 +1114,9 @@ Currently supported operations are:
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">generate</span><span class="p">(</span><span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">operator</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span><span class="p">):</span>
+        <span class="c1"># check() has been ran for operator</span>
         <span class="k">if</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;=&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Assignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;+=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">AddAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;-=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">DiffAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;*=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">MulAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;/=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">DivAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
 </pre></div>
 
         </details>
@@ -1157,7 +1141,7 @@ Currently supports the following assignment types:
                             <div id="AssignmentOps.ops" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#AssignmentOps.ops">#&nbsp;&nbsp</a>
 
-        <span class="name">ops</span><span class="default_value"> = [&#39;=&#39;, &#39;+=&#39;, &#39;-=&#39;, &#39;*=&#39;, &#39;/=&#39;]</span>
+        <span class="name">ops</span><span class="default_value"> = [&#39;=&#39;]</span>
     </div>
 
     
@@ -1199,16 +1183,9 @@ Currently supports the following assignment types:
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">generate</span><span class="p">(</span><span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">operator</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span><span class="p">):</span>
+        <span class="c1"># check() has been ran for operator</span>
         <span class="k">if</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;=&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Assignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;+=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">AddAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;-=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">DiffAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;*=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">MulAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">operator</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;/=&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">DivAssignment</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
 </pre></div>
 
         </details>
@@ -1521,16 +1498,9 @@ Currently supported distributions are:
                 <details>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">ParseError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">code_string</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">column_num</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">code_string</span><span class="p">:</span>
-            <span class="n">code_string</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="k">if</span> <span class="n">column_num</span><span class="p">:</span>
-                <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="n">column_num</span> <span class="o">+</span> <span class="s2">&quot;^</span><span class="se">\n\n</span><span class="s2">&quot;</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="n">exception_message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;An error occured</span><span class="si">{</span><span class="s1">&#39; during processing the following line&#39;</span> <span class="k">if</span> <span class="n">code_string</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span><span class="si">}</span><span class="s2">:</span><span class="se">\n</span><span class="si">{</span><span class="n">code_string</span><span class="si">}{</span><span class="n">column_indicator_string</span><span class="si">}{</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">code_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">line_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">column_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">code_string</span> <span class="o">=</span> <span class="n">code_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)[</span><span class="n">line_num</span><span class="p">]</span>
+        <span class="n">exception_message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;An error occured while parsing the following line(</span><span class="si">{</span><span class="n">line_num</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">column_num</span><span class="si">}</span><span class="s2">):</span><span class="se">\n</span><span class="si">{</span><span class="n">code_string</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="s1">&#39; &#39;</span> <span class="o">*</span> <span class="n">column_num</span> <span class="o">+</span> <span class="s1">&#39;^&#39;</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">exception_message</span><span class="p">)</span>
 </pre></div>
 
@@ -1544,21 +1514,14 @@ Currently supported distributions are:
                                         <div class="attr function"><a class="headerlink" href="#ParseError.__init__">#&nbsp;&nbsp</a>
 
         
-            <span class="name">ParseError</span><span class="signature">(message, code_string=&#39;&#39;, column_num=None)</span>
+            <span class="name">ParseError</span><span class="signature">(message, code_string: str, line_num: int, column_num: int)</span>
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">code_string</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">column_num</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">code_string</span><span class="p">:</span>
-            <span class="n">code_string</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="k">if</span> <span class="n">column_num</span><span class="p">:</span>
-                <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="n">column_num</span> <span class="o">+</span> <span class="s2">&quot;^</span><span class="se">\n\n</span><span class="s2">&quot;</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">column_indicator_string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="n">exception_message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;An error occured</span><span class="si">{</span><span class="s1">&#39; during processing the following line&#39;</span> <span class="k">if</span> <span class="n">code_string</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span><span class="si">}</span><span class="s2">:</span><span class="se">\n</span><span class="si">{</span><span class="n">code_string</span><span class="si">}{</span><span class="n">column_indicator_string</span><span class="si">}{</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">code_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">line_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">column_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">code_string</span> <span class="o">=</span> <span class="n">code_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)[</span><span class="n">line_num</span><span class="p">]</span>
+        <span class="n">exception_message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;An error occured while parsing the following line(</span><span class="si">{</span><span class="n">line_num</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">column_num</span><span class="si">}</span><span class="s2">):</span><span class="se">\n</span><span class="si">{</span><span class="n">code_string</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="s1">&#39; &#39;</span> <span class="o">*</span> <span class="n">column_num</span> <span class="o">+</span> <span class="s1">&#39;^&#39;</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">exception_message</span><span class="p">)</span>
 </pre></div>
 
@@ -1596,17 +1559,17 @@ Currently supported distributions are:
 <span class="sd">    the column names of the data.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]],</span> <span class="n">data_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">code_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]],</span> <span class="n">data_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the parser</span>
 <span class="sd">        :param tokens: A list of `scanner.Token`. This should be the output format of `scanner.scanner`</span>
 <span class="sd">        :param data_names: A list of data column names</span>
-<span class="sd">        :param code_string: Optional. The original code string. If supplied, used to generate detailed errors.</span>
+<span class="sd">        :param model_string: Optional. The original model code string. If supplied, used to generate detailed errors.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">out_tree</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span> <span class="o">=</span> <span class="n">tokens</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span> <span class="o">=</span> <span class="n">data_names</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span> <span class="o">=</span> <span class="n">code_string</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span> <span class="o">=</span> <span class="n">model_string</span>
 
     <span class="k">def</span> <span class="nf">peek</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1654,7 +1617,8 @@ Currently supported distributions are:
 
         <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Expected token type(s) </span><span class="si">{</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">token_types</span><span class="p">]</span><span class="si">}</span><span class="s2"> with value in </span><span class="si">{</span><span class="n">token_value</span><span class="si">}</span><span class="s2">, but received </span><span class="si">{</span><span class="n">next_token</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> with value &#39;</span><span class="si">{</span><span class="n">next_token</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;!&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span>
+            <span class="n">next_token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span>
             <span class="n">next_token</span><span class="o">.</span><span class="n">column_index</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -1701,6 +1665,7 @@ Currently supported distributions are:
             <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
             <span class="n">shift_amount</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">Special</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="p">(</span><span class="n">exit_value</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">))</span>
                 <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">exit_value</span><span class="p">:</span>
                     <span class="k">break</span>
                 <span class="k">elif</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;,&quot;</span><span class="p">:</span>
@@ -1708,7 +1673,7 @@ Currently supported distributions are:
                     <span class="k">continue</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">)</span> <span class="ow">and</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;shift&quot;</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_shift</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;shift() has been used in a position that is not allowed.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;shift() has been used in a position that is not allowed.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="c1"># parse lag(index, integer)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier &quot;lag&quot;</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">)</span>
@@ -1716,7 +1681,7 @@ Currently supported distributions are:
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span>  <span class="c1"># index name</span>
                 <span class="n">subscript_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Index specified with shift() must be in data columns.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Index specified with shift() must be in data columns.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="n">expression</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">subscript_name</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># index name</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">)</span>
@@ -1746,7 +1711,7 @@ Currently supported distributions are:
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">RealLiteral</span><span class="p">):</span>  <span class="c1"># if just a real number, return it</span>
             <span class="n">exp</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># real</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">IntLiteral</span><span class="p">):</span>  <span class="c1"># if just a integer, return it</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">IntLiteral</span><span class="p">):</span>  <span class="c1"># if just an integer, return it</span>
             <span class="n">exp</span> <span class="o">=</span> <span class="n">IntegerConstant</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># integer</span>
 
@@ -1767,6 +1732,8 @@ Currently supported distributions are:
                 <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span><span class="p">:</span>
                     <span class="n">exp</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier</span>
+                <span class="k">elif</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;A distribution has been found in an expressions&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">exp</span> <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier</span>
@@ -1792,7 +1759,7 @@ Currently supported distributions are:
                             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span>
                                 <span class="k">if</span> <span class="n">n_openbrackets</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                                     <span class="c1"># switch from Operator to Special</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                                     <span class="k">break</span>
                                 <span class="k">else</span><span class="p">:</span>
                                     <span class="n">n_openbrackets</span> <span class="o">-=</span> <span class="mi">1</span>
@@ -1824,7 +1791,8 @@ Currently supported distributions are:
                             <span class="k">else</span><span class="p">:</span>
                                 <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span>
                                     <span class="sa">f</span><span class="s2">&quot;Found unknown token with value </span><span class="si">{</span><span class="n">lookahead_1</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> when evaluating constraints&quot;</span><span class="p">,</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span>
+                                    <span class="n">lookahead_1</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span>
                                     <span class="n">lookahead_1</span><span class="o">.</span><span class="n">column_index</span><span class="p">,</span>
                                 <span class="p">)</span>
 
@@ -1880,7 +1848,7 @@ Currently supported distributions are:
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">token</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Cannot assign to a distribution.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Cannot assign to a distribution.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
 
         <span class="c1"># Step 1. evaluate lhs, assume it&#39;s expression</span>
         <span class="n">lhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expression</span><span class="p">()</span>
@@ -1908,7 +1876,7 @@ Currently supported distributions are:
                 <span class="k">return</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">distribution</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">expressions</span><span class="p">)</span>
 
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Statement finished without assignment&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown operator &#39;</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; in statement&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">Expr</span><span class="p">()</span>
 </pre></div>
@@ -1928,23 +1896,23 @@ the column names of the data.</p>
             <span class="name">Parser</span><span class="signature">(
     tokens: List[Type[<a href="scanner.html#Token">rat.scanner.Token</a>]],
     data_names: List[str],
-    code_string: str = &#39;&#39;
+    model_string: str = &#39;&#39;
 )</span>
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]],</span> <span class="n">data_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">code_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Token</span><span class="p">]],</span> <span class="n">data_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the parser</span>
 <span class="sd">        :param tokens: A list of `scanner.Token`. This should be the output format of `scanner.scanner`</span>
 <span class="sd">        :param data_names: A list of data column names</span>
-<span class="sd">        :param code_string: Optional. The original code string. If supplied, used to generate detailed errors.</span>
+<span class="sd">        :param model_string: Optional. The original model code string. If supplied, used to generate detailed errors.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">out_tree</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span> <span class="o">=</span> <span class="n">tokens</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span> <span class="o">=</span> <span class="n">data_names</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span> <span class="o">=</span> <span class="n">code_string</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span> <span class="o">=</span> <span class="n">model_string</span>
 </pre></div>
 
         </details>
@@ -1952,7 +1920,7 @@ the column names of the data.</p>
             <div class="docstring"><p>Initialize the parser
 :param tokens: A list of <code>scanner.Token</code>. This should be the output format of <code>scanner.scanner</code>
 :param data_names: A list of data column names
-:param code_string: Optional. The original code string. If supplied, used to generate detailed errors.</p>
+:param model_string: Optional. The original model code string. If supplied, used to generate detailed errors.</p>
 </div>
 
 
@@ -2055,7 +2023,8 @@ the column names of the data.</p>
 
         <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Expected token type(s) </span><span class="si">{</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">token_types</span><span class="p">]</span><span class="si">}</span><span class="s2"> with value in </span><span class="si">{</span><span class="n">token_value</span><span class="si">}</span><span class="s2">, but received </span><span class="si">{</span><span class="n">next_token</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> with value &#39;</span><span class="si">{</span><span class="n">next_token</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;!&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span>
+            <span class="n">next_token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span>
             <span class="n">next_token</span><span class="o">.</span><span class="n">column_index</span><span class="p">,</span>
         <span class="p">)</span>
 </pre></div>
@@ -2129,6 +2098,7 @@ the column names of the data.</p>
             <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
             <span class="n">shift_amount</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">Special</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="p">(</span><span class="n">exit_value</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">))</span>
                 <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">exit_value</span><span class="p">:</span>
                     <span class="k">break</span>
                 <span class="k">elif</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;,&quot;</span><span class="p">:</span>
@@ -2136,7 +2106,7 @@ the column names of the data.</p>
                     <span class="k">continue</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">Identifier</span><span class="p">)</span> <span class="ow">and</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;shift&quot;</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_shift</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;shift() has been used in a position that is not allowed.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;shift() has been used in a position that is not allowed.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="c1"># parse lag(index, integer)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier &quot;lag&quot;</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">)</span>
@@ -2144,7 +2114,7 @@ the column names of the data.</p>
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Identifier</span><span class="p">)</span>  <span class="c1"># index name</span>
                 <span class="n">subscript_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Index specified with shift() must be in data columns.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Index specified with shift() must be in data columns.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">subscript_name</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="n">expression</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">subscript_name</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># index name</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">expect_token</span><span class="p">(</span><span class="n">Special</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">)</span>
@@ -2203,7 +2173,7 @@ of integers denoting shift amounts, if any.</p>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">RealLiteral</span><span class="p">):</span>  <span class="c1"># if just a real number, return it</span>
             <span class="n">exp</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># real</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">IntLiteral</span><span class="p">):</span>  <span class="c1"># if just a integer, return it</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">IntLiteral</span><span class="p">):</span>  <span class="c1"># if just an integer, return it</span>
             <span class="n">exp</span> <span class="o">=</span> <span class="n">IntegerConstant</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># integer</span>
 
@@ -2224,6 +2194,8 @@ of integers denoting shift amounts, if any.</p>
                 <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_names</span><span class="p">:</span>
                     <span class="n">exp</span> <span class="o">=</span> <span class="n">Data</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier</span>
+                <span class="k">elif</span> <span class="n">token</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;A distribution has been found in an expressions&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">exp</span> <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>  <span class="c1"># identifier</span>
@@ -2249,7 +2221,7 @@ of integers denoting shift amounts, if any.</p>
                             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span>
                                 <span class="k">if</span> <span class="n">n_openbrackets</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                                     <span class="c1"># switch from Operator to Special</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">Special</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
                                     <span class="k">break</span>
                                 <span class="k">else</span><span class="p">:</span>
                                     <span class="n">n_openbrackets</span> <span class="o">-=</span> <span class="mi">1</span>
@@ -2281,7 +2253,8 @@ of integers denoting shift amounts, if any.</p>
                             <span class="k">else</span><span class="p">:</span>
                                 <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span>
                                     <span class="sa">f</span><span class="s2">&quot;Found unknown token with value </span><span class="si">{</span><span class="n">lookahead_1</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> when evaluating constraints&quot;</span><span class="p">,</span>
-                                    <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span>
+                                    <span class="n">lookahead_1</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span>
                                     <span class="n">lookahead_1</span><span class="o">.</span><span class="n">column_index</span><span class="p">,</span>
                                 <span class="p">)</span>
 
@@ -2358,7 +2331,7 @@ rules are being applied.
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">token</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Cannot assign to a distribution.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Cannot assign to a distribution.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">token</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
 
         <span class="c1"># Step 1. evaluate lhs, assume it&#39;s expression</span>
         <span class="n">lhs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expression</span><span class="p">()</span>
@@ -2386,7 +2359,7 @@ rules are being applied.
                 <span class="k">return</span> <span class="n">Distributions</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">distribution</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">expressions</span><span class="p">)</span>
 
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="s2">&quot;Statement finished without assignment&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">code_string</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">ParseError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown operator &#39;</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; in statement&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_string</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">line_index</span><span class="p">,</span> <span class="n">op</span><span class="o">.</span><span class="n">column_index</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">Expr</span><span class="p">()</span>
 </pre></div>
