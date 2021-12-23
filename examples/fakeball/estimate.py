@@ -19,12 +19,12 @@ tau0_defense<lower = 0.0> ~ log_normal(0.0, 0.5);
 
 model = Model(shots_df, model_string=model_string)
 
-#print("Running optimization")
-#fit = model.optimize(chains = 1)
-#print("Writing output")
-#fit.save("examples/fakeball/optimum", overwrite = True)
+# print("Running optimization")
+# fit = model.optimize(chains = 1)
+# print("Writing output")
+# fit.save("examples/fakeball/optimum", overwrite = True)
 
 print("Running MCMC")
-fit = model.sample(num_warmup = 1000, num_draws = 1000)
+fit = model.sample(num_warmup=1000, num_draws=1000)
 print("Writing output")
-fit.save("examples/fakeball/samples", overwrite = True)
+fit.save("examples/fakeball/samples", overwrite=True)
