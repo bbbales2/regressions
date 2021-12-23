@@ -212,6 +212,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             if not lhs.get_key() == target_op_name:
                 continue
 
+            line_df = None
             if isinstance(lhs, ops.Data):
                 # If the left hand side is data, the dataframe comes from input
                 line_df = data_df

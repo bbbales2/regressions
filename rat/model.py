@@ -4,6 +4,7 @@ import blackjax.nuts
 import functools
 import itertools
 import jax
+import jax.experimental.host_callback
 import jax.scipy
 import jax.scipy.optimize
 import jax.numpy
@@ -12,6 +13,7 @@ import numpy
 import pandas
 import scipy.optimize
 from typing import Callable, List, Dict, Union
+from tqdm import tqdm
 
 from . import compiler
 from . import ops
@@ -204,7 +206,7 @@ class Model:
         constrained_draws, base_dfs = self.prepare_draws_and_dfs(unconstrained_draws)
         return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
 
-    def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1e-2):
+    def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1.0):
         # Currently only doing warmup on one chain
         initial_position = 2 * init * numpy.random.uniform(size=(self.size)) - init
 
@@ -223,26 +225,67 @@ class Model:
         # Do one-chain warmup
         key = jax.random.PRNGKey(0)
         warmup_key, key = jax.random.split(key)
-        state, (step_size, inverse_mass_matrix), info = blackjax.stan_warmup.run(
-            warmup_key,
+
+        ## The warmup here is copy-pasted and modified from blackjax source
+        ## This is the blackjax warmup call we're replacing
+        # state, (step_size, inverse_mass_matrix), info = blackjax.stan_warmup.run(
+        #     warmup_key,
+        #     kernel_generator,
+        #     initial_state,
+        #     num_warmup,
+        # )
+
+        init, update, final = blackjax.stan_warmup.stan_warmup(
             kernel_generator,
-            initial_state,
-            num_warmup,
+            is_mass_matrix_diagonal = True,
+            target_acceptance_rate = 0.65,
         )
+
+        with tqdm(total = num_warmup, desc = "Warming up") as progress_bar:
+            def progress_callback(iteration, transforms):
+                progress_bar.update()
+
+            def one_step_warmup(carry_and_iteration, interval):
+                (rng_key, state, warmup_state), iteration = carry_and_iteration
+                stage, is_middle_window_end = interval
+                jax.experimental.host_callback.id_tap(progress_callback, iteration)
+                _, rng_key = jax.random.split(rng_key)
+                state, warmup_state, info = update(
+                    rng_key, stage, is_middle_window_end, state, warmup_state
+                )
+
+                return (((rng_key, state, warmup_state), iteration + 1), (state, warmup_state, info))
+
+            schedule = jax.numpy.array(blackjax.stan_warmup.stan_warmup_schedule(num_warmup))
+            warmup_state = init(warmup_key, initial_state, step_size)
+            last_state, warmup_chain = jax.lax.scan(
+                one_step_warmup, ((warmup_key, initial_state, warmup_state), 0), schedule
+            )
+        (_, last_chain_state, last_warmup_state), i = last_state
+
+        step_size, inverse_mass_matrix = final(last_warmup_state)
+        state = last_chain_state
+        info = warmup_chain
 
         kernel = jax.jit(kernel_generator(step_size, inverse_mass_matrix))
 
         positions = jax.numpy.array(chains * [state.position])
         states = jax.vmap(blackjax.nuts.new_state, in_axes=(0, None))(positions, self.log_density_jax)
 
-        # Sample chains
-        def one_step(chain_states, rng_key):
-            keys = jax.random.split(rng_key, chains)
-            new_chain_states, _ = jax.vmap(kernel)(keys, chain_states)
-            return new_chain_states, new_chain_states
+        with tqdm(total = num_draws, desc = "  Sampling") as progress_bar:
+            def progress_callback(iteration, transforms):
+                progress_bar.update()
 
-        keys = jax.random.split(key, num_draws)
-        _, states = jax.lax.scan(one_step, states, keys)
+            # Sample chains
+            def one_step(chain_states_and_iteration, rng_key):
+                chain_states, iteration = chain_states_and_iteration
+                jax.experimental.host_callback.id_tap(progress_callback, iteration)
+                keys = jax.random.split(rng_key, chains)
+                new_chain_states, _ = jax.vmap(kernel)(keys, chain_states)
+                return (new_chain_states, iteration + 1), new_chain_states
+
+            keys = jax.random.split(key, num_draws)
+            _, states = jax.lax.scan(one_step, (states, 0), keys)
 
         # Ordered as (draws, chains, param)
         unconstrained_draws = states.position
