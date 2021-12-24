@@ -322,6 +322,7 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">lhs</span><span class="o">.</span><span class="n">get_key</span><span class="p">()</span> <span class="o">==</span> <span class="n">target_op_name</span><span class="p">:</span>
                 <span class="k">continue</span>
 
+            <span class="n">line_df</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Data</span><span class="p">):</span>
                 <span class="c1"># If the left hand side is data, the dataframe comes from input</span>
                 <span class="n">line_df</span> <span class="o">=</span> <span class="n">data_df</span>
@@ -1010,6 +1011,7 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">lhs</span><span class="o">.</span><span class="n">get_key</span><span class="p">()</span> <span class="o">==</span> <span class="n">target_op_name</span><span class="p">:</span>
                 <span class="k">continue</span>
 
+            <span class="n">line_df</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">Data</span><span class="p">):</span>
                 <span class="c1"># If the left hand side is data, the dataframe comes from input</span>
                 <span class="n">line_df</span> <span class="o">=</span> <span class="n">data_df</span>
