@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+import argparse
+import os
+import sys
+
+parser = argparse.ArgumentParser(
+    prog = "rat",
+    description = "Do calculation with rat model",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+)
+parser.set_defaults(func=lambda x: parser.print_usage())
+
+parser.add_argument("model", type = str, help = "Rat model file")
+parser.add_argument("dataframe", type = str, help = "Filename with data (.csv, .feather, .parquet)")
+parser.add_argument("output", type = str, help = "Folder to store output in (folder will be created if it doesn't exist)")
+parser.add_argument("--method", choices = ["optimize", "sample"], default = "sample", help = "Run sampler or optimizer on model")
+parser.add_argument("--chains", type = int, default = 4, help = "Number of MCMC chains or optimization trajectories")
+parser.add_argument("--init", type = float, default = 2.0, help = "Random init radius")
+parser.add_argument("--num_warmup", type = int, default = 1000, help = "Number of draws to use for warmup (only available for sample)")
+parser.add_argument("--num_draws", type = int, default = 1000, help = "Number of draws to sample after warmup (only available for sample)")
+parser.add_argument("--retries", type = int, default = 4, help = "Number of times to retry optimization (only available for optimize)")
+parser.add_argument("--tolerance", type = float, default = 1e-2, help = "All optimization results must be within rtol = atol = tolerance of each other or throw an error (only available for optimize)")
+parser.add_argument("--overwrite", action = "store_true", help = "Overwrite existing files")
+
+if len(sys.argv) < 2:
+    parser.print_help()
+    exit(1)
+
+args = parser.parse_args()
+
+model_filename = args.model
+dataframe_filename = args.dataframe
+output_folder = args.output
+method = args.method
+chains = args.chains
+init = args.init
+num_warmup = args.num_warmup
+num_draws = args.num_draws
+retries = args.retries
+tolerance = args.tolerance
+overwrite = args.overwrite
+
+if os.path.exists(output_folder) and not overwrite:
+    raise FileExistsError(f"Output folder {output_folder} exists and overwrite is not True")
+
+import pandas
+from rat.model import Model
+
+root, ext = os.path.splitext(dataframe_filename)
+
+if ext == ".csv":
+    df = pandas.read_csv(dataframe_filename)
+elif ext == ".feather":
+    df = pandas.read_feather(dataframe_filename)
+elif ext == ".parquet":
+    df = pandas.read_parquet(dataframe_filename)
+else:
+    raise Exception(f"Don't know how to read {dataframe_filename} with extension {ext}. Must be appropriately formatted file ending in .csv, .feather, or .parquet")
+
+with open(model_filename) as f:
+    model_string = f.read().strip()
+
+print("Compiling model")
+model = Model(df, model_string=model_string)
+
+if method == "optimize":
+    print("Running optimization")
+    fit = model.optimize(init=init, chains=chains, retries=retries, tolerance=tolerance)
+    print("Writing output")
+    fit.save(output_folder, overwrite = overwrite)
+else:
+    print("Running MCMC")
+    fit = model.sample(num_warmup=num_warmup, num_draws=num_draws, chains=chains, init=init)
+    print("Writing output")
+    fit.save(output_folder, overwrite = overwrite)
