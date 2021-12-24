@@ -31,9 +31,10 @@ def test_cli_optimize():
         with tempfile.TemporaryDirectory() as output_folder:
             output_folder = os.path.join(output_folder, "output")
 
-            subprocess.run(cmd.format(output_folder = output_folder), shell = True, check = True)
+            subprocess.run(cmd.format(output_folder=output_folder), shell=True, check=True)
 
             load(output_folder)
+
 
 def test_cli_sample():
     model_filename = os.path.join(test_dir, "eight_schools.rat")
@@ -46,7 +47,7 @@ def test_cli_sample():
         with tempfile.TemporaryDirectory() as output_folder:
             output_folder = os.path.join(output_folder, "output")
 
-            subprocess.run(cmd.format(output_folder = output_folder), shell = True, check = True)
+            subprocess.run(cmd.format(output_folder=output_folder), shell=True, check=True)
 
             load(output_folder)
 
