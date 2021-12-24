@@ -237,11 +237,12 @@ class Model:
 
         init, update, final = blackjax.stan_warmup.stan_warmup(
             kernel_generator,
-            is_mass_matrix_diagonal = True,
-            target_acceptance_rate = 0.65,
+            is_mass_matrix_diagonal=True,
+            target_acceptance_rate=0.65,
         )
 
-        with tqdm(total = num_warmup, desc = "Warming up") as progress_bar:
+        with tqdm(total=num_warmup, desc="Warming up") as progress_bar:
+
             def progress_callback(iteration, transforms):
                 progress_bar.update()
 
@@ -250,17 +251,13 @@ class Model:
                 stage, is_middle_window_end = interval
                 jax.experimental.host_callback.id_tap(progress_callback, iteration)
                 _, rng_key = jax.random.split(rng_key)
-                state, warmup_state, info = update(
-                    rng_key, stage, is_middle_window_end, state, warmup_state
-                )
+                state, warmup_state, info = update(rng_key, stage, is_middle_window_end, state, warmup_state)
 
                 return (((rng_key, state, warmup_state), iteration + 1), (state, warmup_state, info))
 
             schedule = jax.numpy.array(blackjax.stan_warmup.stan_warmup_schedule(num_warmup))
             warmup_state = init(warmup_key, initial_state, step_size)
-            last_state, warmup_chain = jax.lax.scan(
-                one_step_warmup, ((warmup_key, initial_state, warmup_state), 0), schedule
-            )
+            last_state, warmup_chain = jax.lax.scan(one_step_warmup, ((warmup_key, initial_state, warmup_state), 0), schedule)
         (_, last_chain_state, last_warmup_state), i = last_state
 
         step_size, inverse_mass_matrix = final(last_warmup_state)
@@ -272,7 +269,8 @@ class Model:
         positions = jax.numpy.array(chains * [state.position])
         states = jax.vmap(blackjax.nuts.new_state, in_axes=(0, None))(positions, self.log_density_jax)
 
-        with tqdm(total = num_draws, desc = "  Sampling") as progress_bar:
+        with tqdm(total=num_draws, desc="  Sampling") as progress_bar:
+
             def progress_callback(iteration, transforms):
                 progress_bar.update()
 
