@@ -3,8 +3,9 @@ blackjax
 jax
 jaxlib
 numpy
-scipy
 pandas
 plotnine
 pytest
 pyarrow
+scipy
+tqdm
