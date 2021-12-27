@@ -1,0 +1,29 @@
+abortion ~ bernoulli_logit(b_repvote * repvote + b_male * male + a_state[state, region] + a_age[age] + a_eth[eth] + a_educ[educ] + a_male_eth[male, eth] + a_educ_age[educ, age] + a_educ_eth[educ, eth]);
+
+a_state[state, region] = a_region[region] + a_state_z[state, region] * sigma_state;
+a_age[age] = a_age_z[age] * sigma_age;
+a_eth[eth] = a_eth_z[eth] * sigma_eth;
+a_educ[educ] = a_educ_z[educ] * sigma_educ;
+a_male_eth[male, eth] = a_male_eth_z[male, eth] * sigma_male_eth;
+a_educ_age[educ, age] = a_educ_age_z[educ, age] * sigma_educ_age;
+a_educ_eth[educ, eth] = a_educ_eth_z[educ, eth] * sigma_educ_eth;
+
+a_region[region] ~ normal(0.0, 5.0);
+b_repvote ~ normal(0.0, 5.0);
+b_male ~ normal(0.0, 5.0);
+
+a_state_z[state, region] ~ normal(0.0, 1.0);
+a_age_z[age] ~ normal(0.0, 1.0);
+a_eth_z[eth] ~ normal(0.0, 1.0);
+a_educ_z[eth] ~ normal(0.0, 1.0);
+a_male_eth_z[male, eth] ~ normal(0.0, 1.0);
+a_educ_age_z[educ, age] ~ normal(0.0, 1.0);
+a_educ_eth_z[educ, eth] ~ normal(0.0, 1.0);
+
+sigma_state<lower = 0.0> ~ log_normal(0.0, 1.0);
+sigma_age<lower = 0.0> ~ log_normal(0.0, 1.0);
+sigma_eth<lower = 0.0> ~ log_normal(0.0, 1.0);
+sigma_educ<lower = 0.0> ~ log_normal(0.0, 1.0);
+sigma_male_eth<lower = 0.0> ~ log_normal(0.0, 1.0);
+sigma_educ_age<lower = 0.0> ~ log_normal(0.0, 1.0);
+sigma_educ_eth<lower = 0.0> ~ log_normal(0.0, 1.0);
