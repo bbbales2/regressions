@@ -6,3 +6,5 @@ import plotnine
 mrp_folder = os.path.dirname(__file__)
 
 fit = load(os.path.join(mrp_folder, "samples"))
+
+# TODO: Duplicate the plots from case study

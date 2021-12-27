@@ -2,11 +2,17 @@ The model, data cleaning code, and `statelevel_predictors.csv` file come from th
 [Multilevel Regression and Poststratification Case Studies](https://bookdown.org/jl5522/MRP-case-studies/)
 ([Github](https://github.com/JuanLopezMartin/MRPCaseStudy)).
 
-You'll need to download the CCES data from the CCES Dataverse [here](`https://dataverse.harvard.edu/api/access/datafile/3588803?format=original&gbrecs=true`) and place it in this folder as `cces18_common_vv.csv`.
+Specifically we're trying to rewrite the first rstanarm model from 01-mrp-intro.Rmd. `cces_small.csv`
+is the approximately N=5000 sample of data used in those case studies.
 
-To run the model do:
+The CCES data comes from [here](`https://dataverse.harvard.edu/api/access/datafile/3588803?format=original&gbrecs=true`).
+It's been re-encoded in parquet to save space.
 
 ```bash
 python clean.py
-rat 
+rat mrp.rat clean.csv output
+python plot.py output
 ```
+
+If you want to use just the N=5000 sample of data from the example, skip the first command and
+replace `clean.csv` with `clean_small.csv` in the second command.

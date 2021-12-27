@@ -4,10 +4,12 @@ import pandas
 
 mrp_folder = os.path.dirname(__file__)
 
-# Drop some NAs up here to avoid missing responses
 cces_df = pandas.read_csv(os.path.join(mrp_folder, "cces18_common_vv.csv"))
 fips_df = pandas.read_csv(os.path.join(mrp_folder, "fips.csv"))
 state_df = pandas.read_csv(os.path.join(mrp_folder, "statelevel_predictors.csv"))
+
+# This is a python version of the preprocessing done for the MRP case studies
+# here: https://bookdown.org/jl5522/MRP-case-studies/downloading-and-processing-data.html
 
 ## Abortion -- dichotomous (0 - Oppose / 1 - Support)
 abortion = (cces_df["CC18_321d"] - 2).abs().astype(pandas.Int64Dtype())
