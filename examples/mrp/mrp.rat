@@ -1,4 +1,6 @@
-abortion ~ bernoulli_logit(b_repvote * repvote + b_male * male + a_state[state, region] + a_age[age] + a_eth[eth] + a_educ[educ] + a_male_eth[male, eth] + a_educ_age[educ, age] + a_educ_eth[educ, eth]);
+abortion ~ bernoulli_logit(b_repvote * repvote + b_male * male + mu[state, region, male, educ, eth, age]);
+
+mu[state, region, male, educ, eth, age] = a_state[state, region] + a_age[age] + a_eth[eth] + a_educ[educ] + a_male_eth[male, eth] + a_educ_age[educ, age] + a_educ_eth[educ, eth];
 
 a_state[state, region] = a_region[region] + a_state_z[state, region] * sigma_state;
 a_age[age] = a_age_z[age] * sigma_age;
