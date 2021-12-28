@@ -1,12 +1,12 @@
-The model, data cleaning code, and `statelevel_predictors.csv` file come from the
+The model, data cleaning code, `poststrat_df.csv`, and `statelevel_predictors.csv` come from the
 [Multilevel Regression and Poststratification Case Studies](https://bookdown.org/jl5522/MRP-case-studies/)
 ([Github](https://github.com/JuanLopezMartin/MRPCaseStudy)).
 
-Specifically we're trying to rewrite the first rstanarm model from 01-mrp-intro.Rmd. `cces_small.csv`
-is the approximately N=5000 sample of data used in those case studies.
+Specifically we're trying to rewrite the first rstanarm model from `01-mrp-intro.Rmd`. `cces_small.csv`
+is the approximately N=5000 sample of data used in that part of the case study.
 
 The CCES data comes from [here](`https://dataverse.harvard.edu/api/access/datafile/3588803?format=original&gbrecs=true`).
-It's been re-encoded in parquet to save space.
+It's been re-encoded in parquet here to save space.
 
 To run the examples, navigate to the `examples/mrp` folder and run:
 
