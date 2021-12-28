@@ -2,6 +2,7 @@ import arviz
 import blackjax
 import blackjax.nuts
 import blackjax.inference
+import functools
 import glob
 import numpy
 import os
@@ -108,13 +109,22 @@ class Fit:
 
     draw_dfs: Dict[str, pandas.DataFrame]
 
-    def draws(self, parameter_name: Union[str, Iterable[str]]) -> pandas.DataFrame:
+    def draws(self, parameter_names: Union[str, Iterable[str]]) -> pandas.DataFrame:
         """
-        Get the draws for a given parameter with columns for the
-        subscripts. For optimization results there is only one result
-        (the optimum) and no chains column.
+        Get the draws for given parameter(s) with columns for the
+        subscripts.
+        
+        If multiple parameter names given, outer join the tables for
+        each name and return that result.
+        
+        For optimizations there will only ever be one draw in the
+        results (the optimum).
         """
-        return self.draw_dfs[parameter_name]
+        if isinstance(parameter_names, str):
+            return self.draw_dfs[parameter_names]
+        else:
+            draw_dfs = [self.draw_dfs[parameter_name] for parameter_name in parameter_names]
+            return functools.reduce(lambda left, right: pandas.merge(left, right, how = "outer"), draw_dfs)
 
     def save(self, folder, overwrite=False):
         """

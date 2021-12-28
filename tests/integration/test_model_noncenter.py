@@ -25,12 +25,18 @@ def eight_schools_model():
 
     return Model(data_df, model_string=model_string)
 
+@pytest.fixture
+def optimization_fit(eight_schools_model):
+    return eight_schools_model.optimize(init=0.1)
 
-def test_optimize_eight_schools(eight_schools_model):
-    fit = eight_schools_model.optimize(init=0.1)
-    mu_df = fit.draws("mu")
-    z_df = fit.draws("z")
-    tau_df = fit.draws("tau")
+@pytest.fixture
+def sample_fit(eight_schools_model):
+    return eight_schools_model.sample(init=0.1, num_draws=1000, num_warmup=1000)
+
+def test_optimize_eight_schools(optimization_fit):
+    mu_df = optimization_fit.draws("mu")
+    z_df = optimization_fit.draws("z")
+    tau_df = optimization_fit.draws("tau")
 
     ref_z = [
         0.03842000,
@@ -59,9 +65,7 @@ def test_optimize_eight_schools(eight_schools_model):
     assert z_df["z"].to_list() == pytest.approx(ref_z, rel=1e-2, abs=1e-3)
 
 
-def test_sample_eight_schools(eight_schools_model):
-    fit = eight_schools_model.sample(init=0.1, num_draws=1000, num_warmup=1000)
-
+def test_sample_eight_schools(sample_fit):
     mu_diag_df = fit.diag("mu")
     tau_diag_df = fit.diag("tau")
     z_diag_df = fit.diag("z")
@@ -111,6 +115,33 @@ def test_sample_eight_schools(eight_schools_model):
     assert z_mean_df["z"].to_list() == pytest.approx(ref_z_mean, rel=1e-1, abs=1e-1)
     assert theta_mean_df["theta"].to_list() == pytest.approx(ref_theta_mean, rel=1e-1, abs=1e-1)
 
+def test_optimization_draws(optimization_fit):
+    mu_df = optimization_fit.draws("mu")
+    tau_df = optimization_fit.draws("tau")
+    z_df = optimization_fit.draws("z")
+    theta_df = optimization_fit.draws("theta")
+
+    mu_tau_df = optimization_fit.draws(("mu", "tau"))
+    mu_theta_df = optimization_fit.draws(("mu", "theta"))
+    z_theta_df = optimization_fit.draws(("z", "theta"))
+
+    pandas.testing.assert_frame_equal(mu_tau_df, pandas.merge(mu_df, tau_df, how = "outer"))
+    pandas.testing.assert_frame_equal(mu_theta_df, pandas.merge(mu_df, theta_df, how = "outer"))
+    pandas.testing.assert_frame_equal(z_theta_df, pandas.merge(z_df, theta_df, how = "outer"))
+
+def test_sample_draws(sample_fit):
+    mu_df = sample_fit.draws("mu")
+    tau_df = sample_fit.draws("tau")
+    z_df = sample_fit.draws("z")
+    theta_df = sample_fit.draws("theta")
+
+    mu_tau_df = sample_fit.draws(("mu", "tau"))
+    mu_theta_df = sample_fit.draws(("mu", "theta"))
+    z_theta_df = sample_fit.draws(("z", "theta"))
+
+    pandas.testing.assert_frame_equal(mu_tau_df, pandas.merge(mu_df, tau_df, how = "outer"))
+    pandas.testing.assert_frame_equal(mu_theta_df, pandas.merge(mu_df, theta_df, how = "outer"))
+    pandas.testing.assert_frame_equal(z_theta_df, pandas.merge(z_df, theta_df, how = "outer"))
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)
