@@ -8,11 +8,18 @@ is the approximately N=5000 sample of data used in those case studies.
 The CCES data comes from [here](`https://dataverse.harvard.edu/api/access/datafile/3588803?format=original&gbrecs=true`).
 It's been re-encoded in parquet to save space.
 
+To run the examples, navigate to the `examples/mrp` folder and run:
+
 ```bash
 python clean.py
-rat mrp.rat clean.csv output
-python plot.py output
+rat mrp.rat clean.csv samples --num_draws=100
+python plot.py
 ```
 
 If you want to use just the N=5000 sample of data from the example, skip the first command and
 replace `clean.csv` with `clean_small.csv` in the second command.
+
+There is also a script `estimate.py` that does the equivalent of the middle command.
+
+The number of draws is really low because my laptop runs out of memory in the poststratification
+if I take many more.

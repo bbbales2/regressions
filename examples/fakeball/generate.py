@@ -2,16 +2,19 @@ from faker import Faker
 import itertools
 import math
 import numpy
+import os
 import pandas
 import random
 import scipy
 import scipy.stats
 import datetime
 
+fakeball_folder = os.path.dirname(__file__)
+
 N_teams = 10
 N_players = 10
 N_rounds = 2
-N_shots = 80
+N_shots = 40
 N_attempts = 1
 N_games_per_day = 5
 
@@ -69,5 +72,5 @@ for round in range(N_rounds):
 
 shots_df = pandas.DataFrame.from_records(rows)
 
-players_df.to_csv("examples/fakeball/players.csv", index=False)
-shots_df.to_csv("examples/fakeball/shots.csv", index=False)
+players_df.to_csv(os.path.join(fakeball_folder, "players.csv"), index=False)
+shots_df.to_csv(os.path.join(fakeball_folder, "shots.csv"), index=False)
