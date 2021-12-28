@@ -390,7 +390,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     index_use_identifier = (op.index.get_key(), op.index.shifts)
 
                     df_index = (
-                        op.index.get_key()# if isinstance(lhs, ops.Data) else lhs.variable.index.check_and_return_index(op.index.get_key())
+                        op.index.get_key()  # if isinstance(lhs, ops.Data) else lhs.variable.index.check_and_return_index(op.index.get_key())
                     )
 
                     # Only need to define this particular index use once per line (multiple uses will share)

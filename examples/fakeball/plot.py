@@ -2,7 +2,7 @@ from rat.fit import load
 import pandas
 import plotnine
 
-players_df = pandas.read_csv("examples/fakeball/players.csv").rename(columns = {"offense" : "reference_offense"})
+players_df = pandas.read_csv("examples/fakeball/players.csv").rename(columns={"offense": "reference_offense"})
 shots_df = pandas.read_csv("examples/fakeball/shots.csv")
 
 optimum = load("examples/fakeball/samples")

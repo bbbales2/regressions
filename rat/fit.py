@@ -113,10 +113,10 @@ class Fit:
         """
         Get the draws for given parameter(s) with columns for the
         subscripts.
-        
+
         If multiple parameter names given, outer join the tables for
         each name and return that result.
-        
+
         For optimizations there will only ever be one draw in the
         results (the optimum).
         """
@@ -124,7 +124,7 @@ class Fit:
             return self.draw_dfs[parameter_names]
         else:
             draw_dfs = [self.draw_dfs[parameter_name] for parameter_name in parameter_names]
-            return functools.reduce(lambda left, right: pandas.merge(left, right, how = "outer"), draw_dfs)
+            return functools.reduce(lambda left, right: pandas.merge(left, right, how="outer"), draw_dfs)
 
     def save(self, folder, overwrite=False):
         """
