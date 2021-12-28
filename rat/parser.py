@@ -243,9 +243,11 @@ class Parser:
                 if len(bracket_stack) == 0:
                     raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
                 top = bracket_stack.pop()
-                if (top.value == "(" and tok.value == ")") or \
-                   (top.value == "{" and tok.value == "}") or \
-                   (top.value == "[" and tok.value == "]"):
+                if (
+                    (top.value == "(" and tok.value == ")")
+                    or (top.value == "{" and tok.value == "}")
+                    or (top.value == "[" and tok.value == "]")
+                ):
                     pass
                 else:
                     raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
@@ -253,7 +255,6 @@ class Parser:
         if len(bracket_stack) > 0:
             tok = bracket_stack[0]
             raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
-
 
     def peek(self, k=0) -> Type[Token]:
         """

@@ -13,7 +13,7 @@ def test_scanner_invalid_identifier():
     input_str = "$$1337 ~ bernoulli_logit(p);"
     parsed = Scanner(input_str)
     with pytest.raises(TokenizeError):
-         parsed.scan()
+        parsed.scan()
 
 
 def test_scanner_invalid_identifier_2():
@@ -28,7 +28,6 @@ def test_scanner_missing_terminate():
     parsed = Scanner(input_str)
     with pytest.raises(TokenizeError):
         parsed.scan()
-
 
 
 def test_scanner_valid_1():
@@ -52,7 +51,7 @@ def test_scanner_valid_1():
         Special(",", 0, 35),
         RealLiteral("1.0", 0, 37),
         Special(")", 0, 40),
-        Terminate(";", 0, 41)
+        Terminate(";", 0, 41),
     ]
     parsed = Scanner(input_str)
     for index, val in enumerate(parsed.scan()[0]):
@@ -101,11 +100,11 @@ def test_scanner_complex():
         Special(",", 0, 69),
         RealLiteral("1.0", 0, 71),
         Special(")", 0, 74),
-        Terminate(";", 0, 75)
+        Terminate(";", 0, 75),
     ]
     parsed = Scanner(input_str)
     for index, val in enumerate(parsed.scan()[0]):
-        #print(val.value.ljust(20), val.token_type)
+        # print(val.value.ljust(20), val.token_type)
         true_token = expected[index]
         assert true_token.value == val.value
         assert true_token.line_index == val.line_index
