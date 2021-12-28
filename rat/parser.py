@@ -212,7 +212,6 @@ class Distributions:
             return Exponential(lhs, expressions[0])
 
 
-
 class ParseError(Exception):
     def __init__(self, message, code_string: str, line_num: int, column_num: int):
         code_string = code_string.split("\n")[line_num]
