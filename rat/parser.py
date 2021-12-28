@@ -177,10 +177,10 @@ class Distributions:
     """
     A utility class that's used to identify and build distributions.
     Currently supported distributions are:
-    `ops.Normal`, `ops.BernoulliLogit`, `ops.LogNormal`
+    `ops.Normal`, `ops.BernoulliLogit`, `ops.LogNormal`, `ops.Cauchy`, `ops.Exponential`
     """
 
-    names = ["normal", "bernoulli_logit", "log_normal", "cauchy"]
+    names = ["normal", "bernoulli_logit", "log_normal", "cauchy", "exponential"]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -196,7 +196,7 @@ class Distributions:
             return Normal(lhs, expressions[0], expressions[1])
         elif dist_type.value == "bernoulli_logit":
             if len(expressions) != 1:
-                raise Exception(f"bernoulli_logit distribution needs 1 parameters, but got {len(expressions)}!")
+                raise Exception(f"bernoulli_logit distribution needs 1 parameter, but got {len(expressions)}!")
             return BernoulliLogit(lhs, expressions[0])
         elif dist_type.value == "log_normal":
             if len(expressions) != 2:
@@ -206,6 +206,11 @@ class Distributions:
             if len(expressions) != 2:
                 raise Exception(f"cauchy distribution needs 2 parameters, but got {len(expressions)}!")
             return Cauchy(lhs, expressions[0], expressions[1])
+        elif dist_type.value == "exponential":
+            if len(expressions) != 1:
+                raise Exception(f"exponential distribution needs 1 parameter, but got {len(expressions)}!")
+            return Exponential(lhs, expressions[0])
+
 
 
 class ParseError(Exception):

@@ -182,6 +182,7 @@ class Cauchy(Distr):
         return f"Cauchy({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
 
 
+@dataclass(frozen=True)
 class Exponential(Distr):
     variate: Expr
     scale: Expr
