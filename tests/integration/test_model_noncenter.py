@@ -23,6 +23,7 @@ def eight_schools_model():
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
+
     # TODO: Add a unit test that the thing above parses to the thing below
     parsed_lines = [
         ops.Normal(ops.Data("y"), ops.Param("theta", ops.Index(("school",))), ops.Data("sigma")),
@@ -36,6 +37,7 @@ def eight_schools_model():
     ]
 
     return Model(data_df, model_string=model_string)  # model_string=model_string
+
 
 
 def test_optimize_eight_schools(eight_schools_model):

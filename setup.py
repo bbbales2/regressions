@@ -17,6 +17,7 @@ setuptools.setup(
         "License :: OSI Approved :: GPLv3 License",
         "Operating System :: OS Independent",
     ],
+    scripts=["bin/rat"],
     packages=setuptools.find_packages(),
     python_requires=">=3.7",
     install_requires=requirements,

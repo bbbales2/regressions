@@ -199,6 +199,9 @@ def load(folder: str) -> Union[OptimizationFit, SampleFit]:
     Load an OptimizationFit/SampleFit from the folder in which
     it was saved
     """
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"Failed to read {folder}, folder doesn't exist")
+
     type_path = os.path.join(folder, "type")
 
     with open(type_path) as f:
