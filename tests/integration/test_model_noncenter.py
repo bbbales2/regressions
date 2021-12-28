@@ -69,10 +69,10 @@ def test_optimize_eight_schools(optimization_fit):
 
 
 def test_sample_eight_schools(sample_fit):
-    mu_diag_df = fit.diag("mu")
-    tau_diag_df = fit.diag("tau")
-    z_diag_df = fit.diag("z")
-    theta_diag_df = fit.diag("theta")
+    mu_diag_df = sample_fit.diag("mu")
+    tau_diag_df = sample_fit.diag("tau")
+    z_diag_df = sample_fit.diag("z")
+    theta_diag_df = sample_fit.diag("theta")
 
     assert (mu_diag_df["ess"] > 1000).all()
     assert (tau_diag_df["ess"] > 1000).all()
@@ -84,10 +84,10 @@ def test_sample_eight_schools(sample_fit):
     assert (z_diag_df["rhat"] < 1.01).all()
     assert (theta_diag_df["rhat"] < 1.01).all()
 
-    mu_df = fit.draws("mu")
-    tau_df = fit.draws("tau")
-    z_df = fit.draws("z")
-    theta_df = fit.draws("theta")
+    mu_df = sample_fit.draws("mu")
+    tau_df = sample_fit.draws("tau")
+    z_df = sample_fit.draws("z")
+    theta_df = sample_fit.draws("theta")
     z_mean_df = z_df.groupby("school").agg({"z": numpy.mean}).reset_index().sort_values("school")
     theta_mean_df = theta_df.groupby("school").agg({"theta": numpy.mean}).reset_index().sort_values("school")
 
