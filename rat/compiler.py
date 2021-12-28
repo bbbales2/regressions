@@ -330,8 +330,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 elif isinstance(lhs, ops.Param):
                     lower = lhs.lower
                     upper = lhs.upper
-                    #assert isinstance(lower, ops.RealConstant)
-                    #assert isinstance(upper, ops.RealConstant)
+                    # assert isinstance(lower, ops.RealConstant)
+                    # assert isinstance(upper, ops.RealConstant)
 
                     if lhs_key in variable_indexes:
                         subexpr = variables.Param(lhs_key, variable_indexes[lhs_key])

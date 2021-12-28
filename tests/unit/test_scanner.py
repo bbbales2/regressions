@@ -30,6 +30,7 @@ def test_scanner_missing_terminate():
         parsed.scan()
 
 
+
 def test_scanner_valid_1():
     input_str = "tau<lower=0.0> ~ normal(-2.0 - 1.0, 1.0);"
     #            ^        ^         ^         ^
@@ -109,6 +110,7 @@ def test_scanner_complex():
         assert true_token.value == val.value
         assert true_token.line_index == val.line_index
         assert true_token.column_index == val.column_index
+
 
 def test_scanner_valid_multiline_1():
     input_str = """
