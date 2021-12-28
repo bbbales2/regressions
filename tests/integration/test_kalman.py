@@ -46,7 +46,7 @@ def test_optimize_kalman():
         0.0243282,
     ]
 
-    assert mu_df["value"].to_list() == pytest.approx(mu_ref, rel=1e-2)
+    assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
 
 def test_optimize_kalman_2():
@@ -103,11 +103,11 @@ def test_optimize_kalman_2():
         0.13827900,
         0.58915900,
     ]
-    skills_ref_df = pandas.DataFrame(zip(team, year, skills_ref), columns=["team", "year", "value_ref"])
+    skills_ref_df = pandas.DataFrame(zip(team, year, skills_ref), columns=["team", "year", "skills_ref"])
     joined_df = skills_df.merge(skills_ref_df, on=["team", "year"], how="left", validate="one_to_one")
 
-    assert sigma_df["value"][0] == pytest.approx(3.51620000, rel=1e-2)
-    assert joined_df["value"].to_list() == pytest.approx(joined_df["value_ref"].to_list(), abs=1e-1)
+    assert sigma_df["sigma"][0] == pytest.approx(3.51620000, rel=1e-2)
+    assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
 
 if __name__ == "__main__":

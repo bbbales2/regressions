@@ -54,9 +54,9 @@ def test_optimize_eight_schools(eight_schools_model):
         4.62246000,
     ]
 
-    assert mu_df["value"][0] == pytest.approx(4.61934000, rel=1e-2)
-    assert tau_df["value"][0] == pytest.approx(0.36975800, rel=1e-2)
-    assert z_df["value"].to_list() == pytest.approx(ref_z, rel=1e-2, abs=1e-3)
+    assert mu_df["mu"][0] == pytest.approx(4.61934000, rel=1e-2)
+    assert tau_df["tau"][0] == pytest.approx(0.36975800, rel=1e-2)
+    assert z_df["z"].to_list() == pytest.approx(ref_z, rel=1e-2, abs=1e-3)
 
 
 def test_sample_eight_schools(eight_schools_model):
@@ -81,8 +81,8 @@ def test_sample_eight_schools(eight_schools_model):
     tau_df = fit.draws("tau")
     z_df = fit.draws("z")
     theta_df = fit.draws("theta")
-    z_mean_df = z_df.groupby("school").agg({"value": numpy.mean}).reset_index().sort_values("school")
-    theta_mean_df = theta_df.groupby("school").agg({"value": numpy.mean}).reset_index().sort_values("school")
+    z_mean_df = z_df.groupby("school").agg({"z": numpy.mean}).reset_index().sort_values("school")
+    theta_mean_df = theta_df.groupby("school").agg({"theta": numpy.mean}).reset_index().sort_values("school")
 
     ref_z_mean = [
         0.137,
@@ -106,10 +106,10 @@ def test_sample_eight_schools(eight_schools_model):
         4.76,
     ]
 
-    assert mu_df["value"].mean() == pytest.approx(4.60, rel=1e-1)
-    assert tau_df["value"].mean() == pytest.approx(1.37, rel=1e-1)
-    assert z_mean_df["value"].to_list() == pytest.approx(ref_z_mean, rel=1e-1, abs=1e-1)
-    assert theta_mean_df["value"].to_list() == pytest.approx(ref_theta_mean, rel=1e-1, abs=1e-1)
+    assert mu_df["mu"].mean() == pytest.approx(4.60, rel=1e-1)
+    assert tau_df["tau"].mean() == pytest.approx(1.37, rel=1e-1)
+    assert z_mean_df["z"].to_list() == pytest.approx(ref_z_mean, rel=1e-1, abs=1e-1)
+    assert theta_mean_df["theta"].to_list() == pytest.approx(ref_theta_mean, rel=1e-1, abs=1e-1)
 
 
 if __name__ == "__main__":

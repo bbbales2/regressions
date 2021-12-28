@@ -12,22 +12,19 @@ fit = load(os.path.join(mrp_folder, "samples"))
 state_df = pandas.read_csv(os.path.join(mrp_folder, "statelevel_predictors.csv"))
 poststrat_df = pandas.read_csv(os.path.join(mrp_folder, "poststrat_df.csv"))
 
-def grab(name):
-    return fit.draws(name).rename(columns = {"value" : name})
-
 variables = ["state", "eth", "male", "age", "educ"]
 
 full_poststrat_df = (
     poststrat_df
-    .merge(grab("a_age"), how = "outer") # First is an outer so poststrat table gets chain/draw
-    .merge(grab("a_state"), how = "left") # The rest can be lefts
-    .merge(grab("a_eth"), how = "left")
-    .merge(grab("a_educ"), how = "left")
-    .merge(grab("a_male_eth"), how = "left")
-    .merge(grab("a_educ_age"), how = "left")
-    .merge(grab("a_educ_eth"), how = "left")
-    .merge(grab("b_repvote"), how = "left")
-    .merge(grab("b_male"), how = "left")
+    .merge(fit.draws("a_age"), how = "outer") # First is an outer so poststrat table gets chain/draw
+    .merge(fit.draws("a_state"), how = "left") # The rest can be lefts
+    .merge(fit.draws("a_eth"), how = "left")
+    .merge(fit.draws("a_educ"), how = "left")
+    .merge(fit.draws("a_male_eth"), how = "left")
+    .merge(fit.draws("a_educ_age"), how = "left")
+    .merge(fit.draws("a_educ_eth"), how = "left")
+    .merge(fit.draws("b_repvote"), how = "left")
+    .merge(fit.draws("b_male"), how = "left")
     .merge(state_df[["state", "repvote"]], how = "left")
     .assign(p = lambda df : scipy.special.expit(
         df["a_state"] +
@@ -43,53 +40,43 @@ full_poststrat_df = (
     [["state", "eth", "male", "age", "educ", "draw", "chain", "p"]]
 )
 
-def poststratify(variable, groupby = []):
-    if len(groupby) == 0:
-        weights_df = (
-            poststrat_df
-            .assign(weight = lambda df: df["n"] / df["n"].sum())
-        )
-    else:
-        total_df = (
-            poststrat_df
-            .groupby(groupby)
-            .agg({ "n" : "sum" })
-            .rename(columns = { "n" : "total_n" })
-            .reset_index()
-        )
+total_n_df = (
+    poststrat_df
+    .groupby("state")
+    .agg({ "n" : "sum" })
+    .rename(columns = { "n" : "total_n" })
+    .reset_index()
+)
 
-        weights_df = (
-            poststrat_df
-            .merge(total_df, how = "left")
-            .assign(weight = lambda df: df["n"] / df["total_n"])
-        )
+weights_df = (
+    poststrat_df
+    .merge(total_n_df, how = "left")
+    .assign(weight = lambda df: df["n"] / df["total_n"])
+)
 
-    weighted_df = full_poststrat_df.merge(weights_df, how = "left", validate = "many_to_one")
+weighted_df = full_poststrat_df.merge(weights_df, how = "left", validate = "many_to_one")
 
-    return (
-        weighted_df
-        .assign(weighted_variable = lambda df : df[variable] * df["weight"])
-        .groupby(["draw", "chain"] + groupby)
-        .agg({ "weighted_variable" : "sum" })
-        .rename(columns = { "weighted_variable" : variable })
-    )
+states_weighted_p_df = (
+    weighted_df
+    .assign(weighted_p = lambda df : df["p"] * df["weight"])
+    .groupby(["draw", "chain", "state"])
+    .agg({ "weighted_p" : "sum" })
+)
 
-states_p_df = poststratify("p", ["state"])
-
-states_p_summary_df = (
-    states_p_df
+states_weighted_p_summary_df = (
+    states_weighted_p_df
     .groupby("state")
     .agg(
-        median = ("p", numpy.median),
-        q10 = ("p", lambda x : numpy.quantile(x, 0.10)),
-        q90 = ("p", lambda x : numpy.quantile(x, 0.90)),
+        median = ("weighted_p", numpy.median),
+        q10 = ("weighted_p", lambda x : numpy.quantile(x, 0.10)),
+        q90 = ("weighted_p", lambda x : numpy.quantile(x, 0.90)),
     )
     .reset_index()
     .merge(state_df, how = "left")
 )
 
 plot = (
-    plotnine.ggplot(states_p_summary_df) +
+    plotnine.ggplot(states_weighted_p_summary_df) +
     plotnine.geom_pointrange(plotnine.aes(
         "reorder(state, repvote)", "median", ymin = "q10", ymax = "q90"
     )) +

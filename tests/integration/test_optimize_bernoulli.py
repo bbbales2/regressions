@@ -22,7 +22,7 @@ def test_optimize_bernoulli():
     mu_df = fit.draws("mu")
 
     mu_ref = [0.0797716, -0.4084060, -0.8545570, -0.9920960, -0.7676070]
-    assert mu_df["value"].to_list() == pytest.approx(mu_ref, rel=1e-2)
+    assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
 
 if __name__ == "__main__":
