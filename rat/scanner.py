@@ -136,7 +136,7 @@ delimeters = [
 class TokenizeError(Exception):
     def __init__(self, message: str, code_string: str, line_num: int, column_num: int):
         code_string = code_string.split("\n")[line_num]
-        exception_message = f"An error occured while tokenizing the following line({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
+        exception_message = f"An error occured while tokenizing the following line({line_num}:{column_num}):\n{code_string}\n{' ' * (column_num - 1) + '^'}\n{message}"
         super().__init__(exception_message)
 
 
@@ -144,12 +144,12 @@ class Scanner:
     def __init__(self, model_code):
         self.model_code: str = model_code
         self.code_length: int = len(model_code)
-        self.scanned_lines: List[List[Token]] = []
-        self.current_tokens = []
-        self.current_char: str = ""
-        self.register: str = ""
+        self.scanned_lines: List[List[Token]] = []  # List of tokens which have been tokenized
+        self.current_tokens = []  # Tokens which are on the current line
+        self.current_char: str = ""  # head character of model string
+        self.register: str = ""  # The register stores the string that's currently being digested
 
-        self.index: int = 0
+        self.index: int = 0  # This is the current model string index
 
         self.column_index: int = 0
         self.line_index: int = 0
@@ -157,6 +157,9 @@ class Scanner:
         self.current_state = self.default_state
 
     def scan(self) -> List[List[Token]]:
+        """
+        Entry function of the Scanner class.
+        """
         while self.index < self.code_length:
             self.current_state()
 
@@ -175,6 +178,8 @@ class Scanner:
         self.index += 1
         self.column_index += 1
         if self.current_char == "\n":
+            self.reduce_register()
+            self.current_state = self.default_state
             self.column_index = -1
             self.line_index += 1
             self.consume()
@@ -201,7 +206,7 @@ class Scanner:
         elif realnum.match(self.register):
             token = RealLiteral(self.register, self.line_index, self.column_index - len(self.register))
         elif self.register in special_characters:
-            token = Special(self.register, self.line_index, self.column_index - len(self.register))
+            token = Special(self.register, self.line_index, self.column_index - len(self.register) + 1)
         elif self.register in operator_strings:
             token = Operator(self.register, self.line_index, self.column_index - len(self.register) + 1)
         else:
@@ -351,7 +356,14 @@ class Scanner:
 
         elif self.current_char == "-":
             # Allow negative powers i.e. 1e-10
-            self.register += self.current_char
+            if self.register[-1] == "e":
+                # - is allowed right after 'e'
+                self.register += self.current_char
+            else:
+                # if we aleady have a integer, the negative sign is an operator
+                self.reduce_register()
+                self.register += self.current_char
+                self.current_state = self.operator_state
 
         elif self.current_char in operator_strings and self.register[-1] != "e":
             # transition 1: If we find an operator, change to operator state

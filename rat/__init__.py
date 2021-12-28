@@ -123,6 +123,7 @@ Below are individual links to supported math functions and distributions
     - `rat.ops.BernoulliLogit`, `rat.compiler.bernoulli_logit` : `bernoulli_logit(p)`
     - `rat.ops.LogNormal`, `rat.compiler.log_normal`  : `log_normal(mu, sigma)`
     - `rat.ops.Cauchy`  : `cauchy(location, scale)`
+    - `rat.ops.Exponential`  :  `exponential(scale)`
 - **Functions**
     - `rat.ops.Log`: `log(x)`
     - `rat.ops.Exp` : `exp(x)`
@@ -138,6 +139,17 @@ Below are individual links to supported math functions and distributions
     - `rat.ops.Arctan` : `arctan(x)`
     - `rat.ops.Logit` : `logit(x)`
     - `rat.ops.InverseLogit` : `inverse_logit(x)`
+
+### Precedence Table
+
+|  Operator   |   Precedence   |
+|------|:-----:|
+| function calls(`exp`, `log`, etc.) | 100, leftmost derivative  |
+| prefix negation(`-10`, `-(1+2)`, etc.) | 50 |
+| `^`  | 40  |
+| `*`, `/`, `%`  | 30  |
+| `+`, `-`  | 10  |
+
 """
 
 from . import compiler

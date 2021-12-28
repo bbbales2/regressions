@@ -147,7 +147,7 @@ class BernoulliLogit(Distr):
         return f"bernoulli_logit({self.variate.code()}, {self.logit_p.code()})"
 
     def __str__(self):
-        return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+        return f"BernoulliLogit({self.variate.__str__()}, {self.logit_p.__str__()})"
 
 
 @dataclass(frozen=True)
@@ -182,9 +182,22 @@ class Cauchy(Distr):
         return f"Cauchy({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
 
 
+class Exponential(Distr):
+    variate: Expr
+    scale: Expr
+
+    def __iter__(self):
+        return iter([self.variate, self.scale])
+
+    def code(self):
+        return f"jax.scipy.stats.expon.logpdf({self.variate.code()}, loc=0, scale={self.scale.code()})"
+
+    def __str__(self):
+        return f"Exponential({self.variate.code()}, {self.scale.code()})"
+
+
 @dataclass(frozen=True)
 class Diff(Expr):
-    lbp = 10
     lhs: Expr
     rhs: Expr
 
@@ -247,7 +260,6 @@ class Pow(Expr):
 
 @dataclass(frozen=True)
 class Div(Expr):
-    lbp = 30
     left: Expr
     right: Expr
 
@@ -263,7 +275,6 @@ class Div(Expr):
 
 @dataclass(frozen=True)
 class Mod(Expr):
-    lbp = 30
     left: Expr
     right: Expr
 
@@ -399,7 +410,6 @@ class GreaterThanOrEqual(Expr):
 
 @dataclass(frozen=True)
 class PrefixNegation(Expr):
-    lbp = 50
     subexpr: Expr
 
     def __iter__(self):
@@ -443,7 +453,6 @@ class Assignment(Expr):
 
 @dataclass(frozen=True)
 class Log(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -458,7 +467,6 @@ class Log(Expr):
 
 @dataclass(frozen=True)
 class Exp(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -473,7 +481,6 @@ class Exp(Expr):
 
 @dataclass(frozen=True)
 class Abs(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -488,7 +495,6 @@ class Abs(Expr):
 
 @dataclass(frozen=True)
 class Floor(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -503,7 +509,6 @@ class Floor(Expr):
 
 @dataclass(frozen=True)
 class Ceil(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -518,7 +523,6 @@ class Ceil(Expr):
 
 @dataclass(frozen=True)
 class Round(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -533,7 +537,6 @@ class Round(Expr):
 
 @dataclass(frozen=True)
 class Sin(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -548,7 +551,6 @@ class Sin(Expr):
 
 @dataclass(frozen=True)
 class Cos(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -563,7 +565,6 @@ class Cos(Expr):
 
 @dataclass(frozen=True)
 class Tan(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -578,7 +579,6 @@ class Tan(Expr):
 
 @dataclass(frozen=True)
 class Arcsin(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -593,7 +593,6 @@ class Arcsin(Expr):
 
 @dataclass(frozen=True)
 class Arccos(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -608,7 +607,6 @@ class Arccos(Expr):
 
 @dataclass(frozen=True)
 class Arctan(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -623,7 +621,6 @@ class Arctan(Expr):
 
 @dataclass(frozen=True)
 class Logit(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
@@ -638,7 +635,6 @@ class Logit(Expr):
 
 @dataclass(frozen=True)
 class InverseLogit(Expr):
-    lbp = 100
     subexpr: Expr
 
     def __iter__(self):
