@@ -439,7 +439,6 @@
             <span class="k">return</span> <span class="n">Exponential</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">expressions</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
 
-
 <span class="k">class</span> <span class="nc">ParseError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">code_string</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">line_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">column_num</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
         <span class="n">code_string</span> <span class="o">=</span> <span class="n">code_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)[</span><span class="n">line_num</span><span class="p">]</span>
