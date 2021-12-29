@@ -768,16 +768,14 @@ and returns the default singular column names.
                                 <div class="attr class">
         <a class="headerlink" href="#Data">#&nbsp;&nbsp</a>
 
-                <div class="decorator">@dataclass</div>
-
+        
         <span class="def">class</span>
         <span class="name">Data</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Data</span><span class="p">:</span>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Data</span><span class="p">:</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">series</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">Series</span>
 
@@ -848,16 +846,14 @@ and returns the default singular column names.
                                 <div class="attr class">
         <a class="headerlink" href="#Param">#&nbsp;&nbsp</a>
 
-                <div class="decorator">@dataclass</div>
-
+        
         <span class="def">class</span>
         <span class="name">Param</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Param</span><span class="p">:</span>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Param</span><span class="p">:</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">lower</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span>
@@ -1046,16 +1042,14 @@ and returns the default singular column names.
                                 <div class="attr class">
         <a class="headerlink" href="#AssignedParam">#&nbsp;&nbsp</a>
 
-                <div class="decorator">@dataclass</div>
-
+        
         <span class="def">class</span>
         <span class="name">AssignedParam</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">AssignedParam</span><span class="p">:</span>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">AssignedParam</span><span class="p">:</span>
     <span class="n">ops_param</span><span class="p">:</span> <span class="kc">None</span>  <span class="c1"># this is ops.Param</span>
     <span class="n">rhs</span><span class="p">:</span> <span class="kc">None</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1142,16 +1136,14 @@ and returns the default singular column names.
                                 <div class="attr class">
         <a class="headerlink" href="#IndexUse">#&nbsp;&nbsp</a>
 
-                <div class="decorator">@dataclass</div>
-
+        
         <span class="def">class</span>
         <span class="name">IndexUse</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">IndexUse</span><span class="p">:</span>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">IndexUse</span><span class="p">:</span>
     <span class="n">names</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
     <span class="n">df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Index</span>
@@ -1171,7 +1163,7 @@ and returns the default singular column names.
 
         </details>
 
-            <div class="docstring"><p>IndexUse(names: Tuple[str], df: pandas.core.frame.DataFrame, index: <a href="#Index">rat.variables.Index</a>, shifts: Tuple[Optional[str]] = None)</p>
+            <div class="docstring"><p>IndexUse(names: Tuple[str], df: pandas.core.frame.DataFrame, index: <a href="#Index">rat.variables.Index</a>, shifts: Tuple[Union[str, NoneType]] = None)</p>
 </div>
 
 
@@ -1183,7 +1175,7 @@ and returns the default singular column names.
     names: Tuple[str],
     df: pandas.core.frame.DataFrame,
     index: <a href="#Index">rat.variables.Index</a>,
-    shifts: Tuple[Optional[str]] = None
+    shifts: Tuple[Union[str, NoneType]] = None
 )</span>
     </div>
 
@@ -1194,7 +1186,7 @@ and returns the default singular column names.
                             <div id="IndexUse.shifts" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#IndexUse.shifts">#&nbsp;&nbsp</a>
 
-        <span class="name">shifts</span><span class="annotation">: Tuple[Optional[str]]</span><span class="default_value"> = None</span>
+        <span class="name">shifts</span><span class="annotation">: Tuple[Union[str, NoneType]]</span><span class="default_value"> = None</span>
     </div>
 
     
