@@ -101,7 +101,7 @@ def test_parser_rhs_index_shift_multiple():
 
 
 def test_parser_invalid_statement():
-    with pytest.raises(Exception, match = "normal distribution needs 2 parameters"):
+    with pytest.raises(Exception, match="normal distribution needs 2 parameters"):
         test_string = "tau<lower=0.0> ~ normal(skills_mu[year]);"
         data_names = ["year", "skills_mu"]
         statement = Parser(Scanner(test_string).scan()[0], data_names, test_string).statement()
