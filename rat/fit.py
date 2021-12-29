@@ -2,11 +2,12 @@ import arviz
 import blackjax
 import blackjax.nuts
 import blackjax.inference
+import functools
 import glob
 import numpy
 import os
 import pandas
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Iterable
 
 from . import constraints
 from . import model
@@ -57,7 +58,7 @@ def _build_constrained_dfs(
         df = pandas.concat([base_df] * num_draws * num_chains, ignore_index=True)
         df["chain"] = numpy.repeat(numpy.arange(num_chains), size * num_draws)
         df["draw"] = numpy.tile(numpy.repeat(numpy.arange(num_draws), size), num_chains)
-        df["value"] = constrained_variable.flatten(order="C")
+        df[name] = constrained_variable.flatten(order="C")
         draw_dfs[name] = df
 
     return draw_dfs
@@ -66,14 +67,14 @@ def _build_constrained_dfs(
 def _check_convergence_and_select_one_chain(draw_dfs, tolerance):
     # Check that all the optimization solutions are vaguely close to each other
     for name, draw_df in draw_dfs.items():
-        group_columns = list(set(draw_df.columns) - set(["value", "chain"]))
+        group_columns = list(set(draw_df.columns) - set([name, "chain"]))
         if len(group_columns) > 0:
             grouped_df = draw_df.groupby(group_columns)
-            median_df = grouped_df.agg({"value": numpy.median}).rename(columns={"value": "median"})
+            median_df = grouped_df.agg({name: numpy.median}).rename(columns={name: "median"})
             converged_df = (
                 draw_df.merge(median_df, on=group_columns, how="left")
-                .assign(absolute_difference=lambda df: (df["value"] - df["median"]).abs())
-                .assign(tolerance=lambda df: numpy.maximum(tolerance, tolerance * df["value"].abs()))
+                .assign(absolute_difference=lambda df: (df[name] - df["median"]).abs())
+                .assign(tolerance=lambda df: numpy.maximum(tolerance, tolerance * df[name].abs()))
                 .assign(converged=lambda df: df["absolute_difference"] < df["tolerance"])
             )
             not_converged = ~converged_df["converged"]
@@ -81,9 +82,9 @@ def _check_convergence_and_select_one_chain(draw_dfs, tolerance):
                 row = converged_df[not_converged].iloc[0]
                 raise Exception(f"Difference optimizations [] didn't converge to within tolerance")
         else:
-            values = draw_df["value"]
+            values = draw_df[name]
             median = numpy.median(values)
-            absolute_differences = numpy.abs(draw_df["value"] - median)
+            absolute_differences = numpy.abs(draw_df[name] - median)
             thresholds = numpy.maximum(tolerance, tolerance * numpy.abs(values))
             if any(absolute_differences > thresholds):
                 values_string = ",".join(str(value) for value in values)
@@ -108,13 +109,22 @@ class Fit:
 
     draw_dfs: Dict[str, pandas.DataFrame]
 
-    def draws(self, parameter_name: str) -> pandas.DataFrame:
+    def draws(self, parameter_names: Union[str, Iterable[str]]) -> pandas.DataFrame:
         """
-        Get the draws for a given parameter with columns for the
-        subscripts. For optimization results there is only one result
-        (the optimum) and no chains column.
+        Get the draws for given parameter(s) with columns for the
+        subscripts.
+
+        If multiple parameter names given, outer join the tables for
+        each name and return that result.
+
+        For optimizations there will only ever be one draw in the
+        results (the optimum).
         """
-        return self.draw_dfs[parameter_name]
+        if isinstance(parameter_names, str):
+            return self.draw_dfs[parameter_names]
+        else:
+            draw_dfs = [self.draw_dfs[parameter_name] for parameter_name in parameter_names]
+            return functools.reduce(lambda left, right: pandas.merge(left, right, how="outer"), draw_dfs)
 
     def save(self, folder, overwrite=False):
         """

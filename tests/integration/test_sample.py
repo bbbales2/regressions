@@ -26,7 +26,7 @@ def test_sample_normal_mu():
     fit = model.sample(num_draws=1000)
     mu_df = fit.draws("mu")
 
-    assert mu_df["value"].mean() == pytest.approx(-1.11, rel=1e-2)
+    assert mu_df["mu"].mean() == pytest.approx(-1.11, rel=1e-2)
 
 
 def test_full():
