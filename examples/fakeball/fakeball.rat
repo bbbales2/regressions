@@ -1,4 +1,7 @@
-made ~ bernoulli_logit(offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] - (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date]));
+made ~ bernoulli_logit(
+    offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] -
+    (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date])
+);
 
 offense[player, date] = offense_rw[player, date] + offense0[player];
 defense[player, date] = defense_rw[player, date] + defense0[player];
