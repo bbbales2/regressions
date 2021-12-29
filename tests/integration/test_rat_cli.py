@@ -10,7 +10,6 @@ from rat import ops
 from rat import compiler
 from rat.model import Model
 from rat.parser import Parser
-from rat.scanner import scanner
 from rat.fit import load
 from pathlib import Path
 import shlex

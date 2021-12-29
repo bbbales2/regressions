@@ -331,14 +331,12 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 elif isinstance(lhs, ops.Param):
                     lower = lhs.lower
                     upper = lhs.upper
-                    assert isinstance(lower, ops.RealConstant)
-                    assert isinstance(upper, ops.RealConstant)
 
                     if lhs_key in variable_indexes:
                         subexpr = variables.Param(lhs_key, variable_indexes[lhs_key])
                     else:
                         subexpr = variables.Param(lhs_key)
-                    subexpr.set_constraints(lower.value, upper.value)
+                    subexpr.set_constraints(float(eval(lower.code())), float(eval(upper.code())))
                     parameter_variables[lhs_key] = subexpr
                     lhs.variable = parameter_variables[lhs_key]
 

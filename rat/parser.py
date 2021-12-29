@@ -10,6 +10,7 @@ from .scanner import (
 )
 from .ops import *
 import warnings
+import jax.numpy
 
 # https://mc-stan.org/docs/2_18/reference-manual/bnf-grammars.html
 # https://mc-stan.org/docs/2_28/reference-manual/arithmetic-expressions.html
@@ -22,6 +23,7 @@ class PrefixOps:
     """
 
     ops = ["!", "-"]
+    precedence = {"!": 50, "-": 50}
 
     @staticmethod
     def check(tok: Token):
@@ -49,12 +51,13 @@ class PostfixOps:  # not used atm
 
 class InfixOps:
     """
-    A utility class that's used to indentify and build binary operation expressions.
+    A utility class that's used to identify and build binary operation expressions.
     Currently supported operations are:
-    `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`
+    `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`, `ops.Div`
     """
 
-    ops = ["+", "-", "*", "^", "/", "%", "||", "&&", "==", "!=", "<", "<=", ">", ">="]
+    ops = ["+", "-", "*", "^", "/", "%", "<", ">"]
+    precedence = {"+": 10, "-": 10, "*": 30, "/": 30, "^": 40, "%": 30, "<": 5, ">": 5}
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -76,22 +79,10 @@ class InfixOps:
             return Pow(lhs, rhs)
         elif token.value == "%":
             return Mod(lhs, rhs)
-        elif token.value == "||":
-            return LogicalOR(lhs, rhs)
-        elif token.value == "&&":
-            return LogicalAND(lhs, rhs)
-        elif token.value == "==":
-            return Equality(lhs, rhs)
-        elif token.value == "!=":
-            return Inequality(lhs, rhs)
         elif token.value == "<":
             return LessThan(lhs, rhs)
-        elif token.value == "<=":
-            return LessThanOrEqual(lhs, rhs)
         elif token.value == ">":
             return GreaterThan(lhs, rhs)
-        elif token.value == ">=":
-            return GreaterThanOrEqual(lhs, rhs)
         else:
             raise Exception(f"InfixOps: Unknown operator type {token.value}")
 
@@ -106,7 +97,7 @@ class AssignmentOps:
     `ops.Assignment`
     """
 
-    ops = ["=", "+=", "-=", "*=", "/="]
+    ops = ["="]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -116,16 +107,9 @@ class AssignmentOps:
 
     @staticmethod
     def generate(lhs: Expr, operator: Operator, rhs: Expr):
+        # check() has been ran for operator
         if operator.value == "=":
             return Assignment(lhs, rhs)
-        elif operator.value == "+=":
-            return AddAssignment(lhs, rhs)
-        elif operator.value == "-=":
-            return DiffAssignment(lhs, rhs)
-        elif operator.value == "*=":
-            return MulAssignment(lhs, rhs)
-        elif operator.value == "/=":
-            return DivAssignment(lhs, rhs)
 
 
 class UnaryFunctions:
@@ -134,6 +118,22 @@ class UnaryFunctions:
     """
 
     names = ["exp", "log", "abs", "floor", "ceil", "round", "sin", "cos", "tan", "arcsin", "arccos", "arctan", "logit", "inverse_logit"]
+    precedence = {
+        "exp": 100,
+        "log": 100,
+        "abs": 100,
+        "floor": 100,
+        "ceil": 100,
+        "round": 100,
+        "sin": 100,
+        "cos": 100,
+        "tan": 100,
+        "arcsin": 100,
+        "arccos": 100,
+        "arctan": 100,
+        "logit": 100,
+        "inverse_logit": 100,
+    }
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -177,10 +177,10 @@ class Distributions:
     """
     A utility class that's used to identify and build distributions.
     Currently supported distributions are:
-    `ops.Normal`, `ops.BernoulliLogit`, `ops.LogNormal`
+    `ops.Normal`, `ops.BernoulliLogit`, `ops.LogNormal`, `ops.Cauchy`, `ops.Exponential`
     """
 
-    names = ["normal", "bernoulli_logit", "log_normal", "cauchy"]
+    names = ["normal", "bernoulli_logit", "log_normal", "cauchy", "exponential"]
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -196,7 +196,7 @@ class Distributions:
             return Normal(lhs, expressions[0], expressions[1])
         elif dist_type.value == "bernoulli_logit":
             if len(expressions) != 1:
-                raise Exception(f"bernoulli_logit distribution needs 1 parameters, but got {len(expressions)}!")
+                raise Exception(f"bernoulli_logit distribution needs 1 parameter, but got {len(expressions)}!")
             return BernoulliLogit(lhs, expressions[0])
         elif dist_type.value == "log_normal":
             if len(expressions) != 2:
@@ -206,46 +206,63 @@ class Distributions:
             if len(expressions) != 2:
                 raise Exception(f"cauchy distribution needs 2 parameters, but got {len(expressions)}!")
             return Cauchy(lhs, expressions[0], expressions[1])
+        elif dist_type.value == "exponential":
+            if len(expressions) != 1:
+                raise Exception(f"exponential distribution needs 1 parameter, but got {len(expressions)}!")
+            return Exponential(lhs, expressions[0])
 
 
 class ParseError(Exception):
-    def __init__(self, message, code_string="", column_num=None):
-        if code_string:
-            code_string += "\n"
-            if column_num:
-                column_indicator_string = " " * column_num + "^\n\n"
-            else:
-                column_indicator_string = "\n"
-        else:
-            column_indicator_string = ""
-        exception_message = f"An error occured{' during processing the following line' if code_string else ''}:\n{code_string}{column_indicator_string}{message}"
+    def __init__(self, message, code_string: str, line_num: int, column_num: int):
+        code_string = code_string.split("\n")[line_num]
+        exception_message = f"An error occured while parsing the following line({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
         super().__init__(exception_message)
 
 
 class Parser:
     """
-    The parser for rat is a modified top-down, leftmost derivative LL parser.
+    The parser for rat is a modified Pratt parser.
     Since rat programs are defined within the context of data, the parser needs to know
     the column names of the data.
     """
 
-    def __init__(self, tokens: List[Type[Token]], data_names: List[str], code_string: str = ""):
+    def __init__(self, tokens: List[Token], data_names: List[str], model_string: str = ""):
         """
         Initialize the parser
         :param tokens: A list of `scanner.Token`. This should be the output format of `scanner.scanner`
         :param data_names: A list of data column names
-        :param code_string: Optional. The original code string. If supplied, used to generate detailed errors.
+        :param model_string: Optional. The original model code string. If supplied, used to generate detailed errors.
         """
         self.out_tree = []
         self.tokens = tokens
         self.data_names = data_names
-        self.code_string = code_string
+        self.model_string = model_string
+
+    def check_bracket_stack(self):
+        bracket_stack: List[Token] = []
+        for tok in self.tokens:
+            if isinstance(tok, Special) and tok.value in ("(", "{", "["):
+                bracket_stack.append(tok)
+            elif isinstance(tok, Special) and tok.value in (")", "}", "]"):
+                if len(bracket_stack) == 0:
+                    raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
+                top = bracket_stack.pop()
+                if (
+                    (top.value == "(" and tok.value == ")")
+                    or (top.value == "{" and tok.value == "}")
+                    or (top.value == "[" and tok.value == "]")
+                ):
+                    pass
+                else:
+                    raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
+
+        if len(bracket_stack) > 0:
+            tok = bracket_stack[0]
+            raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
 
     def peek(self, k=0) -> Type[Token]:
         """
         k-token lookahead. Returns `scanner.NullToken` if there are no tokens in the token stack.
-        :param k:
-        :return:
         """
         if k >= len(self.tokens):
             return NullToken()
@@ -287,7 +304,8 @@ class Parser:
 
         raise ParseError(
             f"Expected token type(s) {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!",
-            self.code_string,
+            self.model_string,
+            next_token.line_index,
             next_token.column_index,
         )
 
@@ -314,26 +332,11 @@ class Parser:
             raise Exception(f"expresions() received invalid entry token value with value {entry_token_value}, but expected '[' or ']'")
         expressions = []
         shift_amounts = []  # integer specifying the amount to shift for each index
-        # while True:
-        #     token = self.peek()
-        #     if isinstance(token, Special):
-        #         if token.value == "]" or token.value == ")":
-        #             break
-        #         elif token.value == ",":
-        #             self.remove()  # character ,
-        #             continue
-        #         elif token.value == "[":
-        #             self.remove()  # character [
-        #             expression = self.expressions()  # nested expressions ex: a[b[1], 2]
-        #         else:
-        #             expression = self.expression()
-        #     else:
-        #         expression = self.expression()
-        #     expressions.append(expression)
         while True:
             token = self.peek()
             shift_amount = None
             if isinstance(token, Special):
+                self.expect_token(Special, (exit_value, ","))
                 if token.value == exit_value:
                     break
                 elif token.value == ",":
@@ -341,22 +344,28 @@ class Parser:
                     continue
             elif isinstance(token, Identifier) and token.value == "shift":
                 if not allow_shift:
-                    raise ParseError("shift() has been used in a position that is not allowed.", self.code_string, token.column_index)
+                    raise ParseError(
+                        "shift() has been used in a position that is not allowed.", self.model_string, token.line_index, token.column_index
+                    )
                 # parse lag(index, integer)
-                self.remove()  # identifier "lag"
+                self.remove()  # identifier "shift"
                 self.expect_token(Special, "(")
                 self.remove()  # character )
                 self.expect_token(Identifier)  # index name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
-                    raise ParseError("Index specified with shift() must be in data columns.", self.code_string, subscript_name.column_index)
+                    raise ParseError(
+                        "Index specified with shift() must be in data columns.",
+                        self.model_string,
+                        subscript_name.line_index,
+                        subscript_name.column_index,
+                    )
                 expression = Data(subscript_name.value)
                 self.remove()  # index name
                 self.expect_token(Special, ",")
                 self.remove()  # character ,
-                self.expect_token(IntLiteral)  # shift amount
-                shift_amount = int(self.peek().value)
-                self.remove()  # shift integer
+                shift_amount = self.expression()
+                shift_amount = int(eval(shift_amount.code()))
                 self.expect_token(Special, ")")
                 self.remove()  # character )
             else:
@@ -366,24 +375,26 @@ class Parser:
 
         return expressions, tuple(shift_amounts)
 
-    def expression(self, allow_subscripts=False):
-        """
-        This function is used to evaluate an expression. Please refer to the BNF grammer to see what types of
-        rules are being applied.
-        :param allow_subscripts:
-        :return: An `ops.Expr` object.
-        """
+    def parse_nud(self, is_lhs=False):
         token = self.peek()
-
-        exp = Expr()
         if isinstance(token, RealLiteral):  # if just a real number, return it
             exp = RealConstant(float(token.value))
             self.remove()  # real
-        if isinstance(token, IntLiteral):  # if just a integer, return it
+            return exp
+        elif isinstance(token, IntLiteral):  # if just an integer, return it
             exp = IntegerConstant(int(token.value))
             self.remove()  # integer
+            return exp
 
-        if isinstance(token, Identifier):  # parameter/data/function
+        elif PrefixOps.check(token):  # prefixOp expression
+            self.expect_token(Operator, PrefixOps.ops)  # operator
+            self.remove()
+
+            next_expression = self.expression(PrefixOps.precedence[token.value])
+            exp = PrefixOps.generate(next_expression, token)
+            return exp
+
+        elif isinstance(token, Identifier):
             if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
                 func_name = token
                 self.remove()  # functionName
@@ -395,115 +406,172 @@ class Parser:
                 self.expect_token(Special, ")")
                 self.remove()  # )
                 exp = UnaryFunctions.generate(argument, func_name)
+                return exp
 
-            else:  # parameter/data
-                if token.value in self.data_names:
-                    exp = Data(token.value)
-                    self.remove()  # identifier
-                else:
-                    exp = Param(token.value)
-                    self.remove()  # identifier
+            elif token.value in self.data_names:
+                exp = Data(token.value)
+                self.remove()  # identifier
+            elif token.value in Distributions.names:
+                raise ParseError("A distribution has been found in an expressions", self.model_string, token.line_index, token.column_index)
+            else:
+                exp = self.parse_param(is_lhs=is_lhs)
 
-                    # check for constraints  param<lower = 0.0, upper = 1.0>
-                    # 3-token lookahead: "<" + "lower" or "upper"
-                    lookahead_1 = self.peek()  # <
-                    lookahead_2 = self.peek(1)  # lower, upper
-                    if lookahead_1.value == "<" and lookahead_2.value in (
-                        "lower",
-                        "upper",
-                    ):
-                        self.remove()  # <
-                        # the problem is that ">" is considered as an operator, but in the case of constraints, it is
-                        # not an operator, but a delimeter denoting the end of the constraint region.
-                        # Therefore, we need to find the matching ">" and change it from operator type to special, so
-                        # the expression parser does not think of it as a "greater than" operator. This goes away from
-                        # the ll(k) approach and therefore is a very hacky way to fix the issue.
-                        n_openbrackets = 0
-                        for idx in range(len(self.tokens)):
-                            if self.peek(idx).value == "<":
-                                n_openbrackets += 1
-                            if self.peek(idx).value == ">":
-                                if n_openbrackets == 0:
-                                    # switch from Operator to Special
-                                    self.tokens[idx] = Special(">", self.peek(idx).column_index)
-                                    break
-                                else:
-                                    n_openbrackets -= 1
-                        # now actually parse the constraints
-                        lower = RealConstant(float("-inf"))
-                        upper = RealConstant(float("inf"))
-                        for _ in range(2):
-                            # loop at max 2 times, once for lower, once for upper
-                            if lookahead_2.value == "lower":
-                                self.remove()  # "lower"
-                                self.expect_token(Operator, token_value="=")
-                                self.remove()  # =
-                                lower = self.expression()
-                            elif lookahead_2.value == "upper":
-                                self.remove()  # "upper"
-                                self.expect_token(Operator, token_value="=")
-                                self.remove()  # =
-                                upper = self.expression()
+            next_token = self.peek()
+            if isinstance(next_token, Special) and next_token.value == "[":
+                # identifier '[' subscript_expressions ']'
+                self.remove()  # [
+                warnings.warn("Parser: subscripts are assumed to be a single literal, not expression.")
+                expressions, shift_amount = self.expressions("[", allow_shift=True)  # list of expression
+                self.expect_token(Special, "]")
+                self.remove()  # ]
+                # Assume index is a single identifier - this is NOT GOOD
+                exp.index = Index(
+                    names=tuple(expression.name for expression in expressions),
+                    shifts=shift_amount,
+                )
 
-                            lookahead_1 = self.peek()
-                            # can be either ",", which means loop again, or ">", which breaks
-                            lookahead_2 = self.peek(1)
-                            # either "lower", or "upper" if lookahead_1 == ","
-                            if lookahead_1.value == ",":
-                                self.remove()  # ,
-                            elif lookahead_1.value == ">":
-                                self.remove()  # >
-                                break
-                            else:
-                                raise ParseError(
-                                    f"Found unknown token with value {lookahead_1.value} when evaluating constraints",
-                                    self.code_string,
-                                    lookahead_1.column_index,
-                                )
+            return exp
 
-                        # the for loop takes of the portion "<lower= ... >
-                        # this means the constraint part of been processed and
-                        # removed from the token queue at this point
-                        exp.lower = lower
-                        exp.upper = upper
-
-        if PrefixOps.check(token):  # prefixOp expression
-            self.expect_token(Operator, PrefixOps.ops)  # operator
-            self.remove()
-
-            next_expression = self.expression()
-            exp = PrefixOps.generate(next_expression, token)
-
-        if isinstance(token, Special) and token.value == "(":  # '(' expression ')'
+        elif isinstance(token, Special) and token.value == "(":  # ( expression )
             self.remove()  # (
-            next_expression = self.expression()
-            self.expect_token(Special, ")")  # )
+            exp = self.expression()
+            self.expect_token(Special, ")")
             self.remove()  # )
-            exp = next_expression  # expression
-
-        next_token = self.peek()
-        # this is for the following 2 rules, which have conditions after expression
-        if isinstance(next_token, Special) and next_token.value == "[":
-            # identifier '[' subscript_expressions ']'
-            self.remove()  # [
-            warnings.warn("Parser: subscripts are assumed to be a single literal, not expression.")
-            expressions, shift_amount = self.expressions("[", allow_shift=True)  # list of expression
-            self.expect_token(Special, "]")
-            self.remove()  # ]
-            # Assume index is a single identifier - this is NOT GOOD
-            exp.index = Index(
-                names=tuple(expression.name for expression in expressions),
-                shifts=shift_amount,
+            return exp
+        else:
+            raise ParseError(
+                f"{token.value} can't be in the beginning of a construct!", self.model_string, token.line_index, token.column_index
             )
-            next_token = self.peek()  # Update token in case we need evaluate case 2
 
-        if InfixOps.check(next_token):  # expression infixOps expression
-            self.expect_token(Operator, InfixOps.ops)
-            self.remove()  # op
-            rhs = self.expression()
-            exp = InfixOps.generate(exp, rhs, next_token)
+    def parse_param(self, is_lhs=False):
+        self.expect_token(Identifier)
+        token = self.peek()
+        exp = Param(token.value)
+        self.remove()  # identifier
+
+        # check for constraints  param<lower = 0.0, upper = 1.0>
+        # 3-token lookahead: "<" + "lower" or "upper"
+        lookahead_1 = self.peek()  # <
+        lookahead_2 = self.peek(1)  # lower, upper
+        if lookahead_1.value == "<" and lookahead_2.value in (
+            "lower",
+            "upper",
+        ):
+            if not is_lhs:
+                raise ParseError(
+                    "Constraints for parameters/variables are only allowed on LHS.",
+                    self.model_string,
+                    lookahead_1.line_index,
+                    lookahead_1.column_index,
+                )
+            self.remove()  # <
+            # the problem is that ">" is considered as an operator, but in the case of constraints, it is
+            # not an operator, but a delimeter denoting the end of the constraint region.
+            # Therefore, we need to find the matching ">" and change it from operator type to special, so
+            # the expression parser does not think of it as a "greater than" operator. This goes away from
+            # the ll(k) approach and therefore is a very hacky way to fix the issue.
+            n_openbrackets = 0
+            for idx in range(len(self.tokens)):
+                if self.peek(idx).value == "<":
+                    n_openbrackets += 1
+                if self.peek(idx).value == ">":
+                    if n_openbrackets == 0:
+                        # switch from Operator to Special
+                        self.tokens[idx] = Special(">", self.peek(idx).line_index, self.peek(idx).column_index)
+                        break
+                    else:
+                        n_openbrackets -= 1
+            # now actually parse the constraints
+            lower = RealConstant(float("-inf"))
+            upper = RealConstant(float("inf"))
+            for _ in range(2):
+                # loop at max 2 times, once for lower, once for upper
+                if lookahead_2.value == "lower":
+                    self.remove()  # "lower"
+                    self.expect_token(Operator, token_value="=")
+                    self.remove()  # =
+                    lower = self.expression()
+                elif lookahead_2.value == "upper":
+                    self.remove()  # "upper"
+                    self.expect_token(Operator, token_value="=")
+                    self.remove()  # =
+                    upper = self.expression()
+
+                lookahead_1 = self.peek()
+                # can be either ",", which means loop again, or ">", which breaks
+                lookahead_2 = self.peek(1)
+                # either "lower", or "upper" if lookahead_1 == ","
+                if lookahead_1.value == ",":
+                    self.remove()  # ,
+                elif lookahead_1.value == ">":
+                    self.remove()  # >
+                    break
+                else:
+                    raise ParseError(
+                        f"Found unknown token with value {lookahead_1.value} when evaluating constraints",
+                        self.model_string,
+                        lookahead_1.line_index,
+                        lookahead_1.column_index,
+                    )
+
+            # the for loop takes of the portion "<lower= ... >
+            # this means the constraint part of been processed and
+            # removed from the token queue at this point
+            exp.lower = lower
+            exp.upper = upper
 
         return exp
+
+    def expression(self, min_precedence=0, is_lhs=False):
+        """
+        This function is used to evaluate an expression. Please refer to the BNF grammer to see what types of
+        rules are being applied.
+        :param min_precedence: Minimum precedence value to evaluate
+        :return: An `ops.Expr` object.
+        """
+        left = self.parse_nud(is_lhs=is_lhs)
+        token = self.peek()
+
+        while True:
+            if isinstance(token, Special) and token.value in (";", ",", ">", ")", "]"):
+                break
+            elif isinstance(token, NullToken):
+                break
+            elif isinstance(token, Special) and token.value == "(":  # '(' expression ')'
+                self.remove()  # (
+                next_expression = self.expression()
+                self.expect_token(Special, ")")  # )
+                self.remove()  # )
+                exp = next_expression  # expression
+
+            elif InfixOps.check(token):  # expression infixOps expression
+                if InfixOps.precedence[token.value] <= min_precedence:
+                    break
+                self.expect_token(Operator, InfixOps.ops)
+                self.remove()  # op
+                rhs = self.expression(InfixOps.precedence[token.value])
+                exp = InfixOps.generate(left, rhs, token)
+
+            elif isinstance(token, Identifier):
+                if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
+                    func_name = token
+                    self.remove()  # functionName
+
+                    self.expect_token(Special, "(")
+                    self.remove()  # (
+                    argument = self.expression()
+
+                    self.expect_token(Special, ")")
+                    self.remove()  # )
+                    exp = UnaryFunctions.generate(argument, func_name)
+
+            else:
+                raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
+
+            token = self.peek()
+            left = exp
+
+        return left
 
     def statement(self):
         """
@@ -511,12 +579,13 @@ class Parser:
         resolved into an `ops.Assignment` or an `ops.Distr` object.
         :return:
         """
+        self.check_bracket_stack()
         token = self.peek()
         if Distributions.check(token):
-            raise ParseError("Cannot assign to a distribution.", self.code_string, token.column_index)
+            raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)
 
         # Step 1. evaluate lhs, assume it's expression
-        lhs = self.expression()
+        lhs = self.parse_nud(is_lhs=True)
         # if isinstance(lhs, Param) or isinstance(lhs, Data):
         if isinstance(lhs, Expr):
             op = self.peek()
@@ -541,6 +610,6 @@ class Parser:
                 return Distributions.generate(distribution, lhs, expressions)
 
             else:
-                raise ParseError("Statement finished without assignment", self.code_string)
+                raise ParseError(f"Unknown operator '{op.value}' in statement", self.model_string, op.line_index, op.column_index)
 
         return Expr()
