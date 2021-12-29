@@ -58,29 +58,8 @@ def test_optimize_kalman_2():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    # parsed_lines = [
-    #    ops.Normal(
-    #        ops.Data("score_diff"),
-    #        ops.Diff(
-    #            ops.Param("skills", ops.Index(("team1", "year"))),
-    #            ops.Param("skills", ops.Index(("team2", "year"))),
-    #        ),
-    #        ops.Param("sigma"),
-    #    ),
-    #    ops.Normal(
-    #        ops.Param("skills", ops.Index(("team", "year"))),
-    #        ops.Param("skills", ops.Index(("team", "year"), shifts=(None, 1))),
-    #        ops.RealConstant(0.5),
-    #    ),
-    #    ops.Normal(
-    #        ops.Param("sigma", lower=ops.RealConstant(0.0)),
-    #        ops.RealConstant(0.0),
-    #        ops.RealConstant(1.0),
-    #    ),
-    # ]
-
     model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=0.1, tolerance=5e-2)
+    fit = model.optimize(init=0.1, tolerance=1e-1)
     skills_df = fit.draws("skills")
     sigma_df = fit.draws("sigma")
 
