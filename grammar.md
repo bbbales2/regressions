@@ -110,7 +110,7 @@ constraint_range ::= 'lower' '=' expressioni ',' 'upper' = expression
                    | 'lower' '=' expression
                    | 'upper' '=' expression
 
-Distribution ::= ("normal", "bernoulli_logit", "log_normal", "cauchy")
+Distribution ::= ("normal", "bernoulli_logit", "log_normal", "cauchy", "exponential")
 
 lhs ::= identifier constraint ('[' expressions ']')*
 assignmentOp ::= ("=", "+=", "-=", "*=", "/=")

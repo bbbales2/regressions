@@ -5,28 +5,28 @@ from rat.scanner import *
 def test_scanner_invalid_scientific():
     input_str = "g<lower=1.4ef> ~ normal(0.0, 1.0);"
     parsed = Scanner(input_str)
-    with pytest.raises(TokenizeError):
+    with pytest.raises(TokenizeError, match = "scientific notation"):
         parsed.scan()
 
 
 def test_scanner_invalid_identifier():
     input_str = "$$1337 ~ bernoulli_logit(p);"
     parsed = Scanner(input_str)
-    with pytest.raises(TokenizeError):
+    with pytest.raises(TokenizeError, match = "$"):
         parsed.scan()
 
 
 def test_scanner_invalid_identifier_2():
     input_str = "abc_! ~ cauchy(0.0, 1.0)"
     parsed = Scanner(input_str)
-    with pytest.raises(TokenizeError):
+    with pytest.raises(TokenizeError, match = "!"):
         parsed.scan()
 
 
 def test_scanner_missing_terminate():
     input_str = "mu ~ bernoulli_logit(p)"
     parsed = Scanner(input_str)
-    with pytest.raises(TokenizeError):
+    with pytest.raises(TokenizeError, match = "Missing termination character"):
         parsed.scan()
 
 
