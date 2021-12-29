@@ -50,7 +50,10 @@
   <li><a href="#subscripts">Subscripts</a></li>
   <li><a href="#assignments">Assignments</a></li>
   <li><a href="#internals-ratvariables-ratops-ratvariablesindex-and-ratvariablesindexuse">Internals - <code>rat.variables</code>, <code>rat.ops</code>, <code>rat.variables.Index</code>, and <code>rat.variables.IndexUse</code></a></li>
-  <li><a href="#language-function-reference">Language function reference</a></li>
+  <li><a href="#language-function-reference">Language function reference</a>
+  <ul>
+    <li><a href="#precedence-table">Precedence Table</a></li>
+  </ul></li>
 </ul>
 
 
@@ -213,6 +216,7 @@ ops.Normal(
 <li><code><a href="rat/ops.html#BernoulliLogit">rat.ops.BernoulliLogit</a></code>, <code><a href="rat/compiler.html#bernoulli_logit">rat.compiler.bernoulli_logit</a></code> : <code>bernoulli_logit(p)</code></li>
 <li><code><a href="rat/ops.html#LogNormal">rat.ops.LogNormal</a></code>, <code><a href="rat/compiler.html#log_normal">rat.compiler.log_normal</a></code>  : <code>log_normal(mu, sigma)</code></li>
 <li><code><a href="rat/ops.html#Cauchy">rat.ops.Cauchy</a></code>  : <code>cauchy(location, scale)</code></li>
+<li><code><a href="rat/ops.html#Exponential">rat.ops.Exponential</a></code>  :  <code>exponential(scale)</code></li>
 </ul></li>
 <li><strong>Functions</strong>
 <ul>
@@ -232,6 +236,39 @@ ops.Normal(
 <li><code><a href="rat/ops.html#InverseLogit">rat.ops.InverseLogit</a></code> : <code>inverse_logit(x)</code></li>
 </ul></li>
 </ul>
+
+<h3 id="precedence-table">Precedence Table</h3>
+
+<table>
+<thead>
+<tr>
+  <th>Operator</th>
+  <th style="text-align:center;">Precedence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>function calls(<code>exp</code>, <code>log</code>, etc.)</td>
+  <td style="text-align:center;">100, leftmost derivative</td>
+</tr>
+<tr>
+  <td>prefix negation(<code>-10</code>, <code>-(1+2)</code>, etc.)</td>
+  <td style="text-align:center;">50</td>
+</tr>
+<tr>
+  <td><code>^</code></td>
+  <td style="text-align:center;">40</td>
+</tr>
+<tr>
+  <td><code>*</code>, <code>/</code>, <code>%</code></td>
+  <td style="text-align:center;">30</td>
+</tr>
+<tr>
+  <td><code>+</code>, <code>-</code></td>
+  <td style="text-align:center;">10</td>
+</tr>
+</tbody>
+</table>
 </div>
 
                         <details>
@@ -361,6 +398,7 @@ ops.Normal(
 <span class="sd">    - `rat.ops.BernoulliLogit`, `rat.compiler.bernoulli_logit` : `bernoulli_logit(p)`</span>
 <span class="sd">    - `rat.ops.LogNormal`, `rat.compiler.log_normal`  : `log_normal(mu, sigma)`</span>
 <span class="sd">    - `rat.ops.Cauchy`  : `cauchy(location, scale)`</span>
+<span class="sd">    - `rat.ops.Exponential`  :  `exponential(scale)`</span>
 <span class="sd">- **Functions**</span>
 <span class="sd">    - `rat.ops.Log`: `log(x)`</span>
 <span class="sd">    - `rat.ops.Exp` : `exp(x)`</span>
@@ -376,6 +414,17 @@ ops.Normal(
 <span class="sd">    - `rat.ops.Arctan` : `arctan(x)`</span>
 <span class="sd">    - `rat.ops.Logit` : `logit(x)`</span>
 <span class="sd">    - `rat.ops.InverseLogit` : `inverse_logit(x)`</span>
+
+<span class="sd">### Precedence Table</span>
+
+<span class="sd">|  Operator   |   Precedence   |</span>
+<span class="sd">|------|:-----:|</span>
+<span class="sd">| function calls(`exp`, `log`, etc.) | 100, leftmost derivative  |</span>
+<span class="sd">| prefix negation(`-10`, `-(1+2)`, etc.) | 50 |</span>
+<span class="sd">| `^`  | 40  |</span>
+<span class="sd">| `*`, `/`, `%`  | 30  |</span>
+<span class="sd">| `+`, `-`  | 10  |</span>
+
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">compiler</span>

@@ -23,6 +23,10 @@ class RealConstant(Expr):
     value: float
 
     def code(self):
+        if self.value == float("inf"):
+            return "float('inf')"
+        elif self.value == float("-inf"):
+            return "float('-inf')"
         return f"{self.value}"
 
     def __str__(self):
@@ -84,8 +88,8 @@ class Data(Expr):
 class Param(Expr):
     name: str
     index: Index = None
-    lower: RealConstant = RealConstant(float("-inf"))
-    upper: RealConstant = RealConstant(float("inf"))
+    lower: Expr = RealConstant(float("-inf"))
+    upper: Expr = RealConstant(float("inf"))
     variable: variables.Param = None
 
     def __iter__(self):
@@ -109,7 +113,6 @@ class Param(Expr):
 
     def __str__(self):
         return f"Param({self.name}, {self.index.__str__()}, lower={self.lower}, upper={self.upper})"
-        # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
 
 
 class Distr(Expr):
@@ -144,7 +147,7 @@ class BernoulliLogit(Distr):
         return f"bernoulli_logit({self.variate.code()}, {self.logit_p.code()})"
 
     def __str__(self):
-        return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+        return f"BernoulliLogit({self.variate.__str__()}, {self.logit_p.__str__()})"
 
 
 @dataclass(frozen=True)
@@ -180,6 +183,21 @@ class Cauchy(Distr):
 
 
 @dataclass(frozen=True)
+class Exponential(Distr):
+    variate: Expr
+    scale: Expr
+
+    def __iter__(self):
+        return iter([self.variate, self.scale])
+
+    def code(self):
+        return f"jax.scipy.stats.expon.logpdf({self.variate.code()}, loc=0, scale={self.scale.code()})"
+
+    def __str__(self):
+        return f"Exponential({self.variate.code()}, {self.scale.code()})"
+
+
+@dataclass(frozen=True)
 class Diff(Expr):
     lhs: Expr
     rhs: Expr
@@ -211,6 +229,7 @@ class Sum(Expr):
 
 @dataclass(frozen=True)
 class Mul(Expr):
+    lbp = 30
     left: Expr
     right: Expr
 
@@ -226,6 +245,7 @@ class Mul(Expr):
 
 @dataclass(frozen=True)
 class Pow(Expr):
+    lbp = 40
     left: Expr
     right: Expr
 
@@ -430,66 +450,6 @@ class Assignment(Expr):
 
     def __str__(self):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
-class AddAssignment(Expr):
-    lhs: Expr
-    rhs: Expr
-
-    def __iter__(self):
-        return iter([self.lhs, self.rhs])
-
-    def code(self):
-        return f"{self.lhs.code()} += {self.rhs.code()}"
-
-    def __str__(self):
-        return f"AddAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
-class DiffAssignment(Expr):
-    lhs: Expr
-    rhs: Expr
-
-    def __iter__(self):
-        return iter([self.lhs, self.rhs])
-
-    def code(self):
-        return f"{self.lhs.code()} -= {self.rhs.code()}"
-
-    def __str__(self):
-        return f"DiffAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
-class MulAssignment(Expr):
-    lhs: Expr
-    rhs: Expr
-
-    def __iter__(self):
-        return iter([self.lhs, self.rhs])
-
-    def code(self):
-        return f"{self.lhs.code()} *= {self.rhs.code()}"
-
-    def __str__(self):
-        return f"MulAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
-
-@dataclass(frozen=True)
-class DivAssignment(Expr):
-    lhs: Expr
-    rhs: Expr
-
-    def __iter__(self):
-        return iter([self.lhs, self.rhs])
-
-    def code(self):
-        return f"{self.lhs.code()} /= {self.rhs.code()}"
-
-    def __str__(self):
-        return f"DivAssignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
 
 @dataclass(frozen=True)

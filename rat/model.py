@@ -19,7 +19,7 @@ from . import compiler
 from . import ops
 from . import variables
 from . import constraints
-from .scanner import scanner
+from .scanner import Scanner
 from .parser import Parser
 from . import fit
 
@@ -131,12 +131,9 @@ class Model:
                 raise Exception("Only one of model_string and parsed_lines can be non-None")
 
             parsed_lines = []
-            for line in model_string.splitlines():
-                line = line.lstrip().rstrip()
-                if not line:
-                    continue
-                parsed_line = Parser(scanner(line), data_names, line).statement()
-                parsed_lines.append(parsed_line)
+            scanned_lines = Scanner(model_string).scan()
+            for scanned_line in scanned_lines:
+                parsed_lines.append(Parser(scanned_line, data_names, model_string).statement())
         else:
             if parsed_lines is None:
                 raise Exception("At least one of model_string or parsed_lines must be non-None")

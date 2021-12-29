@@ -114,7 +114,7 @@
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">ops</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">variables</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">constraints</span>
-<span class="kn">from</span> <span class="nn">.scanner</span> <span class="kn">import</span> <span class="n">scanner</span>
+<span class="kn">from</span> <span class="nn">.scanner</span> <span class="kn">import</span> <span class="n">Scanner</span>
 <span class="kn">from</span> <span class="nn">.parser</span> <span class="kn">import</span> <span class="n">Parser</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">fit</span>
 
@@ -226,12 +226,9 @@
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Only one of model_string and parsed_lines can be non-None&quot;</span><span class="p">)</span>
 
             <span class="n">parsed_lines</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">model_string</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
-                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">parsed_line</span> <span class="o">=</span> <span class="n">Parser</span><span class="p">(</span><span class="n">scanner</span><span class="p">(</span><span class="n">line</span><span class="p">),</span> <span class="n">data_names</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span><span class="o">.</span><span class="n">statement</span><span class="p">()</span>
-                <span class="n">parsed_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parsed_line</span><span class="p">)</span>
+            <span class="n">scanned_lines</span> <span class="o">=</span> <span class="n">Scanner</span><span class="p">(</span><span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">scan</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">scanned_line</span> <span class="ow">in</span> <span class="n">scanned_lines</span><span class="p">:</span>
+                <span class="n">parsed_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Parser</span><span class="p">(</span><span class="n">scanned_line</span><span class="p">,</span> <span class="n">data_names</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">statement</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">parsed_lines</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;At least one of model_string or parsed_lines must be non-None&quot;</span><span class="p">)</span>
@@ -509,12 +506,9 @@
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Only one of model_string and parsed_lines can be non-None&quot;</span><span class="p">)</span>
 
             <span class="n">parsed_lines</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">model_string</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
-                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">parsed_line</span> <span class="o">=</span> <span class="n">Parser</span><span class="p">(</span><span class="n">scanner</span><span class="p">(</span><span class="n">line</span><span class="p">),</span> <span class="n">data_names</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span><span class="o">.</span><span class="n">statement</span><span class="p">()</span>
-                <span class="n">parsed_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parsed_line</span><span class="p">)</span>
+            <span class="n">scanned_lines</span> <span class="o">=</span> <span class="n">Scanner</span><span class="p">(</span><span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">scan</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">scanned_line</span> <span class="ow">in</span> <span class="n">scanned_lines</span><span class="p">:</span>
+                <span class="n">parsed_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Parser</span><span class="p">(</span><span class="n">scanned_line</span><span class="p">,</span> <span class="n">data_names</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">statement</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">parsed_lines</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;At least one of model_string or parsed_lines must be non-None&quot;</span><span class="p">)</span>
@@ -700,12 +694,9 @@
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Only one of model_string and parsed_lines can be non-None&quot;</span><span class="p">)</span>
 
             <span class="n">parsed_lines</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">model_string</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
-                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">parsed_line</span> <span class="o">=</span> <span class="n">Parser</span><span class="p">(</span><span class="n">scanner</span><span class="p">(</span><span class="n">line</span><span class="p">),</span> <span class="n">data_names</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span><span class="o">.</span><span class="n">statement</span><span class="p">()</span>
-                <span class="n">parsed_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parsed_line</span><span class="p">)</span>
+            <span class="n">scanned_lines</span> <span class="o">=</span> <span class="n">Scanner</span><span class="p">(</span><span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">scan</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">scanned_line</span> <span class="ow">in</span> <span class="n">scanned_lines</span><span class="p">:</span>
+                <span class="n">parsed_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Parser</span><span class="p">(</span><span class="n">scanned_line</span><span class="p">,</span> <span class="n">data_names</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">statement</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">parsed_lines</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;At least one of model_string or parsed_lines must be non-None&quot;</span><span class="p">)</span>

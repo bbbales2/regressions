@@ -213,6 +213,18 @@
 
             </li>
             <li>
+                    <a class="class" href="#Exponential">Exponential</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#Exponential.__init__">Exponential</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#Exponential.code">code</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
                     <a class="class" href="#Diff">Diff</a>
                             <ul class="memberlist">
                         <li>
@@ -243,6 +255,9 @@
                                 <a class="function" href="#Mul.__init__">Mul</a>
                         </li>
                         <li>
+                                <a class="variable" href="#Mul.lbp">lbp</a>
+                        </li>
+                        <li>
                                 <a class="function" href="#Mul.code">code</a>
                         </li>
                 </ul>
@@ -253,6 +268,9 @@
                             <ul class="memberlist">
                         <li>
                                 <a class="function" href="#Pow.__init__">Pow</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Pow.lbp">lbp</a>
                         </li>
                         <li>
                                 <a class="function" href="#Pow.code">code</a>
@@ -412,54 +430,6 @@
                         </li>
                         <li>
                                 <a class="function" href="#Assignment.code">code</a>
-                        </li>
-                </ul>
-
-            </li>
-            <li>
-                    <a class="class" href="#AddAssignment">AddAssignment</a>
-                            <ul class="memberlist">
-                        <li>
-                                <a class="function" href="#AddAssignment.__init__">AddAssignment</a>
-                        </li>
-                        <li>
-                                <a class="function" href="#AddAssignment.code">code</a>
-                        </li>
-                </ul>
-
-            </li>
-            <li>
-                    <a class="class" href="#DiffAssignment">DiffAssignment</a>
-                            <ul class="memberlist">
-                        <li>
-                                <a class="function" href="#DiffAssignment.__init__">DiffAssignment</a>
-                        </li>
-                        <li>
-                                <a class="function" href="#DiffAssignment.code">code</a>
-                        </li>
-                </ul>
-
-            </li>
-            <li>
-                    <a class="class" href="#MulAssignment">MulAssignment</a>
-                            <ul class="memberlist">
-                        <li>
-                                <a class="function" href="#MulAssignment.__init__">MulAssignment</a>
-                        </li>
-                        <li>
-                                <a class="function" href="#MulAssignment.code">code</a>
-                        </li>
-                </ul>
-
-            </li>
-            <li>
-                    <a class="class" href="#DivAssignment">DivAssignment</a>
-                            <ul class="memberlist">
-                        <li>
-                                <a class="function" href="#DivAssignment.__init__">DivAssignment</a>
-                        </li>
-                        <li>
-                                <a class="function" href="#DivAssignment.code">code</a>
                         </li>
                 </ul>
 
@@ -694,6 +664,10 @@
     <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s2">&quot;float(&#39;inf&#39;)&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s2">&quot;float(&#39;-inf&#39;)&quot;</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -755,8 +729,8 @@
 <span class="k">class</span> <span class="nc">Param</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">lower</span><span class="p">:</span> <span class="n">RealConstant</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">))</span>
-    <span class="n">upper</span><span class="p">:</span> <span class="n">RealConstant</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">))</span>
+    <span class="n">lower</span><span class="p">:</span> <span class="n">Expr</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">))</span>
+    <span class="n">upper</span><span class="p">:</span> <span class="n">Expr</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">))</span>
     <span class="n">variable</span><span class="p">:</span> <span class="n">variables</span><span class="o">.</span><span class="n">Param</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -780,7 +754,6 @@
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Param(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, lower=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lower</span><span class="si">}</span><span class="s2">, upper=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">upper</span><span class="si">}</span><span class="s2">)&quot;</span>
-        <span class="c1"># return f&quot;Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}&quot;</span>
 
 
 <span class="k">class</span> <span class="nc">Distr</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
@@ -815,7 +788,7 @@
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;bernoulli_logit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Normal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;BernoulliLogit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -851,6 +824,21 @@
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Exponential</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+    <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.scipy.stats.expon.logpdf(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, loc=0, scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Exponential(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">Diff</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
@@ -882,6 +870,7 @@
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">Mul</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+    <span class="n">lbp</span> <span class="o">=</span> <span class="mi">30</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -897,6 +886,7 @@
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">Pow</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+    <span class="n">lbp</span> <span class="o">=</span> <span class="mi">40</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -1101,66 +1091,6 @@
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Assignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
-
-
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">AddAssignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
-    <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
-    <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> += </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;AddAssignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
-
-
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">DiffAssignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
-    <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
-    <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> -= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;DiffAssignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
-
-
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">MulAssignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
-    <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
-    <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> *= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;MulAssignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
-
-
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">DivAssignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
-    <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
-    <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> /= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;DivAssignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1458,17 +1388,23 @@
                                 <div class="attr class">
         <a class="headerlink" href="#RealConstant">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">RealConstant</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">RealConstant</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">RealConstant</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s2">&quot;float(&#39;inf&#39;)&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s2">&quot;float(&#39;-inf&#39;)&quot;</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1503,6 +1439,10 @@
                 <details>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s2">&quot;float(&#39;inf&#39;)&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s2">&quot;float(&#39;-inf&#39;)&quot;</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 
@@ -1516,14 +1456,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#IntegerConstant">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">IntegerConstant</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">IntegerConstant</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">IntegerConstant</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">int</span>
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1574,14 +1516,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Index">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass</div>
+
         <span class="def">class</span>
         <span class="name">Index</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Index</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Index</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">names</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
     <span class="n">shifts</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,)</span>
     <span class="n">variable</span><span class="p">:</span> <span class="n">variables</span><span class="o">.</span><span class="n">IndexUse</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1598,7 +1542,7 @@
 
         </details>
 
-            <div class="docstring"><p>Index(names: Tuple[str], shifts: Tuple[Union[str, NoneType]] = (None,), variable: <a href="variables.html#IndexUse">rat.variables.IndexUse</a> = None)</p>
+            <div class="docstring"><p>Index(names: Tuple[str], shifts: Tuple[Optional[str]] = (None,), variable: <a href="variables.html#IndexUse">rat.variables.IndexUse</a> = None)</p>
 </div>
 
 
@@ -1608,7 +1552,7 @@
         
             <span class="name">Index</span><span class="signature">(
     names: Tuple[str],
-    shifts: Tuple[Union[str, NoneType]] = (None,),
+    shifts: Tuple[Optional[str]] = (None,),
     variable: <a href="variables.html#IndexUse">rat.variables.IndexUse</a> = None
 )</span>
     </div>
@@ -1620,7 +1564,7 @@
                             <div id="Index.shifts" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#Index.shifts">#&nbsp;&nbsp</a>
 
-        <span class="name">shifts</span><span class="annotation">: Tuple[Union[str, NoneType]]</span><span class="default_value"> = (None,)</span>
+        <span class="name">shifts</span><span class="annotation">: Tuple[Optional[str]]</span><span class="default_value"> = (None,)</span>
     </div>
 
     
@@ -1678,14 +1622,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Data">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass</div>
+
         <span class="def">class</span>
         <span class="name">Data</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Data</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Data</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">variable</span><span class="p">:</span> <span class="n">variables</span><span class="o">.</span><span class="n">Data</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1705,6 +1651,7 @@
             <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Data(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Data(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="c1"># return f&quot;Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}&quot;</span>
 </pre></div>
 
         </details>
@@ -1793,18 +1740,20 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Param">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass</div>
+
         <span class="def">class</span>
         <span class="name">Param</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Param</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Param</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">lower</span><span class="p">:</span> <span class="n">RealConstant</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">))</span>
-    <span class="n">upper</span><span class="p">:</span> <span class="n">RealConstant</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">))</span>
+    <span class="n">lower</span><span class="p">:</span> <span class="n">Expr</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">))</span>
+    <span class="n">upper</span><span class="p">:</span> <span class="n">Expr</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">))</span>
     <span class="n">variable</span><span class="p">:</span> <span class="n">variables</span><span class="o">.</span><span class="n">Param</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1832,7 +1781,7 @@
 
         </details>
 
-            <div class="docstring"><p>Param(name: str, index: <a href="#Index">rat.ops.Index</a> = None, lower: <a href="#RealConstant">rat.ops.RealConstant</a> = RealConstant(value=-inf), upper: <a href="#RealConstant">rat.ops.RealConstant</a> = RealConstant(value=inf), variable: <a href="variables.html#Param">rat.variables.Param</a> = None)</p>
+            <div class="docstring"><p>Param(name: str, index: <a href="#Index">rat.ops.Index</a> = None, lower: <a href="#Expr">rat.ops.Expr</a> = RealConstant(value=-inf), upper: <a href="#Expr">rat.ops.Expr</a> = RealConstant(value=inf), variable: <a href="variables.html#Param">rat.variables.Param</a> = None)</p>
 </div>
 
 
@@ -1843,8 +1792,8 @@
             <span class="name">Param</span><span class="signature">(
     name: str,
     index: <a href="#Index">rat.ops.Index</a> = None,
-    lower: <a href="#RealConstant">rat.ops.RealConstant</a> = RealConstant(value=-inf),
-    upper: <a href="#RealConstant">rat.ops.RealConstant</a> = RealConstant(value=inf),
+    lower: <a href="#Expr">rat.ops.Expr</a> = RealConstant(value=-inf),
+    upper: <a href="#Expr">rat.ops.Expr</a> = RealConstant(value=inf),
     variable: <a href="variables.html#Param">rat.variables.Param</a> = None
 )</span>
     </div>
@@ -1865,7 +1814,7 @@
                             <div id="Param.lower" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#Param.lower">#&nbsp;&nbsp</a>
 
-        <span class="name">lower</span><span class="annotation">: <a href="#RealConstant">rat.ops.RealConstant</a></span><span class="default_value"> = RealConstant(value=-inf)</span>
+        <span class="name">lower</span><span class="annotation">: <a href="#Expr">rat.ops.Expr</a></span><span class="default_value"> = RealConstant(value=-inf)</span>
     </div>
 
     
@@ -1874,7 +1823,7 @@
                             <div id="Param.upper" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#Param.upper">#&nbsp;&nbsp</a>
 
-        <span class="name">upper</span><span class="annotation">: <a href="#RealConstant">rat.ops.RealConstant</a></span><span class="default_value"> = RealConstant(value=inf)</span>
+        <span class="name">upper</span><span class="annotation">: <a href="#Expr">rat.ops.Expr</a></span><span class="default_value"> = RealConstant(value=inf)</span>
     </div>
 
     
@@ -1995,14 +1944,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Normal">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Normal</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Normal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Normal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">mean</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">std</span><span class="p">:</span> <span class="n">Expr</span>
@@ -2058,14 +2009,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#BernoulliLogit">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">BernoulliLogit</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">BernoulliLogit</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">BernoulliLogit</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">logit_p</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2076,7 +2029,7 @@
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;bernoulli_logit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Normal(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;BernoulliLogit(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">logit_p</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
 </pre></div>
 
         </details>
@@ -2120,14 +2073,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LogNormal">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LogNormal</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LogNormal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LogNormal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">mean</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">std</span><span class="p">:</span> <span class="n">Expr</span>
@@ -2183,14 +2138,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Cauchy">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Cauchy</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Cauchy</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Cauchy</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">location</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">scale</span><span class="p">:</span> <span class="n">Expr</span>
@@ -2242,18 +2199,84 @@
 
                             </div>
                 </section>
+                <section id="Exponential">
+                                <div class="attr class">
+        <a class="headerlink" href="#Exponential">#&nbsp;&nbsp</a>
+
+                <div class="decorator">@dataclass(frozen=True)</div>
+
+        <span class="def">class</span>
+        <span class="name">Exponential</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Exponential</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+    <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
+    <span class="n">scale</span><span class="p">:</span> <span class="n">Expr</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.scipy.stats.expon.logpdf(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, loc=0, scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Exponential(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>Exponential(variate: <a href="#Expr">rat.ops.Expr</a>, scale: <a href="#Expr">rat.ops.Expr</a>)</p>
+</div>
+
+
+                            <div id="Exponential.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Exponential.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">Exponential</span><span class="signature">(variate: <a href="#Expr">rat.ops.Expr</a>, scale: <a href="#Expr">rat.ops.Expr</a>)</span>
+    </div>
+
+        
+    
+
+                            </div>
+                            <div id="Exponential.code" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Exponential.code">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">code</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;jax.scipy.stats.expon.logpdf(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variate</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">, loc=0, scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                </section>
                 <section id="Diff">
                                 <div class="attr class">
         <a class="headerlink" href="#Diff">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Diff</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Diff</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Diff</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2308,14 +2331,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Sum">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Sum</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Sum</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Sum</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2370,14 +2395,17 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Mul">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Mul</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Mul</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Mul</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+    <span class="n">lbp</span> <span class="o">=</span> <span class="mi">30</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2408,6 +2436,15 @@
     
 
                             </div>
+                            <div id="Mul.lbp" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#Mul.lbp">#&nbsp;&nbsp</a>
+
+        <span class="name">lbp</span><span class="default_value"> = 30</span>
+    </div>
+
+    
+
+                            </div>
                             <div id="Mul.code" class="classattr">
                                         <div class="attr function"><a class="headerlink" href="#Mul.code">#&nbsp;&nbsp</a>
 
@@ -2432,14 +2469,17 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Pow">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Pow</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Pow</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Pow</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+    <span class="n">lbp</span> <span class="o">=</span> <span class="mi">40</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2470,6 +2510,15 @@
     
 
                             </div>
+                            <div id="Pow.lbp" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#Pow.lbp">#&nbsp;&nbsp</a>
+
+        <span class="name">lbp</span><span class="default_value"> = 40</span>
+    </div>
+
+    
+
+                            </div>
                             <div id="Pow.code" class="classattr">
                                         <div class="attr function"><a class="headerlink" href="#Pow.code">#&nbsp;&nbsp</a>
 
@@ -2494,14 +2543,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Div">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Div</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Div</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Div</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2556,14 +2607,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Mod">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Mod</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Mod</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Mod</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2618,14 +2671,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LogicalOR">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LogicalOR</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LogicalOR</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LogicalOR</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2680,14 +2735,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LogicalAND">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LogicalAND</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LogicalAND</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LogicalAND</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2742,14 +2799,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Equality">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Equality</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Equality</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Equality</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2804,14 +2863,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Inequality">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Inequality</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Inequality</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Inequality</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2866,14 +2927,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LessThan">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LessThan</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LessThan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LessThan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2928,14 +2991,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LessThanOrEqual">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LessThanOrEqual</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LessThanOrEqual</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LessThanOrEqual</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2990,14 +3055,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#GreaterThan">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">GreaterThan</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">GreaterThan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">GreaterThan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -3052,14 +3119,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#GreaterThanOrEqual">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">GreaterThanOrEqual</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">GreaterThanOrEqual</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">GreaterThanOrEqual</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -3114,14 +3183,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#PrefixNegation">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">PrefixNegation</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">PrefixNegation</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">PrefixNegation</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3175,14 +3246,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#PrefixLogicalNegation">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">PrefixLogicalNegation</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">PrefixLogicalNegation</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">PrefixLogicalNegation</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3236,14 +3309,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Assignment">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Assignment</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Assignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Assignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -3294,266 +3369,20 @@
 
                             </div>
                 </section>
-                <section id="AddAssignment">
-                                <div class="attr class">
-        <a class="headerlink" href="#AddAssignment">#&nbsp;&nbsp</a>
-
-        
-        <span class="def">class</span>
-        <span class="name">AddAssignment</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">AddAssignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
-    <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
-    <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> += </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;AddAssignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
-</pre></div>
-
-        </details>
-
-            <div class="docstring"><p>AddAssignment(lhs: <a href="#Expr">rat.ops.Expr</a>, rhs: <a href="#Expr">rat.ops.Expr</a>)</p>
-</div>
-
-
-                            <div id="AddAssignment.__init__" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#AddAssignment.__init__">#&nbsp;&nbsp</a>
-
-        
-            <span class="name">AddAssignment</span><span class="signature">(lhs: <a href="#Expr">rat.ops.Expr</a>, rhs: <a href="#Expr">rat.ops.Expr</a>)</span>
-    </div>
-
-        
-    
-
-                            </div>
-                            <div id="AddAssignment.code" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#AddAssignment.code">#&nbsp;&nbsp</a>
-
-        
-            <span class="def">def</span>
-            <span class="name">code</span><span class="signature">(self)</span>:
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> += </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-</pre></div>
-
-        </details>
-
-    
-
-                            </div>
-                </section>
-                <section id="DiffAssignment">
-                                <div class="attr class">
-        <a class="headerlink" href="#DiffAssignment">#&nbsp;&nbsp</a>
-
-        
-        <span class="def">class</span>
-        <span class="name">DiffAssignment</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">DiffAssignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
-    <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
-    <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> -= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;DiffAssignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
-</pre></div>
-
-        </details>
-
-            <div class="docstring"><p>DiffAssignment(lhs: <a href="#Expr">rat.ops.Expr</a>, rhs: <a href="#Expr">rat.ops.Expr</a>)</p>
-</div>
-
-
-                            <div id="DiffAssignment.__init__" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#DiffAssignment.__init__">#&nbsp;&nbsp</a>
-
-        
-            <span class="name">DiffAssignment</span><span class="signature">(lhs: <a href="#Expr">rat.ops.Expr</a>, rhs: <a href="#Expr">rat.ops.Expr</a>)</span>
-    </div>
-
-        
-    
-
-                            </div>
-                            <div id="DiffAssignment.code" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#DiffAssignment.code">#&nbsp;&nbsp</a>
-
-        
-            <span class="def">def</span>
-            <span class="name">code</span><span class="signature">(self)</span>:
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> -= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-</pre></div>
-
-        </details>
-
-    
-
-                            </div>
-                </section>
-                <section id="MulAssignment">
-                                <div class="attr class">
-        <a class="headerlink" href="#MulAssignment">#&nbsp;&nbsp</a>
-
-        
-        <span class="def">class</span>
-        <span class="name">MulAssignment</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">MulAssignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
-    <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
-    <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> *= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;MulAssignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
-</pre></div>
-
-        </details>
-
-            <div class="docstring"><p>MulAssignment(lhs: <a href="#Expr">rat.ops.Expr</a>, rhs: <a href="#Expr">rat.ops.Expr</a>)</p>
-</div>
-
-
-                            <div id="MulAssignment.__init__" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#MulAssignment.__init__">#&nbsp;&nbsp</a>
-
-        
-            <span class="name">MulAssignment</span><span class="signature">(lhs: <a href="#Expr">rat.ops.Expr</a>, rhs: <a href="#Expr">rat.ops.Expr</a>)</span>
-    </div>
-
-        
-    
-
-                            </div>
-                            <div id="MulAssignment.code" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#MulAssignment.code">#&nbsp;&nbsp</a>
-
-        
-            <span class="def">def</span>
-            <span class="name">code</span><span class="signature">(self)</span>:
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> *= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-</pre></div>
-
-        </details>
-
-    
-
-                            </div>
-                </section>
-                <section id="DivAssignment">
-                                <div class="attr class">
-        <a class="headerlink" href="#DivAssignment">#&nbsp;&nbsp</a>
-
-        
-        <span class="def">class</span>
-        <span class="name">DivAssignment</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">DivAssignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
-    <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
-    <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
-
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">iter</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="p">])</span>
-
-    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> /= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;DivAssignment(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
-</pre></div>
-
-        </details>
-
-            <div class="docstring"><p>DivAssignment(lhs: <a href="#Expr">rat.ops.Expr</a>, rhs: <a href="#Expr">rat.ops.Expr</a>)</p>
-</div>
-
-
-                            <div id="DivAssignment.__init__" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#DivAssignment.__init__">#&nbsp;&nbsp</a>
-
-        
-            <span class="name">DivAssignment</span><span class="signature">(lhs: <a href="#Expr">rat.ops.Expr</a>, rhs: <a href="#Expr">rat.ops.Expr</a>)</span>
-    </div>
-
-        
-    
-
-                            </div>
-                            <div id="DivAssignment.code" class="classattr">
-                                        <div class="attr function"><a class="headerlink" href="#DivAssignment.code">#&nbsp;&nbsp</a>
-
-        
-            <span class="def">def</span>
-            <span class="name">code</span><span class="signature">(self)</span>:
-    </div>
-
-                <details>
-            <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2"> /= </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">code</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-</pre></div>
-
-        </details>
-
-    
-
-                            </div>
-                </section>
                 <section id="Log">
                                 <div class="attr class">
         <a class="headerlink" href="#Log">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Log</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Log</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Log</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3607,14 +3436,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Exp">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Exp</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Exp</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Exp</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3668,14 +3499,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Abs">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Abs</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Abs</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Abs</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3729,14 +3562,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Floor">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Floor</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Floor</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Floor</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3790,14 +3625,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Ceil">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Ceil</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Ceil</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Ceil</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3851,14 +3688,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Round">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Round</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Round</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Round</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3912,14 +3751,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Sin">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Sin</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Sin</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Sin</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3973,14 +3814,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Cos">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Cos</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Cos</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Cos</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4034,14 +3877,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Tan">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Tan</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Tan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Tan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4095,14 +3940,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Arcsin">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Arcsin</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Arcsin</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Arcsin</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4156,14 +4003,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Arccos">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Arccos</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Arccos</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Arccos</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4217,14 +4066,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Arctan">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Arctan</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Arctan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Arctan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4278,14 +4129,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Logit">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Logit</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Logit</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Logit</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4339,14 +4192,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#InverseLogit">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">InverseLogit</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">InverseLogit</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">InverseLogit</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4400,14 +4255,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Placeholder">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass</div>
+
         <span class="def">class</span>
         <span class="name">Placeholder</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Placeholder</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Placeholder</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Index</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
@@ -4430,7 +4287,7 @@
 
         </details>
 
-            <div class="docstring"><p>Placeholder(name: str, index: Union[<a href="#Index">rat.ops.Index</a>, NoneType], value: float = None)</p>
+            <div class="docstring"><p>Placeholder(name: str, index: Optional[<a href="#Index">rat.ops.Index</a>], value: float = None)</p>
 </div>
 
 
@@ -4438,11 +4295,7 @@
                                         <div class="attr function"><a class="headerlink" href="#Placeholder.__init__">#&nbsp;&nbsp</a>
 
         
-            <span class="name">Placeholder</span><span class="signature">(
-    name: str,
-    index: Union[<a href="#Index">rat.ops.Index</a>, NoneType],
-    value: float = None
-)</span>
+            <span class="name">Placeholder</span><span class="signature">(name: str, index: Optional[<a href="#Index">rat.ops.Index</a>], value: float = None)</span>
     </div>
 
         
