@@ -55,7 +55,7 @@ class Model:
                 parameter, constraints_jacobian_adjustment = constraints.lower(parameter, lower)
             elif lower == float("inf") and upper < float("inf"):
                 parameter, constraints_jacobian_adjustment = constraints.upper(parameter, upper)
-            elif lower > float("inf") and upper < float("inf"):
+            elif lower > float("-inf") and upper < float("inf"):
                 parameter, constraints_jacobian_adjustment = constraints.finite(parameter, lower, upper)
 
             if pad and size is not None and size != variable.padded_size():
@@ -238,7 +238,7 @@ class Model:
         init, update, final = blackjax.stan_warmup.stan_warmup(
             kernel_generator,
             is_mass_matrix_diagonal=True,
-            target_acceptance_rate=0.65,
+            target_acceptance_rate=0.99,
         )
 
         with tqdm(total=num_warmup, desc="Warming up") as progress_bar:
