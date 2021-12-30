@@ -29,6 +29,21 @@ def test_sample_normal_mu():
     assert mu_df["mu"].mean() == pytest.approx(-1.11, rel=1e-2)
 
 
+def test_sample_acceptance_rate():
+    data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
+
+    model_string = """
+    y ~ normal(mu, 1.5);
+    mu ~ normal(-0.5, 0.3);
+    """
+
+    model = Model(data_df, model_string=model_string)
+    fit = model.sample(num_draws=1000, target_acceptance_rate=0.99)
+    mu_df = fit.draws("mu")
+
+    assert mu_df["mu"].mean() == pytest.approx(-1.11, rel=1e-2)
+
+
 def test_full():
     data_df = (
         pandas.read_csv(os.path.join(test_dir, "games_small.csv"))
@@ -70,7 +85,7 @@ def test_full():
         ),
     ]
 
-    model = Model(data_df, parsed_lines)
+    model = Model(data_df, parsed_lines=parsed_lines)
     fit = model.sample(num_draws=20)
 
     tau_df = fit.draws("tau")

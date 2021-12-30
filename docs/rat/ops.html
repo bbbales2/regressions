@@ -1388,14 +1388,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#RealConstant">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">RealConstant</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">RealConstant</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">RealConstant</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1454,14 +1456,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#IntegerConstant">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">IntegerConstant</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">IntegerConstant</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">IntegerConstant</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">int</span>
 
     <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1512,14 +1516,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Index">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass</div>
+
         <span class="def">class</span>
         <span class="name">Index</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Index</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Index</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">names</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
     <span class="n">shifts</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,)</span>
     <span class="n">variable</span><span class="p">:</span> <span class="n">variables</span><span class="o">.</span><span class="n">IndexUse</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1536,7 +1542,7 @@
 
         </details>
 
-            <div class="docstring"><p>Index(names: Tuple[str], shifts: Tuple[Union[str, NoneType]] = (None,), variable: <a href="variables.html#IndexUse">rat.variables.IndexUse</a> = None)</p>
+            <div class="docstring"><p>Index(names: Tuple[str], shifts: Tuple[Optional[str]] = (None,), variable: <a href="variables.html#IndexUse">rat.variables.IndexUse</a> = None)</p>
 </div>
 
 
@@ -1546,7 +1552,7 @@
         
             <span class="name">Index</span><span class="signature">(
     names: Tuple[str],
-    shifts: Tuple[Union[str, NoneType]] = (None,),
+    shifts: Tuple[Optional[str]] = (None,),
     variable: <a href="variables.html#IndexUse">rat.variables.IndexUse</a> = None
 )</span>
     </div>
@@ -1558,7 +1564,7 @@
                             <div id="Index.shifts" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#Index.shifts">#&nbsp;&nbsp</a>
 
-        <span class="name">shifts</span><span class="annotation">: Tuple[Union[str, NoneType]]</span><span class="default_value"> = (None,)</span>
+        <span class="name">shifts</span><span class="annotation">: Tuple[Optional[str]]</span><span class="default_value"> = (None,)</span>
     </div>
 
     
@@ -1616,14 +1622,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Data">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass</div>
+
         <span class="def">class</span>
         <span class="name">Data</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Data</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Data</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">variable</span><span class="p">:</span> <span class="n">variables</span><span class="o">.</span><span class="n">Data</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1643,6 +1651,7 @@
             <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Data(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Data(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="c1"># return f&quot;Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}&quot;</span>
 </pre></div>
 
         </details>
@@ -1731,14 +1740,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Param">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass</div>
+
         <span class="def">class</span>
         <span class="name">Param</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Param</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Param</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Index</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">lower</span><span class="p">:</span> <span class="n">Expr</span> <span class="o">=</span> <span class="n">RealConstant</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">))</span>
@@ -1933,14 +1944,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Normal">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Normal</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Normal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Normal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">mean</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">std</span><span class="p">:</span> <span class="n">Expr</span>
@@ -1996,14 +2009,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#BernoulliLogit">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">BernoulliLogit</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">BernoulliLogit</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">BernoulliLogit</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">logit_p</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2058,14 +2073,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LogNormal">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LogNormal</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LogNormal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LogNormal</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">mean</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">std</span><span class="p">:</span> <span class="n">Expr</span>
@@ -2121,14 +2138,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Cauchy">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Cauchy</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Cauchy</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Cauchy</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">location</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">scale</span><span class="p">:</span> <span class="n">Expr</span>
@@ -2184,14 +2203,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Exponential">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Exponential</span><wbr>(<span class="base"><a href="#Distr">Distr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Exponential</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Exponential</span><span class="p">(</span><span class="n">Distr</span><span class="p">):</span>
     <span class="n">variate</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">scale</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2246,14 +2267,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Diff">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Diff</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Diff</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Diff</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2308,14 +2331,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Sum">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Sum</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Sum</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Sum</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2370,14 +2395,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Mul">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Mul</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Mul</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Mul</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">lbp</span> <span class="o">=</span> <span class="mi">30</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
@@ -2442,14 +2469,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Pow">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Pow</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Pow</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Pow</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">lbp</span> <span class="o">=</span> <span class="mi">40</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
@@ -2514,14 +2543,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Div">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Div</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Div</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Div</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2576,14 +2607,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Mod">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Mod</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Mod</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Mod</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2638,14 +2671,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LogicalOR">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LogicalOR</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LogicalOR</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LogicalOR</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2700,14 +2735,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LogicalAND">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LogicalAND</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LogicalAND</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LogicalAND</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2762,14 +2799,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Equality">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Equality</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Equality</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Equality</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2824,14 +2863,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Inequality">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Inequality</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Inequality</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Inequality</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2886,14 +2927,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LessThan">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LessThan</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LessThan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LessThan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -2948,14 +2991,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#LessThanOrEqual">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">LessThanOrEqual</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">LessThanOrEqual</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LessThanOrEqual</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -3010,14 +3055,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#GreaterThan">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">GreaterThan</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">GreaterThan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">GreaterThan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -3072,14 +3119,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#GreaterThanOrEqual">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">GreaterThanOrEqual</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">GreaterThanOrEqual</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">GreaterThanOrEqual</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">left</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">right</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -3134,14 +3183,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#PrefixNegation">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">PrefixNegation</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">PrefixNegation</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">PrefixNegation</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3195,14 +3246,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#PrefixLogicalNegation">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">PrefixLogicalNegation</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">PrefixLogicalNegation</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">PrefixLogicalNegation</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3256,14 +3309,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Assignment">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Assignment</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Assignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Assignment</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">lhs</span><span class="p">:</span> <span class="n">Expr</span>
     <span class="n">rhs</span><span class="p">:</span> <span class="n">Expr</span>
 
@@ -3318,14 +3373,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Log">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Log</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Log</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Log</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3379,14 +3436,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Exp">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Exp</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Exp</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Exp</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3440,14 +3499,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Abs">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Abs</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Abs</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Abs</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3501,14 +3562,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Floor">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Floor</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Floor</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Floor</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3562,14 +3625,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Ceil">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Ceil</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Ceil</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Ceil</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3623,14 +3688,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Round">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Round</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Round</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Round</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3684,14 +3751,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Sin">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Sin</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Sin</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Sin</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3745,14 +3814,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Cos">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Cos</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Cos</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Cos</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3806,14 +3877,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Tan">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Tan</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Tan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Tan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3867,14 +3940,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Arcsin">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Arcsin</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Arcsin</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Arcsin</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3928,14 +4003,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Arccos">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Arccos</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Arccos</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Arccos</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -3989,14 +4066,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Arctan">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Arctan</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Arctan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Arctan</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4050,14 +4129,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Logit">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">Logit</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Logit</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Logit</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4111,14 +4192,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#InverseLogit">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass(frozen=True)</div>
+
         <span class="def">class</span>
         <span class="name">InverseLogit</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">InverseLogit</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">InverseLogit</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">subexpr</span><span class="p">:</span> <span class="n">Expr</span>
 
     <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -4172,14 +4255,16 @@
                                 <div class="attr class">
         <a class="headerlink" href="#Placeholder">#&nbsp;&nbsp</a>
 
-        
+                <div class="decorator">@dataclass</div>
+
         <span class="def">class</span>
         <span class="name">Placeholder</span><wbr>(<span class="base"><a href="#Expr">Expr</a></span>):
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">Placeholder</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
+            <div class="codehilite"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Placeholder</span><span class="p">(</span><span class="n">Expr</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">index</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Index</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
@@ -4202,7 +4287,7 @@
 
         </details>
 
-            <div class="docstring"><p>Placeholder(name: str, index: Union[<a href="#Index">rat.ops.Index</a>, NoneType], value: float = None)</p>
+            <div class="docstring"><p>Placeholder(name: str, index: Optional[<a href="#Index">rat.ops.Index</a>], value: float = None)</p>
 </div>
 
 
@@ -4210,11 +4295,7 @@
                                         <div class="attr function"><a class="headerlink" href="#Placeholder.__init__">#&nbsp;&nbsp</a>
 
         
-            <span class="name">Placeholder</span><span class="signature">(
-    name: str,
-    index: Union[<a href="#Index">rat.ops.Index</a>, NoneType],
-    value: float = None
-)</span>
+            <span class="name">Placeholder</span><span class="signature">(name: str, index: Optional[<a href="#Index">rat.ops.Index</a>], value: float = None)</span>
     </div>
 
         
