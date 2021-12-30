@@ -186,7 +186,7 @@ class Model:
     def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
         """
         Maximize the log density. `chains` difference optimizations are initialized.
-        
+
         An error is thrown if the different solutions are not all within tolerance of the
         median solution for each parameter. If only one chain is used, the tolerance is
         ignored.
@@ -195,6 +195,7 @@ class Model:
 
         Initialize parameters in unconstrained space uniformly [-2, 2].
         """
+
         def negative_log_density(x):
             return -self.log_density_jax_no_jac(x.astype(numpy.float32))
 
@@ -220,7 +221,7 @@ class Model:
         constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
         return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
 
-    def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, target_acceptance_rate = 0.85):
+    def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, target_acceptance_rate=0.85):
         """
         Sample the target log density using NUTS.
 
@@ -239,6 +240,7 @@ class Model:
         assert target_acceptance_rate < 1.0 and target_acceptance_rate > 0.0
 
         step_size = 1.0
+
         def kernel_generator(step_size, inverse_mass_matrix):
             return blackjax.nuts.kernel(self.log_density_jax, step_size, inverse_mass_matrix)
 
