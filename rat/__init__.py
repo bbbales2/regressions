@@ -1,42 +1,103 @@
 r"""
 
-Rat is an attempt to build an easy to use regression syntax. It is inspired by
-the many fine R regression packages (lm, lme4, rstanarm, brms, etc.),
-but tries to take its own twist on the problem. The design principles behind
-rat are:
+Rat is an attempt to build an easy to use regression syntax, particularly
+focused on player skill models. It is similar in theme to the many fine
+regression packages (lm, lme4, rstanarm, brms, etc.), but tries to take
+its own twist on the problem.
+
+Some central Rat features are:
 
 1. Parameters are named explicitly
-2. Parameters are allocated as they are used
-3. Long-form dataframes are the central data structure
+2. Parameters are defined by their use
+3. Long-form dataframes are the data structure for everything (data and parameters)
 
-The first principle comes from wanting to write likelihoods where a parameter
-shows up more than once. For instance we can model the score difference
-at the end of a game ($y_{ij}$) as a function of the skills of two teams
-($s_i$ and $s_j$) with a simple regression:
+Some central technical pieces are:
 
-$$
-y_{ij} \sim \mathcal{N}(s_i - s_j)
-$$
+1. Rat uses a No-U-Turn-Sampler (implementation from [blackjax](https://github.com/blackjax-devs/blackjax/tree/main/blackjax))
+2. Rat uses autodiff from [jax](https://github.com/google/jax)
 
-Those skills on the left and the right are the same parameter! We didn't know
-how to write these models with existing regression packages. Sure we could make a
-sparse matrix and each row could have two non-zeroes corresponding to the teams
-that played and multiply it by a vector -- but annoying. We're fond of the
-R regression shorthands and wanted to use those.
-
-The second principle came from the fact that, while a model like the one above
-can be written in a general purpose probabilistic programming language, it's
-mildly annoying. Converting player names to factors, converting them to integers,
-allocating parameters -- it all kinda takes time. It seemed easier to write
-a new regression language.
-
-The third principle comes from a couple places, but the basic jist is that it's
-very easy to get data into the R regression packages and that's something we want
-to keep. We also wanted to make sure it was easy to get data out and also easy
-to tie that output back to the input. In Rat, everything is represented as long
-form dataframes to make it easy to join outputs to inputs and each other.
+Rat works in a limited language space to keep the backend stuff simple
+(no sampling discrete parameters and no loops).
 
 # Rat Language
+
+## Anatomy of a Rat (program)
+
+There are two full Rat examples included with the repo that are worth glancing at.
+The first ([examples/mrp](https://github.com/bbbales2/regressions/tree/main/examples/mrp))
+is an MRP example ported from
+[MRP Case Studies](https://bookdown.org/jl5522/MRP-case-studies/introduction-to-mrp.html).
+
+The second ([examples/fakeball](https://github.com/bbbales2/regressions/tree/main/examples/fakeball))
+is an attempt to simulate some fake basketball-like data and estimate player on-off
+effectiveness numbers.
+
+The example folders contain information on how to run these models, but a quick look at
+the second model might be useful to see where we're going with all this:
+
+```
+# We're modeling whether or not shots were made as a function of the time
+# varying skill of the five players playing offense and the five players
+# playing defense (made, date, o0-o4, and d0-d4 come from the input dataframe)
+made ~ bernoulli_logit(
+    offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] -
+    (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date])
+);
+
+# A player's skill is a function of their initial skill plus some random
+# walk that changes over time
+offense[player, date] = offense_rw[player, date] + offense0[player];
+defense[player, date] = defense_rw[player, date] + defense0[player];
+
+# Parameters are defined by use -- we need to define offense0 and defense0
+# because they are used elsewhere
+offense0[player] ~ normal(0.0, tau0_offense);
+defense0[player] ~ normal(0.0, tau0_defense);
+
+# This is the random walk -- read on to understand how `shift` actually works
+offense_rw[player, date] ~ normal(offense_rw[player, shift(date, 1)], tau_offense);
+defense_rw[player, date] ~ normal(defense_rw[player, shift(date, 1)], tau_defense);
+
+# Some parameters have constraints!
+tau_offense<lower = 0.0> ~ log_normal(0.0, 0.5);
+tau_defense<lower = 0.0> ~ log_normal(0.0, 0.5);
+tau0_offense<lower = 0.0> ~ log_normal(0.0, 0.5);
+tau0_defense<lower = 0.0> ~ log_normal(0.0, 0.5);
+```
+
+Assuming we've saved appropriate data in a file `shots.csv`, then a model like this can
+be run on the command-line (or from Python, but the command line is convenient for
+this sort of thing):
+
+```
+rat fakeball.rat shots.csv samples
+```
+
+The output can be extracted and summarized in Python like:
+
+```python
+from rat.fit import load
+import numpy
+
+# Rat fits are serialized as parquet tables in folders
+fit = load("samples")
+
+# Each parameter is stored in its own table -- these can be joined together
+# or summarized on their own
+offense_df = fit.draws("offense")
+
+# In this case we can build a table mapping player, date tuples to parameter
+# summaries
+offense_summary_df = (
+    offense_df
+    .groupby(["player", "date"])
+    .agg(
+        median=("offense", numpy.median),
+        q10=("offense", lambda x: numpy.quantile(x, 0.1)),
+        q90=("offense", lambda x: numpy.quantile(x, 0.9)),
+    )
+)
+```
 
 ## Likelihood
 

@@ -49,6 +49,7 @@
                     <ul>
   <li><a href="#rat-language">Rat Language</a>
   <ul>
+    <li><a href="#anatomy-of-a-rat-program">Anatomy of a Rat (program)</a></li>
     <li><a href="#likelihood">Likelihood</a></li>
     <li><a href="#priors">Priors</a></li>
     <li><a href="#constraints">Constraints</a></li>
@@ -96,45 +97,105 @@
                     <h1 class="modulename">
 rat    </h1>
 
-                        <div class="docstring"><p>Rat is an attempt to build an easy to use regression syntax. It is inspired by
-the many fine R regression packages (lm, lme4, rstanarm, brms, etc.),
-but tries to take its own twist on the problem. The design principles behind
-rat are:</p>
+                        <div class="docstring"><p>Rat is an attempt to build an easy to use regression syntax, particularly
+focused on player skill models. It is similar in theme to the many fine
+regression packages (lm, lme4, rstanarm, brms, etc.), but tries to take
+its own twist on the problem.</p>
+
+<p>Some central Rat features are:</p>
 
 <ol>
 <li>Parameters are named explicitly</li>
-<li>Parameters are allocated as they are used</li>
-<li>Long-form dataframes are the central data structure</li>
+<li>Parameters are defined by their use</li>
+<li>Long-form dataframes are the data structure for everything (data and parameters)</li>
 </ol>
 
-<p>The first principle comes from wanting to write likelihoods where a parameter
-shows up more than once. For instance we can model the score difference
-at the end of a game ($y_{ij}$) as a function of the skills of two teams
-($s_i$ and $s_j$) with a simple regression:</p>
+<p>Some central technical pieces are:</p>
 
-<p>$$
-y_{ij} \sim \mathcal{N}(s_i - s_j)
-$$</p>
+<ol>
+<li>Rat uses a No-U-Turn-Sampler (implementation from <a href="https://github.com/blackjax-devs/blackjax/tree/main/blackjax">blackjax</a>)</li>
+<li>Rat uses autodiff from <a href="https://github.com/google/jax">jax</a></li>
+</ol>
 
-<p>Those skills on the left and the right are the same parameter! We didn't know
-how to write these models with existing regression packages. Sure we could make a
-sparse matrix and each row could have two non-zeroes corresponding to the teams
-that played and multiply it by a vector -- but annoying. We're fond of the
-R regression shorthands and wanted to use those.</p>
-
-<p>The second principle came from the fact that, while a model like the one above
-can be written in a general purpose probabilistic programming language, it's
-mildly annoying. Converting player names to factors, converting them to integers,
-allocating parameters -- it all kinda takes time. It seemed easier to write
-a new regression language.</p>
-
-<p>The third principle comes from a couple places, but the basic jist is that it's
-very easy to get data into the R regression packages and that's something we want
-to keep. We also wanted to make sure it was easy to get data out and also easy
-to tie that output back to the input. In Rat, everything is represented as long
-form dataframes to make it easy to join outputs to inputs and each other.</p>
+<p>Rat works in a limited language space to keep the backend stuff simple
+(no sampling discrete parameters and no loops).</p>
 
 <h1 id="rat-language">Rat Language</h1>
+
+<h2 id="anatomy-of-a-rat-program">Anatomy of a Rat (program)</h2>
+
+<p>There are two full Rat examples included with the repo that are worth glancing at.
+The first (<a href="https://github.com/bbbales2/regressions/tree/main/examples/mrp">examples/mrp</a>)
+is an MRP example ported from
+<a href="https://bookdown.org/jl5522/MRP-case-studies/introduction-to-mrp.html">MRP Case Studies</a>.</p>
+
+<p>The second (<a href="https://github.com/bbbales2/regressions/tree/main/examples/fakeball">examples/fakeball</a>)
+is an attempt to simulate some fake basketball-like data and estimate player on-off
+effectiveness numbers.</p>
+
+<p>The example folders contain information on how to run these models, but a quick look at
+the second model might be useful to see where we're going with all this:</p>
+
+<pre><code># We're modeling whether or not shots were made as a function of the time
+# varying skill of the five players playing offense and the five players
+# playing defense
+made ~ bernoulli_logit(
+    offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] -
+    (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date])
+);
+
+# A player's skill is a function of their initial skill plus some random
+# walk that changes over time
+offense[player, date] = offense_rw[player, date] + offense0[player];
+defense[player, date] = defense_rw[player, date] + defense0[player];
+
+# Parameters are defined by use -- we need to define offense0 and defense0
+# because they are used elsewhere
+offense0[player] ~ normal(0.0, tau0_offense);
+defense0[player] ~ normal(0.0, tau0_defense);
+
+# This is the random walk -- read on to understand how `shift` actually works
+offense_rw[player, date] ~ normal(offense_rw[player, shift(date, 1)], tau_offense);
+defense_rw[player, date] ~ normal(defense_rw[player, shift(date, 1)], tau_defense);
+
+# Some parameters have constraints!
+tau_offense&lt;lower = 0.0&gt; ~ log_normal(0.0, 0.5);
+tau_defense&lt;lower = 0.0&gt; ~ log_normal(0.0, 0.5);
+tau0_offense&lt;lower = 0.0&gt; ~ log_normal(0.0, 0.5);
+tau0_defense&lt;lower = 0.0&gt; ~ log_normal(0.0, 0.5);
+</code></pre>
+
+<p>Assuming we've saved appropriate data in a file <code>shots.csv</code>, then a model like this can
+be run on the command-line (or from Python, but the command line is convenient for
+this sort of thing):</p>
+
+<pre><code>rat fakeball.rat shots.csv samples
+</code></pre>
+
+<p>The output can be extracted and summarized in Python like:</p>
+
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn"><a href="rat/fit.html">rat.fit</a></span> <span class="kn">import</span> <span class="n">load</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+
+<span class="c1"># Rat fits are serialized as parquet tables in folders</span>
+<span class="n">fit</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;samples&quot;</span><span class="p">)</span>
+
+<span class="c1"># Each parameter is stored in its own table -- these can be joined together</span>
+<span class="c1"># or summarized on their own</span>
+<span class="n">offense_df</span> <span class="o">=</span> <span class="n">fit</span><span class="o">.</span><span class="n">draws</span><span class="p">(</span><span class="s2">&quot;offense&quot;</span><span class="p">)</span>
+
+<span class="c1"># In this case we can build a table mapping player, date tuples to parameter</span>
+<span class="c1"># summaries</span>
+<span class="n">offense_summary_df</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">offense_df</span>
+    <span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;player&quot;</span><span class="p">,</span> <span class="s2">&quot;date&quot;</span><span class="p">])</span>
+    <span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+        <span class="n">median</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;offense&quot;</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">median</span><span class="p">),</span>
+        <span class="n">q10</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;offense&quot;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)),</span>
+        <span class="n">q90</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;offense&quot;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">)),</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</code></pre></div>
 
 <h2 id="likelihood">Likelihood</h2>
 
@@ -513,43 +574,104 @@ run models.</p>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 
-<span class="sd">Rat is an attempt to build an easy to use regression syntax. It is inspired by</span>
-<span class="sd">the many fine R regression packages (lm, lme4, rstanarm, brms, etc.),</span>
-<span class="sd">but tries to take its own twist on the problem. The design principles behind</span>
-<span class="sd">rat are:</span>
+<span class="sd">Rat is an attempt to build an easy to use regression syntax, particularly</span>
+<span class="sd">focused on player skill models. It is similar in theme to the many fine</span>
+<span class="sd">regression packages (lm, lme4, rstanarm, brms, etc.), but tries to take</span>
+<span class="sd">its own twist on the problem.</span>
+
+<span class="sd">Some central Rat features are:</span>
 
 <span class="sd">1. Parameters are named explicitly</span>
-<span class="sd">2. Parameters are allocated as they are used</span>
-<span class="sd">3. Long-form dataframes are the central data structure</span>
+<span class="sd">2. Parameters are defined by their use</span>
+<span class="sd">3. Long-form dataframes are the data structure for everything (data and parameters)</span>
 
-<span class="sd">The first principle comes from wanting to write likelihoods where a parameter</span>
-<span class="sd">shows up more than once. For instance we can model the score difference</span>
-<span class="sd">at the end of a game ($y_{ij}$) as a function of the skills of two teams</span>
-<span class="sd">($s_i$ and $s_j$) with a simple regression:</span>
+<span class="sd">Some central technical pieces are:</span>
 
-<span class="sd">$$</span>
-<span class="sd">y_{ij} \sim \mathcal{N}(s_i - s_j)</span>
-<span class="sd">$$</span>
+<span class="sd">1. Rat uses a No-U-Turn-Sampler (implementation from [blackjax](https://github.com/blackjax-devs/blackjax/tree/main/blackjax))</span>
+<span class="sd">2. Rat uses autodiff from [jax](https://github.com/google/jax)</span>
 
-<span class="sd">Those skills on the left and the right are the same parameter! We didn&#39;t know</span>
-<span class="sd">how to write these models with existing regression packages. Sure we could make a</span>
-<span class="sd">sparse matrix and each row could have two non-zeroes corresponding to the teams</span>
-<span class="sd">that played and multiply it by a vector -- but annoying. We&#39;re fond of the</span>
-<span class="sd">R regression shorthands and wanted to use those.</span>
-
-<span class="sd">The second principle came from the fact that, while a model like the one above</span>
-<span class="sd">can be written in a general purpose probabilistic programming language, it&#39;s</span>
-<span class="sd">mildly annoying. Converting player names to factors, converting them to integers,</span>
-<span class="sd">allocating parameters -- it all kinda takes time. It seemed easier to write</span>
-<span class="sd">a new regression language.</span>
-
-<span class="sd">The third principle comes from a couple places, but the basic jist is that it&#39;s</span>
-<span class="sd">very easy to get data into the R regression packages and that&#39;s something we want</span>
-<span class="sd">to keep. We also wanted to make sure it was easy to get data out and also easy</span>
-<span class="sd">to tie that output back to the input. In Rat, everything is represented as long</span>
-<span class="sd">form dataframes to make it easy to join outputs to inputs and each other.</span>
+<span class="sd">Rat works in a limited language space to keep the backend stuff simple</span>
+<span class="sd">(no sampling discrete parameters and no loops).</span>
 
 <span class="sd"># Rat Language</span>
+
+<span class="sd">## Anatomy of a Rat (program)</span>
+
+<span class="sd">There are two full Rat examples included with the repo that are worth glancing at.</span>
+<span class="sd">The first ([examples/mrp](https://github.com/bbbales2/regressions/tree/main/examples/mrp))</span>
+<span class="sd">is an MRP example ported from</span>
+<span class="sd">[MRP Case Studies](https://bookdown.org/jl5522/MRP-case-studies/introduction-to-mrp.html).</span>
+
+<span class="sd">The second ([examples/fakeball](https://github.com/bbbales2/regressions/tree/main/examples/fakeball))</span>
+<span class="sd">is an attempt to simulate some fake basketball-like data and estimate player on-off</span>
+<span class="sd">effectiveness numbers.</span>
+
+<span class="sd">The example folders contain information on how to run these models, but a quick look at</span>
+<span class="sd">the second model might be useful to see where we&#39;re going with all this:</span>
+
+<span class="sd">```</span>
+<span class="sd"># We&#39;re modeling whether or not shots were made as a function of the time</span>
+<span class="sd"># varying skill of the five players playing offense and the five players</span>
+<span class="sd"># playing defense</span>
+<span class="sd">made ~ bernoulli_logit(</span>
+<span class="sd">    offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] -</span>
+<span class="sd">    (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date])</span>
+<span class="sd">);</span>
+
+<span class="sd"># A player&#39;s skill is a function of their initial skill plus some random</span>
+<span class="sd"># walk that changes over time</span>
+<span class="sd">offense[player, date] = offense_rw[player, date] + offense0[player];</span>
+<span class="sd">defense[player, date] = defense_rw[player, date] + defense0[player];</span>
+
+<span class="sd"># Parameters are defined by use -- we need to define offense0 and defense0</span>
+<span class="sd"># because they are used elsewhere</span>
+<span class="sd">offense0[player] ~ normal(0.0, tau0_offense);</span>
+<span class="sd">defense0[player] ~ normal(0.0, tau0_defense);</span>
+
+<span class="sd"># This is the random walk -- read on to understand how `shift` actually works</span>
+<span class="sd">offense_rw[player, date] ~ normal(offense_rw[player, shift(date, 1)], tau_offense);</span>
+<span class="sd">defense_rw[player, date] ~ normal(defense_rw[player, shift(date, 1)], tau_defense);</span>
+
+<span class="sd"># Some parameters have constraints!</span>
+<span class="sd">tau_offense&lt;lower = 0.0&gt; ~ log_normal(0.0, 0.5);</span>
+<span class="sd">tau_defense&lt;lower = 0.0&gt; ~ log_normal(0.0, 0.5);</span>
+<span class="sd">tau0_offense&lt;lower = 0.0&gt; ~ log_normal(0.0, 0.5);</span>
+<span class="sd">tau0_defense&lt;lower = 0.0&gt; ~ log_normal(0.0, 0.5);</span>
+<span class="sd">```</span>
+
+<span class="sd">Assuming we&#39;ve saved appropriate data in a file `shots.csv`, then a model like this can</span>
+<span class="sd">be run on the command-line (or from Python, but the command line is convenient for</span>
+<span class="sd">this sort of thing):</span>
+
+<span class="sd">```</span>
+<span class="sd">rat fakeball.rat shots.csv samples</span>
+<span class="sd">```</span>
+
+<span class="sd">The output can be extracted and summarized in Python like:</span>
+
+<span class="sd">```python</span>
+<span class="sd">from rat.fit import load</span>
+<span class="sd">import numpy</span>
+
+<span class="sd"># Rat fits are serialized as parquet tables in folders</span>
+<span class="sd">fit = load(&quot;samples&quot;)</span>
+
+<span class="sd"># Each parameter is stored in its own table -- these can be joined together</span>
+<span class="sd"># or summarized on their own</span>
+<span class="sd">offense_df = fit.draws(&quot;offense&quot;)</span>
+
+<span class="sd"># In this case we can build a table mapping player, date tuples to parameter</span>
+<span class="sd"># summaries</span>
+<span class="sd">offense_summary_df = (</span>
+<span class="sd">    offense_df</span>
+<span class="sd">    .groupby([&quot;player&quot;, &quot;date&quot;])</span>
+<span class="sd">    .agg(</span>
+<span class="sd">        median=(&quot;offense&quot;, numpy.median),</span>
+<span class="sd">        q10=(&quot;offense&quot;, lambda x: numpy.quantile(x, 0.1)),</span>
+<span class="sd">        q90=(&quot;offense&quot;, lambda x: numpy.quantile(x, 0.9)),</span>
+<span class="sd">    )</span>
+<span class="sd">)</span>
+<span class="sd">```</span>
 
 <span class="sd">## Likelihood</span>
 
