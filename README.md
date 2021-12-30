@@ -1,5 +1,7 @@
 This is an experimental regression package, Rat. Package documentation is [here](https://bbbales2.github.io/regressions/rat.html)
 
+![Rat](docs/logo.jpg)
+
 # Developing
 
 To develop with this package, run:
