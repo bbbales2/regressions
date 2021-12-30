@@ -38,7 +38,9 @@ the second model might be useful to see where we're going with all this:
 ```
 # We're modeling whether or not shots were made as a function of the time
 # varying skill of the five players playing offense and the five players
-# playing defense (made, date, o0-o4, and d0-d4 come from the input dataframe)
+# playing defense. `made`, `date`, `o0-o4`, and `d0-d4` come from the input,
+# dataframe. o0-o4 and d0-d4 are names of the five players on the floor
+# playing offense and defense
 made ~ bernoulli_logit(
     offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] -
     (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date])
@@ -46,8 +48,8 @@ made ~ bernoulli_logit(
 
 # A player's skill is a function of their initial skill plus some random
 # walk that changes over time
-offense[player, date] = offense_rw[player, date] + offense0[player];
-defense[player, date] = defense_rw[player, date] + defense0[player];
+offense[player, date] = offense0[player] + offense_rw[player, date];
+defense[player, date] = defense0[player] + defense_rw[player, date];
 
 # Parameters are defined by use -- we need to define offense0 and defense0
 # because they are used elsewhere
