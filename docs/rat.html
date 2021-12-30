@@ -138,7 +138,7 @@ the second model might be useful to see where we're going with all this:</p>
 
 <pre><code># We're modeling whether or not shots were made as a function of the time
 # varying skill of the five players playing offense and the five players
-# playing defense
+# playing defense (made, date, o0-o4, and d0-d4 come from the input dataframe)
 made ~ bernoulli_logit(
     offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] -
     (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date])
@@ -612,7 +612,7 @@ run models.</p>
 <span class="sd">```</span>
 <span class="sd"># We&#39;re modeling whether or not shots were made as a function of the time</span>
 <span class="sd"># varying skill of the five players playing offense and the five players</span>
-<span class="sd"># playing defense</span>
+<span class="sd"># playing defense (made, date, o0-o4, and d0-d4 come from the input dataframe)</span>
 <span class="sd">made ~ bernoulli_logit(</span>
 <span class="sd">    offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] -</span>
 <span class="sd">    (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date])</span>
