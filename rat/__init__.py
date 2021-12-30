@@ -101,11 +101,21 @@ offense_summary_df = (
 
 ## Likelihood
 
-Rat inherits from the regression languages. As such, the first line of a Rat
-program is the likelihood. This line is special because it can access named
-variables in the input dataframe.
+Every Rat program comes with a dataframe. The dataframe defines the data which
+the Rat model fits itself too.
 
-For instance, assume we have the following dataframe:
+Rat programs are broken up into statements separated by semicolons. There are
+two types of statements, sampling statements (those where the lefthand side
+and righthand side are separated by `~`) and assignments (the lefthand side
+and righthand side are separated by `=`).
+
+Sampling statements come in two varieties, likelihoods and priors. Likelihoods
+are the sampling statements where the variable name on the left hand side of the
+`~` comes from the input dataframe (and priors are the other ones). This section
+discusses the basics of likelihood statements. Priors and assignments are discussed
+later (under section [Priors](#priors) and [Transformed Parameters](#transformed-parameters)).
+
+Assume we have the following dataframe:
 
 ```
     game_id  home_score  away_score home_team away_team  score_diff  year
@@ -122,21 +132,20 @@ For instance, assume we have the following dataframe:
 10       11          97         103       PHI       CLE        -6.0  2016
 ```
 
-The first line of a Rat program could be:
+The first line of a Rat program modeling this data might be:
 
 ```
 score_diff ~ normal(skill[home_team], sigma);
 ```
 
-This says model `score_diff` as a normally distributed random variable given
+Because this is a sampling statement (the `~`) and name on the lefthand side
+is in the dataframe, this is a likelihood statement.
+
+This says model `score_diff` (the score difference between the home and away teams for a
+handful of games in the 2016 NBA season) as a normally distributed random variable given
 a mean `skill[home_team]` and standard deviation `sigma`. There will be one
 term in the likelihood for every row in the dataframe (so each row corresponds
 to a conditionally independent term).
-
-Where does `score_diff` come from? `score_diff` is a column of our input
-dataframe (and is the score difference between the home and away teams for a
-handful of games in the 2016 NBA season). Again, the first line of a Rat
-model defines the likelihood and has special access to the input dataframe.
 
 The other column of the dataframe that is being used is `home_team`. If we
 look back at the dataframe, `home_team` is a string identifying which NBA
@@ -146,20 +155,20 @@ This means for each row of the input dataframe, take the entry of the variable
 skill that corresponds to the value of `home_team`.
 
 Because `skill` is subscripted (and is not a column in the dataframe), Rat
-infers that it is a parameter in the model that must be estimated. There
-will be as many unique elements of `skill` as there are unique elements
-of `home_team`, because this is exactly how many parameters need to exist
-to evaluate the likelihood. When it comes time to 
+infers that it is a parameter in the model. There will be as many unique
+elements of `skill` as there are unique elements of `home_team`, because
+this is exactly how many parameters need to exist to evaluate the likelihood.
 
 Because `sigma` is not a column in the dataframe, Rat infers it is a parameter.
 Because it is not subscripted, Rat infers it is a scalar parameter.
 
 ## Priors
 
-Priors in Rat are defined by every line but the first. The first line is special
-because it has access to the input dataframe -- the rest do not.
+Priors in Rat are sampling statements that are not likelihoods (the name on the
+left hand side does not appear in the input dataframe). Priors cannot reference
+columns of the input dataframe (it's an error).
 
-For instance, the above example can be extended to have a prior on `skill`:
+The above example can be extended to have a prior on `skill`:
 
 ```
 score_diff ~ normal(skill[home_team], sigma);
@@ -186,7 +195,7 @@ some teams only played away games -- perhaps we're running this regression early
 year). This leads to the question -- how should the first subscript of `skill` be
 referenced? It is not obvious, and so when the prior is defined, the subscripts
 are matched by position and we provide a new name. The first subscript to `skill`
-will be called `team` for the purposes of defining the prior and handling I/O. The
+will be called `team` for the purposes of defining the prior and handling output. The
 subscript values themselves are defined by the use of the `skill` parameter.
 
 Naming the subscripts with the match is also useful for deeper parameter hierarchies.
@@ -236,10 +245,12 @@ supports a `lower`, `upper` and a combination of the two constraints.
 
 Rat may infer that a variable is a parameter by its use, but this parameter
 doesn't necessarily need to be a parameter of the joint distribution sampled
-with MCMC. Transformed parameters are immutable functions of other parameters.
+with MCMC. Transformed parameters are immutable functions of other parameters
+that are set in assignment statements (statements where the left and righthand
+side is separated by an `=`).
 
 One of the basic things transformed parameters let us do is implement a
-non-centered parameterization. Internally RAT uses the NUTS sampler in
+non-centered parameterization. Internally Rat uses the NUTS sampler in
 [blackjax](https://github.com/blackjax-devs/blackjax). It is useful to
 reparameterize hierarchical models for NUTS to avoid
 [divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html).
@@ -282,17 +293,19 @@ tau<lower = 0.0> ~ log_normal(0, 1);
 
 The new line of code is the second -- in this case we say the elements of
 `theta` are equal to the expression on the right hand side. Transformed
-parameters are immutable, so once they are defined they cannot be changed.
-Similarly, a transformed parameter cannot be used in its own definition.
+parameters are immutable, so once they are set they cannot be changed.
+Similarly, a transformed parameter cannot be used on the righthand side of
+its own assignment.
 
-Variables on the right hand side expression that Rat does not recognize
+Variables on the right hand side of an assignment that Rat does not recognize
 will be inferred as other parameters. In this case, `mu`, `tau`, and `z`,
-the untransformed version of `theta`.
+the untransformed versions of `theta`.
 
 ## Shift operator
 
 The elements of non-scalar Rat parameters are sorted with respect to the
-values of the subscripts. Because elements have an order, we can think
+values of the subscripts (in the order of the subscripts, so the rightmost
+subscript is sorted last). Because elements have an order, we can think
 about a previous and next element. This is useful for time series models.
 
 Going back to the basketball model, we might be interested in how a team's
@@ -329,15 +342,12 @@ A negative shift produces a different result:
 | `skill[CHA, 2017]`  | `0`                           |
 | `skill[ATL, 2017]`  | `0`                           |
 
-## Subscripts
+## Execution order
 
-In general, subscripts are resolved and generated
-when found on the **right-hand-side of a statement that has a left-hand-side
-with resolved subscripts**. However since rat topologically sorts before
-evaluation accordingly, the user just has to make sure parameters that they
-have declared/assigned with subscripts must be resolvable by checking they
-are present as right-hand-side.
-
+Rat sorts statements to make sure they are evaluated in an order so that
+all transformed parameters are set before they are used. This means the user
+does not need to worry about statement order -- just that there are either priors
+or assignments for every parameter used in the program.
 
 ## Distributions
 
@@ -389,7 +399,7 @@ cd regressions
 pip install .
 ```
 
-## CLI
+## Command line interface
 
 Rat is a Python library, but comes with a helper script `rat` to quickly compile and
 run models.
