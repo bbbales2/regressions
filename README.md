@@ -1,4 +1,4 @@
-This is an experimental regression package, rat. Modeule documentation is [here](https://bbbales2.github.io/regressions/)
+This is an experimental regression package, Rat. Package documentation is [here](https://bbbales2.github.io/regressions/rat.html)
 
 # Developing
 

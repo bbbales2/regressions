@@ -33,7 +33,7 @@ class Model:
     parameter_offsets: List[int]
     parameter_sizes: List[Union[None, int]]
 
-    def constrain(self, unconstrained_parameter_vector, pad=True):
+    def _constrain(self, unconstrained_parameter_vector, pad=True):
         constrained_variables = {}
         total = 0.0
         for name, offset, size in zip(
@@ -66,7 +66,7 @@ class Model:
 
         return total, constrained_variables
 
-    def evaluate_program(self, **device_variables):
+    def _evaluate_program(self, **device_variables):
         total = 0.0
         for line_function in self.line_functions:
             data_arguments = [device_variables[name] for name in line_function.data_variable_names]
@@ -79,23 +79,23 @@ class Model:
 
         return total, device_variables
 
-    def log_density(self, include_jacobian, unconstrained_parameter_vector):
-        jacobian_adjustment, constrained_variables = self.constrain(unconstrained_parameter_vector)
+    def _log_density(self, include_jacobian, unconstrained_parameter_vector):
+        jacobian_adjustment, constrained_variables = self._constrain(unconstrained_parameter_vector)
         constrained_variables.update(self.device_data_variables)
 
-        target_program, constrained_variables = self.evaluate_program(**constrained_variables)
+        target_program, constrained_variables = self._evaluate_program(**constrained_variables)
         return target_program + (jacobian_adjustment if include_jacobian else 0.0)
 
-    def prepare_draws_and_dfs(self, device_unconstrained_draws):
+    def _prepare_draws_and_dfs(self, device_unconstrained_draws):
         unconstrained_draws = numpy.array(device_unconstrained_draws)
         num_draws = unconstrained_draws.shape[0]
         num_chains = unconstrained_draws.shape[1]
         variables_to_extract = set(itertools.chain(self.parameter_variables.keys(), self.assigned_parameter_variables.keys()))
         constrained_draws = {}
-        evaluate_program_with_data = jax.jit(functools.partial(self.evaluate_program, **self.device_data_variables), backend="cpu")
+        evaluate_program_with_data = jax.jit(functools.partial(self._evaluate_program, **self.device_data_variables), backend="cpu")
         for draw in range(num_draws):
             for chain in range(num_chains):
-                jacobian_adjustment, constrained_variables = self.constrain(unconstrained_draws[draw, chain], pad=False)
+                jacobian_adjustment, constrained_variables = self._constrain(unconstrained_draws[draw, chain], pad=False)
                 device_constrained_variables = {k: jax.numpy.array(v) for k, v in constrained_variables.items()}
                 target, device_constrained_variables = evaluate_program_with_data(**device_constrained_variables)
 
@@ -106,7 +106,7 @@ class Model:
                         constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
 
         ## This is probably faster than above but uses more device memory
-        # jacobian_adjustment, device_constrained_variables = self.constrain(unconstrained_draws, pad=False)
+        # jacobian_adjustment, device_constrained_variables = self._constrain(unconstrained_draws, pad=False)
         # device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}
         # target, device_constrained_variables = jax.vmap(jax.vmap(evaluate_program_with_data))(**device_constrained_variables)
 
@@ -122,9 +122,15 @@ class Model:
     def __init__(
         self,
         data_df: pandas.DataFrame,
-        parsed_lines: List[ops.Expr] = None,
         model_string: str = None,
+        parsed_lines: List[ops.Expr] = None,
     ):
+        """
+        Create a model from a dataframe (`data_df`) and a model (specified as a string, `model_string`)
+
+        The parsed_lines argument is for creating a model from an intermediate representation -- likely
+        deprecated soon.
+        """
         data_names = data_df.columns
         if model_string is not None:
             if parsed_lines is not None:
@@ -173,11 +179,22 @@ class Model:
         self.parameter_variables = parameter_variables
         self.assigned_parameter_variables = assigned_parameter_variables
         self.device_data_variables = device_data_variables
-        self.log_density_jax = jax.jit(functools.partial(self.log_density, True))
-        self.log_density_jax_no_jac = jax.jit(functools.partial(self.log_density, False))
+        self.log_density_jax = jax.jit(functools.partial(self._log_density, True))
+        self.log_density_jax_no_jac = jax.jit(functools.partial(self._log_density, False))
         self.size = unconstrained_parameter_size
 
     def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
+        """
+        Maximize the log density. `chains` difference optimizations are initialized.
+        
+        An error is thrown if the different solutions are not all within tolerance of the
+        median solution for each parameter. If only one chain is used, the tolerance is
+        ignored.
+
+        If any optimization fails, retry up to `retries` number of times.
+
+        Initialize parameters in unconstrained space uniformly [-2, 2].
+        """
         def negative_log_density(x):
             return -self.log_density_jax_no_jac(x.astype(numpy.float32))
 
@@ -200,13 +217,28 @@ class Model:
             else:
                 raise Exception(f"Optimization failed on chain {chain} with message: {solution.message}")
 
-        constrained_draws, base_dfs = self.prepare_draws_and_dfs(unconstrained_draws)
+        constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
         return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
 
-    def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, step_size=1.0):
+    def sample(self, num_draws=200, num_warmup=200, chains=4, init=2, target_acceptance_rate = 0.85):
+        """
+        Sample the target log density using NUTS.
+
+        Sample using `chains` different chains with parameters initialized in unconstrained
+        space [-2, 2]. Use `num_warmup` draws to warmup and collect `num_draws` draws in each
+        chain after warmup.
+
+        Regardless of the value of `chains`, only one chain is used for warmup.
+
+        `target_acceptance_rate` is the target acceptance rate for adaptation. Should be less
+        than one and greater than zero.
+        """
         # Currently only doing warmup on one chain
         initial_position = 2 * init * numpy.random.uniform(size=(self.size)) - init
 
+        assert target_acceptance_rate < 1.0 and target_acceptance_rate > 0.0
+
+        step_size = 1.0
         def kernel_generator(step_size, inverse_mass_matrix):
             return blackjax.nuts.kernel(self.log_density_jax, step_size, inverse_mass_matrix)
 
@@ -235,7 +267,7 @@ class Model:
         init, update, final = blackjax.stan_warmup.stan_warmup(
             kernel_generator,
             is_mass_matrix_diagonal=True,
-            target_acceptance_rate=0.65,
+            target_acceptance_rate=target_acceptance_rate,
         )
 
         with tqdm(total=num_warmup, desc="Warming up") as progress_bar:
@@ -285,6 +317,6 @@ class Model:
         # Ordered as (draws, chains, param)
         unconstrained_draws = states.position
 
-        constrained_draws, base_dfs = self.prepare_draws_and_dfs(unconstrained_draws)
+        constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
 
         return fit.SampleFit._from_constrained_variables(constrained_draws, base_dfs)
