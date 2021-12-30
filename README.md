@@ -34,6 +34,24 @@ pytest tests/integration       # Just integration tests
 
 ## Formatting
 
-Formatting is handled with [black](https://github.com/psf/black). Formatting
-is run automatically on PRs via Github actions, so if you push without
+Formatting is handled with [black](https://github.com/psf/black) and can be
+run manually with:
+
+```
+black --line-length 140 .
+```
+
+This is run automatically on PRs via Github actions, so if you push without
 formatting you'll need to pull any formatting changes before you pushing again.
+
+## Docs
+
+Docs are handled with [pdoc](https://pdoc.dev/) and can be re-generated with
+the command:
+
+```
+pdoc --math -o docs rat
+```
+
+Docs are regenerated automatically on PRs via Github actions so it isn't
+necessary to always regenerate these locally.
