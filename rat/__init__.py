@@ -102,7 +102,7 @@ offense_summary_df = (
 ## Likelihood
 
 Every Rat program comes with a dataframe. The dataframe defines the data which
-the Rat model fits itself too.
+the Rat model fits itself to.
 
 Rat programs are broken up into statements separated by semicolons. There are
 two types of statements, sampling statements (those where the lefthand side
