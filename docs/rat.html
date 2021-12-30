@@ -1130,7 +1130,7 @@ run models.</p>
     <span class="k">def</span> <span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">retries</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Maximize the log density. `chains` difference optimizations are initialized.</span>
-<span class="sd">        </span>
+
 <span class="sd">        An error is thrown if the different solutions are not all within tolerance of the</span>
 <span class="sd">        median solution for each parameter. If only one chain is used, the tolerance is</span>
 <span class="sd">        ignored.</span>
@@ -1139,6 +1139,7 @@ run models.</p>
 
 <span class="sd">        Initialize parameters in unconstrained space uniformly [-2, 2].</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
         <span class="k">def</span> <span class="nf">negative_log_density</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
             <span class="k">return</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax_no_jac</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
 
@@ -1164,7 +1165,7 @@ run models.</p>
         <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_draws_and_dfs</span><span class="p">(</span><span class="n">unconstrained_draws</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">fit</span><span class="o">.</span><span class="n">OptimizationFit</span><span class="o">.</span><span class="n">_from_constrained_variables</span><span class="p">(</span><span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_draws</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">num_warmup</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">target_acceptance_rate</span> <span class="o">=</span> <span class="mf">0.85</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_draws</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">num_warmup</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">target_acceptance_rate</span><span class="o">=</span><span class="mf">0.85</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Sample the target log density using NUTS.</span>
 
@@ -1183,6 +1184,7 @@ run models.</p>
         <span class="k">assert</span> <span class="n">target_acceptance_rate</span> <span class="o">&lt;</span> <span class="mf">1.0</span> <span class="ow">and</span> <span class="n">target_acceptance_rate</span> <span class="o">&gt;</span> <span class="mf">0.0</span>
 
         <span class="n">step_size</span> <span class="o">=</span> <span class="mf">1.0</span>
+
         <span class="k">def</span> <span class="nf">kernel_generator</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">blackjax</span><span class="o">.</span><span class="n">nuts</span><span class="o">.</span><span class="n">kernel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_density_jax</span><span class="p">,</span> <span class="n">step_size</span><span class="p">,</span> <span class="n">inverse_mass_matrix</span><span class="p">)</span>
 
