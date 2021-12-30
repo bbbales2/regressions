@@ -170,7 +170,7 @@ class Scanner:
 
         return self.scanned_lines
 
-    def consume(self):
+    def consume(self, ignore_newline=True):
         if self.index == self.code_length:
             self.current_char = ""
             return
@@ -178,11 +178,11 @@ class Scanner:
         self.index += 1
         self.column_index += 1
         if self.current_char == "\n":
-            self.reduce_register()
             self.current_state = self.default_state
             self.column_index = -1
             self.line_index += 1
-            self.consume()
+            if ignore_newline:
+                self.consume()
 
     def reduce_register(self):
         def casts_to_int(val):
@@ -233,6 +233,11 @@ class Scanner:
         if not self.current_char:
             return
 
+        elif self.current_char == "#":
+            # comment line. Read through end of line
+            while self.current_char and self.current_char != "\n":
+                self.consume(ignore_newline=False)
+
         elif self.current_char in delimeters:
             # If we find a terminate token, stay on current state
             self.register += self.current_char
@@ -264,6 +269,13 @@ class Scanner:
             # isidentifier() will not work, since we allow digits
             self.register += self.current_char
 
+        elif self.current_char == "#":
+            self.reduce_register()
+            # comment line. Read through end of line
+            while self.current_char and self.current_char != "\n":
+                self.consume(ignore_newline=False)
+            self.current_state = self.default_state
+
         elif self.current_char in delimeters:
             # transition 1: If we find a delimeter, change to delimeter state
             self.reduce_register()
@@ -283,6 +295,13 @@ class Scanner:
         self.consume()
         if not self.current_char:
             self.reduce_register()
+
+        elif self.current_char == "#":
+            self.reduce_register()
+            # comment line. Read through end of line
+            while self.current_char and self.current_char != "\n":
+                self.consume(ignore_newline=False)
+            self.current_state = self.default_state
 
         elif self.current_char in delimeters:
             self.reduce_register()
@@ -317,6 +336,13 @@ class Scanner:
         if not self.current_char:
             self.reduce_register()
 
+        elif self.current_char == "#":
+            self.reduce_register()
+            # comment line. Read through end of line
+            while self.current_char and self.current_char != "\n":
+                self.consume(ignore_newline=False)
+            self.current_state = self.default_state
+
         elif self.current_char in delimeters:
             self.reduce_register()
             self.register += self.current_char
@@ -344,6 +370,13 @@ class Scanner:
         self.consume()
         if not self.current_char:
             self.reduce_register()
+
+        elif self.current_char == "#":
+            self.reduce_register()
+            # comment line. Read through end of line
+            while self.current_char and self.current_char != "\n":
+                self.consume(ignore_newline=False)
+            self.current_state = self.default_state
 
         elif self.current_char in delimeters:
             self.reduce_register()

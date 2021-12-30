@@ -143,3 +143,22 @@ b
     assert lines[0][0].line_index == 1
     assert lines[1][0].value == "a"
     assert lines[1][0].line_index == 4
+
+
+def test_scanner_comment_multiline():
+    input_str = """
+# this is a comment line
+y ~ bernoulli_logit(
+a +  # this is a comment in the middle
+b# this is a comment without a space
+);a=
+1;
+"""
+    parsed = Scanner(input_str)
+    lines = parsed.scan()
+    assert len(lines) == 2
+    assert lines[0][0].value == "y"
+    assert lines[0][0].line_index == 2
+    assert lines[0][6].value == "b"
+    assert lines[1][0].value == "a"
+    assert lines[1][0].line_index == 5
