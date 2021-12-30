@@ -19,7 +19,7 @@ Some central technical pieces are:
 Rat works in a limited language space to keep the backend stuff simple
 (no sampling discrete parameters and no loops).
 
-# Rat Language
+# Language
 
 ## Anatomy of a Rat (program)
 
