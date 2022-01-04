@@ -24,7 +24,7 @@ def log_normal(y, mu, sigma):
 class LineFunction:
     data_variables: List[variables.Data]
     parameter_variables: List[variables.Param]
-    index_use_variables: List[variables.IndexUse]
+    subscript_use_variables: List[variables.SubscriptUse]
     assigned_parameter_variables: List[variables.AssignedParam]
     line: ops.Expr
     data_variable_names: List[str]
@@ -36,7 +36,7 @@ class LineFunction:
         data_variables: Iterable[variables.Data],
         parameter_variables: Iterable[variables.Param],
         assigned_parameter_variables: Iterable[variables.AssignedParam],
-        index_use_variables: Iterable[variables.IndexUse],
+        subscript_use_variables: Iterable[variables.SubscriptUse],
         line: ops.Expr,
     ):
         self.data_variables = data_variables
@@ -45,14 +45,14 @@ class LineFunction:
         self.parameter_variable_names = [parameter.name for parameter in parameter_variables]
         self.assigned_parameter_variables = assigned_parameter_variables
         self.assigned_parameter_variables_names = [parameter.ops_param.name for parameter in assigned_parameter_variables]
-        self.index_use_variables = list(index_use_variables)
+        self.subscript_use_variables = list(subscript_use_variables)
         self.line = line
 
         vectorize_arguments = (
             [0] * len(self.data_variables)
             + [None] * len(self.parameter_variables)
             + [None] * len(self.assigned_parameter_variables)
-            + [0] * len(self.index_use_variables)
+            + [0] * len(self.subscript_use_variables)
         )
         function_local_scope = {}
         exec(self.code(), globals(), function_local_scope)
@@ -60,10 +60,10 @@ class LineFunction:
         if any(x is not None for x in vectorize_arguments):
             self.compiled_function = jax.vmap(self.compiled_function, vectorize_arguments, 0)
 
-        self.index_use_numpy = [index_use.to_numpy() for index_use in self.index_use_variables]
+        self.index_use_numpy = [index_use.to_numpy() for index_use in self.subscript_use_variables]
 
     def code(self):
-        argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.index_use_variables
+        argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.subscript_use_variables
         args = [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
 
@@ -83,14 +83,14 @@ class AssignLineFunction(LineFunction):
         data_variables: Iterable[variables.Data],
         parameter_variables: Iterable[variables.Param],
         assigned_parameter_variables: Iterable[variables.AssignedParam],
-        index_use_variables: Iterable[variables.IndexUse],
+        subscript_use_variables: Iterable[variables.SubscriptUse],
         line: ops.Expr,
     ):
         self.name = name
-        super().__init__(data_variables, parameter_variables, assigned_parameter_variables, index_use_variables, line)
+        super().__init__(data_variables, parameter_variables, assigned_parameter_variables, subscript_use_variables, line)
 
     def code(self):
-        argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.index_use_variables
+        argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.subscript_use_variables
         args = [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.rhs.code()}"])
 
@@ -177,11 +177,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     logging.debug(f"reverse dependency graph: {dependency_graph}")
     logging.debug(f"first pass eval order: {evaluation_order}")
 
-    # this is the dataframe that goes into variables.Index. Each row is a unique combination of indexes
+    # this is the dataframe that goes into variables.Subscript. Each row is a unique combination of indexes
     parameter_base_df: Dict[str, pandas.DataFrame] = {}
 
     # this is the dictionary that keeps track of what columns the parameter subscripts were defined as
-    parameter_index_columns: Dict[str, List[Set[str]]] = {}
+    parameter_subscript_columns: Dict[str, List[Set[str]]] = {}
 
     # this set keep track of variable names that are not parameters, i.e. assigned by assignment
     assigned_parameter_keys: Set[str] = set()
@@ -189,14 +189,14 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     data_variables: Dict[str, variables.Data] = {}
     parameter_variables: Dict[str, variables.Param] = {}
     assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
-    variable_indexes: Dict[str, variables.Index] = {}
+    variable_subscripts: Dict[str, variables.Subscript] = {}
 
     line_functions: List[LineFunction] = []
 
     # first pass : fill param_base_dfs of all parameters
     for target_op_name in evaluation_order:
         logging.debug(f"------first pass starting for {target_op_name}")
-        target_op_index_key = None
+        target_op_subscript_key = None
         for line in parsed_lines:
             if isinstance(line, ops.Distr):
                 lhs = line.variate
@@ -204,10 +204,10 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 lhs = line.lhs
                 assigned_parameter_keys.add(lhs.get_key())
                 if lhs.get_key() == target_op_name:
-                    if lhs.index:
+                    if lhs.subscript:
                         if lhs.get_key() not in parameter_base_df:
                             raise Exception(f"Can't resolve {lhs.get_key()}")
-                        target_op_index_key = lhs.index.get_key()
+                        target_op_subscript_key = lhs.subscript.get_key()
 
             if not lhs.get_key() == target_op_name:
                 continue
@@ -220,45 +220,45 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 # Otherwise, the dataframe comes from the parameter (unless it's scalar then it's none)
                 if lhs.get_key() in parameter_base_df:
                     if parameter_base_df[lhs.get_key()] is not None:
-                        if lhs.index is None:
+                        if lhs.subscript is None:
                             raise Exception(f"{lhs.get_key()} must declare its subscripts to be used as a reference variable")
-                        target_op_index_key = lhs.index.get_key()
+                        target_op_subscript_key = lhs.subscript.get_key()
                         line_df = parameter_base_df[lhs.get_key()].copy()
-                        line_df.columns = tuple(lhs.index.get_key())
+                        line_df.columns = tuple(lhs.subscript.get_key())
                     else:
                         line_df = None
                 else:
-                    if not lhs.index:
+                    if not lhs.subscript:
                         break
 
             # Find all the data referenced in the line
             for subexpr in ops.search_tree(line, ops.Data):
                 data_variables[subexpr.get_key()] = variables.Data(subexpr.get_key(), data_df[subexpr.get_key()])
 
-            # Find all the ways that each parameter is indexed
+            # Find all the ways that each parameter is subscripted
             for subexpr in ops.search_tree(line, ops.Param):
                 # Is this handling y = y by ignoring it?
                 if subexpr.get_key() == lhs.get_key():
                     continue
                 subexpr_key = subexpr.get_key()
-                if subexpr.index:
+                if subexpr.subscript:
                     try:
-                        v_df = line_df.loc[:, subexpr.index.get_key()]
+                        v_df = line_df.loc[:, subexpr.subscript.get_key()]
                     except KeyError as e:
-                        raise Exception(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.index.get_key()}") from e
+                        raise Exception(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.subscript.get_key()}") from e
                     logging.debug(f"{subexpr_key} referenced")
                     if subexpr_key in parameter_base_df:
                         v_df.columns = tuple(parameter_base_df[subexpr_key].columns)
                         parameter_base_df[subexpr_key] = (
                             pandas.concat([parameter_base_df[subexpr_key], v_df]).drop_duplicates().reset_index(drop=True)
                         )
-                        for n, key in enumerate(subexpr.index.get_key()):
-                            parameter_index_columns[subexpr_key][n].add(key)
+                        for n, key in enumerate(subexpr.subscript.get_key()):
+                            parameter_subscript_columns[subexpr_key][n].add(key)
                     else:
-                        # initialize the index column list length to be the index count
-                        parameter_index_columns[subexpr_key] = [set() for _ in range(len(subexpr.index.get_key()))]
-                        for n, key in enumerate(subexpr.index.get_key()):
-                            parameter_index_columns[subexpr_key][n].add(key)
+                        # initialize the subscript column list length to be the subscript count
+                        parameter_subscript_columns[subexpr_key] = [set() for _ in range(len(subexpr.subscript.get_key()))]
+                        for n, key in enumerate(subexpr.subscript.get_key()):
+                            parameter_subscript_columns[subexpr_key][n].add(key)
                         parameter_base_df[subexpr_key] = v_df.drop_duplicates().reset_index(drop=True)
 
         # else:
@@ -268,23 +268,23 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
         #             f"Could not find a definition for {target_op_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)"
         #         )
         if target_op_name in parameter_base_df:
-            parameter_base_df[target_op_name].columns = tuple(target_op_index_key)
+            parameter_base_df[target_op_name].columns = tuple(target_op_subscript_key)
 
     logging.debug("first pass finished")
     logging.debug("now printing parameter_base_df")
     for key, val in parameter_base_df.items():
         logging.debug(key)
         logging.debug(val)
-        variable_indexes[key] = variables.Index(parameter_base_df[key], parameter_index_columns[key])
+        variable_subscripts[key] = variables.Subscript(parameter_base_df[key], parameter_subscript_columns[key])
     logging.debug("done printing parameter_base_df")
-    logging.debug("now printing variable_indexes")
-    for key, val in variable_indexes.items():
+    logging.debug("now printing variable_subscripts")
+    for key, val in variable_subscripts.items():
         logging.debug(key)
         logging.debug(val.base_df)
         logging.info(f"Subscript data for parameter {key}:")
         val.log_summary(logging.INFO)
         logging.info("-----")
-    logging.debug("done printing variable_indexes")
+    logging.debug("done printing variable_subscripts")
 
     """Now transpose the dependency graph(lhs -> rhs, or lhs | rhs). For a normal DAD, it's as simple as reversing the
      evaluation order. Unfortunately, since assignments always stay true as (lhs | rhs), we have to rebuild the DAG. :(
@@ -308,7 +308,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             data_vars_used: Set[variables.Data] = set()
             parameter_vars_used: Set[variables.Param] = set()
             assigned_parameter_vars_used: Set[variables.AssignedParam] = set()
-            index_use_vars: Dict[Tuple, variables.IndexUse] = {}
+            subscript_use_vars: Dict[Tuple, variables.SubscriptUse] = {}
 
             if isinstance(line, ops.Distr):
                 lhs = line.variate
@@ -321,8 +321,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             if isinstance(lhs, ops.Data):
                 lhs_df = data_df
             else:
-                if lhs.index is not None:
-                    lhs_df = variable_indexes[lhs.get_key()].df  # parameter_base_df[lhs.get_key()]
+                if lhs.subscript is not None:
+                    lhs_df = variable_subscripts[lhs.get_key()].df  # parameter_base_df[lhs.get_key()]
 
             if isinstance(line, ops.Distr):
                 if isinstance(lhs, ops.Data):
@@ -332,8 +332,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     lower = lhs.lower
                     upper = lhs.upper
 
-                    if lhs_key in variable_indexes:
-                        subexpr = variables.Param(lhs_key, variable_indexes[lhs_key])
+                    if lhs_key in variable_subscripts:
+                        subexpr = variables.Param(lhs_key, variable_subscripts[lhs_key])
                     else:
                         subexpr = variables.Param(lhs_key)
                     subexpr.set_constraints(float(eval(lower.code())), float(eval(upper.code())))
@@ -344,11 +344,11 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 assert isinstance(line.lhs, ops.Param), "lhs of assignment must be an Identifier denoting a variable name"
                 # assignment lhs are set as variables.AssignedParam, since they're not subject for sampling
 
-                if lhs.index:
-                    subexpr = variables.AssignedParam(lhs, line.rhs, variable_indexes[lhs_key])
-                    variable_indexes[lhs.get_key()].incorporate_shifts(lhs.index.shifts)
-                    subexpr.ops_param.index.variable = variables.IndexUse(
-                        lhs.index.get_key(), parameter_base_df[lhs.get_key()], variable_indexes[lhs_key]
+                if lhs.subscript:
+                    subexpr = variables.AssignedParam(lhs, line.rhs, variable_subscripts[lhs_key])
+                    variable_subscripts[lhs.get_key()].incorporate_shifts(lhs.subscript.shifts)
+                    subexpr.ops_param.subscript.variable = variables.SubscriptUse(
+                        lhs.subscript.get_key(), parameter_base_df[lhs.get_key()], variable_subscripts[lhs_key]
                     )
                 else:
                     subexpr = variables.AssignedParam(lhs, line.rhs)
@@ -382,28 +382,28 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     parameter_vars_used.add(op_key)
                     op.variable = parameter_variables[op_key]
 
-                if op.index:
-                    variable_indexes[op_key].incorporate_shifts(op.index.shifts)
+                if op.subscript:
+                    variable_subscripts[op_key].incorporate_shifts(op.subscript.shifts)
 
-                    index_use_identifier = (op.index.get_key(), op.index.shifts)
+                    index_use_identifier = (op.subscript.get_key(), op.subscript.shifts)
 
                     df_index = (
-                        op.index.get_key()  # if isinstance(lhs, ops.Data) else lhs.variable.index.check_and_return_index(op.index.get_key())
+                        op.subscript.get_key()  # if isinstance(lhs, ops.Data) else lhs.variable.subscript.check_and_return_index(op.subscript.get_key())
                     )
 
-                    # Only need to define this particular index use once per line (multiple uses will share)
-                    if index_use_identifier not in index_use_vars:
-                        index_use = variables.IndexUse(
-                            op.index.get_key(), lhs_df.loc[:, df_index], variable_indexes[op_key], op.index.shifts
+                    # Only need to define this particular subscript use once per line (multiple uses will share)
+                    if index_use_identifier not in subscript_use_vars:
+                        index_use = variables.SubscriptUse(
+                            op.subscript.get_key(), lhs_df.loc[:, df_index], variable_subscripts[op_key], op.subscript.shifts
                         )
 
-                        index_use_vars[index_use_identifier] = index_use
+                        subscript_use_vars[index_use_identifier] = index_use
 
-                    op.index.variable = index_use_vars[index_use_identifier]
+                    op.subscript.variable = subscript_use_vars[index_use_identifier]
 
             for op in ops.search_tree(line, ops.Data):
                 op_key = op.get_key()
-                if op.index:
+                if op.subscript:
                     raise Exception(f"Indexing on data variables ({op_key}) not supported")
 
             if isinstance(line, ops.Distr):
@@ -411,7 +411,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     [data_variables[name] for name in data_vars_used],
                     [parameter_variables[name] for name in parameter_vars_used],
                     [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    index_use_vars.values(),
+                    subscript_use_vars.values(),
                     line,
                 )
             elif isinstance(line, ops.Assignment):
@@ -420,7 +420,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     [data_variables[name] for name in data_vars_used],
                     [parameter_variables[name] for name in parameter_vars_used],
                     [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    index_use_vars.values(),
+                    subscript_use_vars.values(),
                     line,
                 )
             line_functions.append(line_function)
@@ -431,4 +431,4 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
     logging.debug(f"data: {list(data_variables.keys())}")
     logging.debug(f"parameters: {list(parameter_variables.keys())}")
     logging.debug(f"assigned parameters {list(assigned_parameter_variables.keys())}")
-    return data_variables, parameter_variables, assigned_parameter_variables, variable_indexes, line_functions
+    return data_variables, parameter_variables, assigned_parameter_variables, variable_subscripts, line_functions

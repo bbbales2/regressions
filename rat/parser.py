@@ -331,7 +331,7 @@ class Parser:
         else:
             raise Exception(f"expresions() received invalid entry token value with value {entry_token_value}, but expected '[' or ']'")
         expressions = []
-        shift_amounts = []  # integer specifying the amount to shift for each index
+        shift_amounts = []  # integer specifying the amount to shift for each subscript
         while True:
             token = self.peek()
             shift_amount = None
@@ -347,21 +347,21 @@ class Parser:
                     raise ParseError(
                         "shift() has been used in a position that is not allowed.", self.model_string, token.line_index, token.column_index
                     )
-                # parse lag(index, integer)
+                # parse lag(subscript, integer)
                 self.remove()  # identifier "shift"
                 self.expect_token(Special, "(")
                 self.remove()  # character )
-                self.expect_token(Identifier)  # index name
+                self.expect_token(Identifier)  # subscript name
                 subscript_name = self.peek()
                 if subscript_name.value not in self.data_names:
                     raise ParseError(
-                        "Index specified with shift() must be in data columns.",
+                        "Subscript specified with shift() must be in data columns.",
                         self.model_string,
                         subscript_name.line_index,
                         subscript_name.column_index,
                     )
                 expression = Data(subscript_name.value)
-                self.remove()  # index name
+                self.remove()  # subscript name
                 self.expect_token(Special, ",")
                 self.remove()  # character ,
                 shift_amount = self.expression()
@@ -424,8 +424,8 @@ class Parser:
                 expressions, shift_amount = self.expressions("[", allow_shift=True)  # list of expression
                 self.expect_token(Special, "]")
                 self.remove()  # ]
-                # Assume index is a single identifier - this is NOT GOOD
-                exp.index = Index(
+                # Assume subscript is a single identifier - this is NOT GOOD
+                exp.subscript = Subscript(
                     names=tuple(expression.name for expression in expressions),
                     shifts=shift_amount,
                 )
