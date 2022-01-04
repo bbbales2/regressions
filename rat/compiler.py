@@ -63,7 +63,9 @@ class LineFunction:
         self.index_use_numpy = [index_use.to_numpy() for index_use in self.subscript_use_variables]
 
     def code(self):
-        argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.subscript_use_variables
+        argument_variables = (
+            self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.subscript_use_variables
+        )
         args = [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
 
@@ -90,7 +92,9 @@ class AssignLineFunction(LineFunction):
         super().__init__(data_variables, parameter_variables, assigned_parameter_variables, subscript_use_variables, line)
 
     def code(self):
-        argument_variables = self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.subscript_use_variables
+        argument_variables = (
+            self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.subscript_use_variables
+        )
         args = [variable.code() for variable in argument_variables]
         return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.rhs.code()}"])
 
