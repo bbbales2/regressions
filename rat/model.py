@@ -150,7 +150,7 @@ class Model:
             assigned_parameter_variables,
             index_variables,
             line_functions,
-        ) = compiler.compile(data_df, parsed_lines)
+        ) = compiler.compile(data_df, parsed_lines, model_string)
 
         self.parameter_names = []
         self.parameter_offsets = []

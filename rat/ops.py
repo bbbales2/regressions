@@ -5,6 +5,9 @@ from . import variables
 
 
 class Expr:
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
+
     def __iter__(self):
         return self
 
@@ -21,6 +24,8 @@ class Expr:
 @dataclass(frozen=True)
 class RealConstant(Expr):
     value: float
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def code(self):
         if self.value == float("inf"):
@@ -36,6 +41,8 @@ class RealConstant(Expr):
 @dataclass(frozen=True)
 class IntegerConstant(Expr):
     value: int
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def code(self):
         return f"{self.value}"
@@ -49,6 +56,8 @@ class Subscript(Expr):
     names: Tuple[str]
     shifts: Tuple[Union[str, None]] = (None,)
     variable: variables.SubscriptUse = None
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def get_key(self):
         return self.names
@@ -65,6 +74,8 @@ class Data(Expr):
     name: str
     subscript: Subscript = None
     variable: variables.Data = None
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def get_key(self):
         return self.name
@@ -91,6 +102,8 @@ class Param(Expr):
     lower: Expr = RealConstant(float("-inf"))
     upper: Expr = RealConstant(float("inf"))
     variable: variables.Param = None
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         if self.subscript is not None:
@@ -116,7 +129,7 @@ class Param(Expr):
 
 
 class Distr(Expr):
-    pass
+    variate: Expr
 
 
 @dataclass(frozen=True)
@@ -124,6 +137,8 @@ class Normal(Distr):
     variate: Expr
     mean: Expr
     std: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.variate, self.mean, self.std])
@@ -139,6 +154,8 @@ class Normal(Distr):
 class BernoulliLogit(Distr):
     variate: Expr
     logit_p: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.variate, self.logit_p])
@@ -155,6 +172,8 @@ class LogNormal(Distr):
     variate: Expr
     mean: Expr
     std: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.variate, self.mean, self.std])
@@ -171,6 +190,8 @@ class Cauchy(Distr):
     variate: Expr
     location: Expr
     scale: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.variate, self.location, self.scale])
@@ -186,6 +207,8 @@ class Cauchy(Distr):
 class Exponential(Distr):
     variate: Expr
     scale: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.variate, self.scale])
@@ -201,6 +224,8 @@ class Exponential(Distr):
 class Diff(Expr):
     lhs: Expr
     rhs: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
@@ -216,6 +241,8 @@ class Diff(Expr):
 class Sum(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -232,6 +259,8 @@ class Mul(Expr):
     lbp = 30
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -248,6 +277,8 @@ class Pow(Expr):
     lbp = 40
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -263,6 +294,8 @@ class Pow(Expr):
 class Div(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -278,6 +311,8 @@ class Div(Expr):
 class Mod(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -293,6 +328,8 @@ class Mod(Expr):
 class LogicalOR(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -308,6 +345,8 @@ class LogicalOR(Expr):
 class LogicalAND(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -323,6 +362,8 @@ class LogicalAND(Expr):
 class Equality(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -338,6 +379,8 @@ class Equality(Expr):
 class Inequality(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -353,6 +396,8 @@ class Inequality(Expr):
 class LessThan(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -368,6 +413,8 @@ class LessThan(Expr):
 class LessThanOrEqual(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -383,6 +430,8 @@ class LessThanOrEqual(Expr):
 class GreaterThan(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -398,6 +447,8 @@ class GreaterThan(Expr):
 class GreaterThanOrEqual(Expr):
     left: Expr
     right: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.left, self.right])
@@ -412,6 +463,8 @@ class GreaterThanOrEqual(Expr):
 @dataclass(frozen=True)
 class PrefixNegation(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -426,6 +479,8 @@ class PrefixNegation(Expr):
 @dataclass(frozen=True)
 class PrefixLogicalNegation(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -441,6 +496,8 @@ class PrefixLogicalNegation(Expr):
 class Assignment(Expr):
     lhs: Expr
     rhs: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
@@ -455,6 +512,8 @@ class Assignment(Expr):
 @dataclass(frozen=True)
 class Log(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -469,6 +528,8 @@ class Log(Expr):
 @dataclass(frozen=True)
 class Exp(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -483,6 +544,8 @@ class Exp(Expr):
 @dataclass(frozen=True)
 class Abs(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -497,6 +560,8 @@ class Abs(Expr):
 @dataclass(frozen=True)
 class Floor(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -511,6 +576,8 @@ class Floor(Expr):
 @dataclass(frozen=True)
 class Ceil(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -525,6 +592,8 @@ class Ceil(Expr):
 @dataclass(frozen=True)
 class Round(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -539,6 +608,8 @@ class Round(Expr):
 @dataclass(frozen=True)
 class Sin(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -553,6 +624,8 @@ class Sin(Expr):
 @dataclass(frozen=True)
 class Cos(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -567,6 +640,8 @@ class Cos(Expr):
 @dataclass(frozen=True)
 class Tan(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -581,6 +656,8 @@ class Tan(Expr):
 @dataclass(frozen=True)
 class Arcsin(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -595,6 +672,8 @@ class Arcsin(Expr):
 @dataclass(frozen=True)
 class Arccos(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -609,6 +688,8 @@ class Arccos(Expr):
 @dataclass(frozen=True)
 class Arctan(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -623,6 +704,8 @@ class Arctan(Expr):
 @dataclass(frozen=True)
 class Logit(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -637,6 +720,8 @@ class Logit(Expr):
 @dataclass(frozen=True)
 class InverseLogit(Expr):
     subexpr: Expr
+    line_index: int = -1  # line index of the original model code
+    column_index: int = -1  # column index of the original model code
 
     def __iter__(self):
         return iter([self.subexpr])
@@ -670,7 +755,7 @@ class Placeholder(Expr):
         return f"Placeholder({self.name}, {self.index.__str__()})"
 
 
-def search_tree(expr, *types):
+def search_tree(expr: Expr, *types) -> Expr:
     for _type in types:
         if isinstance(expr, _type):
             yield expr

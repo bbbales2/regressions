@@ -5,6 +5,7 @@ import jax
 import jax.numpy
 import jax.scipy.stats
 from typing import Iterable, List, Dict, Set, Tuple
+import warnings
 
 from . import ops
 from . import variables
@@ -161,7 +162,140 @@ def topological_sort(graph):
     return evaluation_order
 
 
-def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
+class CompileError(Exception):
+    def __init__(self, message, code_string: str, line_num: int, column_num: int):
+        code_string = code_string.split("\n")[line_num] if code_string else ""
+        exception_message = f"An error occured while compiling the following line({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
+        super().__init__(exception_message)
+
+
+class Compiler:
+    data_df: pandas.DataFrame
+    expr_tree_list: List[ops.Expr]
+    model_code_string: str
+
+    def __init__(self, data_df: pandas.DataFrame, expr_tree_list: List[ops.Expr], model_code_string: str = ""):
+        self.data_df = data_df
+        self.expr_tree_list = expr_tree_list
+        self.model_code_string = model_code_string
+
+        # this is the dataframe that goes into variables.Subscript. Each row is a unique combination of indexes
+        self.parameter_base_df: Dict[str, pandas.DataFrame] = {}
+
+        # this is the dictionary that keeps track of what columns the parameter subscripts were defined as
+        self.parameter_subscript_columns: Dict[str, List[Set[str]]] = {}
+
+        # this set keep track of variable names that are not parameters, i.e. assigned by assignment
+        self.assigned_parameter_keys: Set[str] = set()
+
+        self.data_variables: Dict[str, variables.Data] = {}
+        self.parameter_variables: Dict[str, variables.Param] = {}
+        self.assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
+        self.variable_subscripts: Dict[str, variables.Subscript] = {}
+
+        self.line_functions: List[LineFunction] = []
+
+    def _first_pass(self):
+        # On the first pass, we generate the base reference dataframe for each variable. This goes into
+        # variable.Subscript.base_df
+        for target_op_name in evaluation_order:
+            logging.debug(f"------first pass starting for {target_op_name}")
+            target_op_subscript_key = None
+            for line in parsed_lines:
+                if isinstance(line, ops.Distr):
+                    lhs = line.variate
+                elif isinstance(line, ops.Assignment):
+                    lhs = line.lhs
+                    assigned_parameter_keys.add(lhs.get_key())
+                    if lhs.get_key() == target_op_name:
+                        if lhs.subscript:
+                            if lhs.get_key() not in parameter_base_df:
+                                raise CompileError(f"Can't resolve {lhs.get_key()}", model_code_string, lhs.line_index,
+                                                   lhs.column_index)
+                                # raise Exception(f"Can't resolve {lhs.get_key()}")
+                            target_op_subscript_key = lhs.subscript.get_key()
+
+                if not lhs.get_key() == target_op_name:
+                    continue
+
+                line_df = None
+                if isinstance(lhs, ops.Data):
+                    # If the left hand side is data, the dataframe comes from input
+                    line_df = data_df
+                elif isinstance(lhs, ops.Param):
+                    # Otherwise, the dataframe comes from the parameter (unless it's scalar then it's none)
+                    if lhs.get_key() in parameter_base_df:
+                        if parameter_base_df[lhs.get_key()] is not None:
+                            if lhs.subscript is None:
+                                raise CompileError(
+                                    f"{lhs.get_key()} must declare its subscripts to be used as a reference variable",
+                                    model_code_string, lhs.line_index, lhs.column_index)
+                                # raise Exception(f"{lhs.get_key()} must declare its subscripts to be used as a reference variable")
+                            target_op_subscript_key = lhs.subscript.get_key()
+                            line_df = parameter_base_df[lhs.get_key()].copy()
+                            line_df.columns = tuple(lhs.subscript.get_key())
+                        else:
+                            line_df = None
+                    else:
+                        if not lhs.subscript:
+                            break
+
+                # Find all the data referenced in the line
+                for subexpr in ops.search_tree(line, ops.Data):
+                    data_variables[subexpr.get_key()] = variables.Data(subexpr.get_key(), data_df[subexpr.get_key()])
+
+                # Find all the ways that each parameter is subscripted
+                for subexpr in ops.search_tree(line, ops.Param):
+                    # Is this handling y = y by ignoring it?
+                    if subexpr.get_key() == lhs.get_key():
+                        continue
+                    subexpr_key = subexpr.get_key()
+                    if subexpr.subscript:
+                        try:
+                            v_df = line_df.loc[:, subexpr.subscript.get_key()]
+                        except KeyError as e:
+                            raise CompileError(
+                                f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.subscript.get_key()}",
+                                model_code_string, lhs.line_index, lhs.column_index) from e
+                            # raise Exception(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.subscript.get_key()}") from e
+                        logging.debug(f"{subexpr_key} referenced")
+                        if subexpr_key in parameter_base_df:
+                            v_df.columns = tuple(parameter_base_df[subexpr_key].columns)
+                            parameter_base_df[subexpr_key] = (
+                                pandas.concat([parameter_base_df[subexpr_key], v_df]).drop_duplicates().reset_index(
+                                    drop=True)
+                            )
+                            for n, key in enumerate(subexpr.subscript.get_key()):
+                                parameter_subscript_columns[subexpr_key][n].add(key)
+                        else:
+                            # initialize the subscript column list length to be the subscript count
+                            parameter_subscript_columns[subexpr_key] = [set() for _ in
+                                                                        range(len(subexpr.subscript.get_key()))]
+                            for n, key in enumerate(subexpr.subscript.get_key()):
+                                parameter_subscript_columns[subexpr_key][n].add(key)
+                            parameter_base_df[subexpr_key] = v_df.drop_duplicates().reset_index(drop=True)
+
+    def compile(self) -> Tuple[Dict[str, variables.Data], Dict[str, variables.Param], Dict[str, variables.AssignedParam], Dict[str, variables.Subscript], List[LineFunction]]:
+        # compiles the expression tree into function statements
+        dependency_graph: Dict[str, Set[str]] = generate_dependency_graph(self.expr_tree_list)
+        """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
+            If we think of it as rhs | lhs, the dependency graph is an *acyclic* graph that has directed edges going 
+            from rhs -> lhs. This is because subscripts on rhs can be resolved, given the dataframe of the lhs. However, for
+            assignments, the order is reversed(lhs -> rhs) since we need rhs to infer its subscripts"""
+
+        # traverse through all lines, assuming they are DAGs. This throws operational semantics out the window, but since
+        # rat doesn't allow control flow(yet), I'm certain a cycle would mean that it's a mis-specified program
+        evaluation_order = topological_sort(dependency_graph)
+
+        logging.debug(f"reverse dependency graph: {dependency_graph}")
+        logging.debug(f"first pass eval order: {evaluation_order}")
+
+        self._first_pass()
+
+
+
+
+def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr], model_code_string: str = ""):
     logging.info(f"rat compiler - starting code generation for {len(parsed_lines)} line(s) of code.")
     dependency_graph: Dict[str, Set[str]] = {}
     """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
@@ -210,7 +344,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 if lhs.get_key() == target_op_name:
                     if lhs.subscript:
                         if lhs.get_key() not in parameter_base_df:
-                            raise Exception(f"Can't resolve {lhs.get_key()}")
+                            raise CompileError(f"Can't resolve {lhs.get_key()}", model_code_string, lhs.line_index, lhs.column_index)
+                            #raise Exception(f"Can't resolve {lhs.get_key()}")
                         target_op_subscript_key = lhs.subscript.get_key()
 
             if not lhs.get_key() == target_op_name:
@@ -225,7 +360,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                 if lhs.get_key() in parameter_base_df:
                     if parameter_base_df[lhs.get_key()] is not None:
                         if lhs.subscript is None:
-                            raise Exception(f"{lhs.get_key()} must declare its subscripts to be used as a reference variable")
+                            raise CompileError(f"{lhs.get_key()} must declare its subscripts to be used as a reference variable", model_code_string, lhs.line_index, lhs.column_index)
+                            #raise Exception(f"{lhs.get_key()} must declare its subscripts to be used as a reference variable")
                         target_op_subscript_key = lhs.subscript.get_key()
                         line_df = parameter_base_df[lhs.get_key()].copy()
                         line_df.columns = tuple(lhs.subscript.get_key())
@@ -249,7 +385,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     try:
                         v_df = line_df.loc[:, subexpr.subscript.get_key()]
                     except KeyError as e:
-                        raise Exception(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.subscript.get_key()}") from e
+                        raise CompileError(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.subscript.get_key()}", model_code_string, lhs.line_index, lhs.column_index) from e
+                        #raise Exception(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.subscript.get_key()}") from e
                     logging.debug(f"{subexpr_key} referenced")
                     if subexpr_key in parameter_base_df:
                         v_df.columns = tuple(parameter_base_df[subexpr_key].columns)
@@ -392,7 +529,7 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
                     index_use_identifier = (op.subscript.get_key(), op.subscript.shifts)
 
                     df_index = (
-                        op.subscript.get_key()  # if isinstance(lhs, ops.Data) else lhs.variable.subscript.check_and_return_index(op.subscript.get_key())
+                        op.subscript.get_key() if isinstance(lhs, ops.Data) else lhs.variable.subscript.check_and_return_subscripts(op.subscript.get_key())
                     )
 
                     # Only need to define this particular subscript use once per line (multiple uses will share)
@@ -408,7 +545,8 @@ def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
             for op in ops.search_tree(line, ops.Data):
                 op_key = op.get_key()
                 if op.subscript:
-                    raise Exception(f"Indexing on data variables ({op_key}) not supported")
+                    raise CompileError(f"Indexing on data variables ({op_key}) not supported", model_code_string, op.line_index, op.column_index)
+                    #raise Exception(f"Indexing on data variables ({op_key}) not supported")
 
             if isinstance(line, ops.Distr):
                 line_function = LineFunction(
