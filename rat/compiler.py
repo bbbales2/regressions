@@ -191,7 +191,8 @@ class Compiler:
         var_evalulation_order: List[str] = []  # topologically sorted variable names
 
         def recursive_order_search(current):
-            if current in var_evalulation_order: return
+            if current in var_evalulation_order:
+                return
             for child in dependency_graph[current]:
                 recursive_order_search(child)
             var_evalulation_order.append(current)
@@ -205,15 +206,18 @@ class Compiler:
             recursive_order_search(lhs.get_key())
 
         # create (Expr, lhs_var_name) pair, which is used to sort based on lhs_var_name
-        expr_tree_list = [[x, x.lhs.get_key() if isinstance(x, ops.Assignment) else x.variate.get_key()] for x in
-                          self.expr_tree_list]
+        expr_tree_list = [[x, x.lhs.get_key() if isinstance(x, ops.Assignment) else x.variate.get_key()] for x in self.expr_tree_list]
 
         def get_index(name, expr):
             try:
                 return var_evalulation_order.index(name)
             except ValueError as e:
-                raise CompileError(f"First pass error: key {name} not found while ordering expressions. Please check that all variables/parameters have been declared.",
-                                   self.model_code_string, line_num=expr.line_index, column_num=0) from e
+                raise CompileError(
+                    f"First pass error: key {name} not found while ordering expressions. Please check that all variables/parameters have been declared.",
+                    self.model_code_string,
+                    line_num=expr.line_index,
+                    column_num=0,
+                ) from e
 
         return [elem[0] for elem in sorted(expr_tree_list, key=lambda x: get_index(x[1], x[0]))]
 
@@ -240,13 +244,18 @@ class Compiler:
 
                 # check if lhs type is ops.Param (can't assign to data)
                 if not isinstance(lhs, ops.Param):
-                    raise CompileError("LHS of assign statement must be a variable and not data!",
-                                       self.model_code_string, lhs.line_index, lhs.column_index)
+                    raise CompileError(
+                        "LHS of assign statement must be a variable and not data!", self.model_code_string, lhs.line_index, lhs.column_index
+                    )
 
             else:
                 # This should never be reached given a well-formed expression tree
-                raise CompileError(f"Top-level expressions may only be an assignment or sample statement, but got type {top_expr.__class__.__name__}",
-                                   self.model_code_string, top_expr.line_index, top_expr.column_index)
+                raise CompileError(
+                    f"Top-level expressions may only be an assignment or sample statement, but got type {top_expr.__class__.__name__}",
+                    self.model_code_string,
+                    top_expr.line_index,
+                    top_expr.column_index,
+                )
 
             lhs_key = lhs.get_key()
 
@@ -273,11 +282,19 @@ class Compiler:
                             lhs_base_df.columns = tuple(lhs.subscript.get_key())
                         except ValueError as e:
                             # if usage subscript length and declared subscript length do not match, raise exception
-                            raise CompileError(f"Variable {lhs.get_key()}, has declared {len(lhs.subscript.get_key())}LHS subscript, but was used in RHS as {len(lhs_base_df.columns)} subscripts.",
-                                               self.model_code_string, lhs.line_index, lhs.column_index) from e
+                            raise CompileError(
+                                f"Variable {lhs.get_key()}, has declared {len(lhs.subscript.get_key())}LHS subscript, but was used in RHS as {len(lhs_base_df.columns)} subscripts.",
+                                self.model_code_string,
+                                lhs.line_index,
+                                lhs.column_index,
+                            ) from e
                     else:
-                        raise CompileError(f"Variable {lhs.get_key()} was declared to have subscript {lhs.subscript.get_key()}, but no usage of said variable was found.",
-                                           self.model_code_string, lhs.line_index, lhs.column_index)
+                        raise CompileError(
+                            f"Variable {lhs.get_key()} was declared to have subscript {lhs.subscript.get_key()}, but no usage of said variable was found.",
+                            self.model_code_string,
+                            lhs.line_index,
+                            lhs.column_index,
+                        )
                 else:
                     lhs_base_df = None
 
@@ -298,12 +315,18 @@ class Compiler:
                     # this means a subscript referenced on RHS does not exist on the LHS base dataframe
                     raise CompileError(
                         f"Couldn't index RHS variable {sub_expr_key}'s declared subscript{sub_expr.subscript.get_key()} from LHS base df, which has subscripts {tuple(lhs_base_df.columns)}.",
-                        self.model_code_string, sub_expr.line_index, sub_expr.column_index) from e
+                        self.model_code_string,
+                        sub_expr.line_index,
+                        sub_expr.column_index,
+                    ) from e
                 except AttributeError as e:
                     # this means LHS has no base dataframe but a subscript was attempted from RHS
                     raise CompileError(
                         f"Variable on RHS side '{sub_expr_key}' attempted to subscript {sub_expr.subscript.get_key()}, but LHS variable '{lhs.get_key()}' has no subscripts!",
-                        self.model_code_string, sub_expr.line_index, sub_expr.column_index) from e
+                        self.model_code_string,
+                        sub_expr.line_index,
+                        sub_expr.column_index,
+                    ) from e
 
                 if sub_expr_key in self.parameter_base_df:
                     # if we already have a base_df registered, try merging them
@@ -312,9 +335,13 @@ class Compiler:
                     except ValueError as e:
                         raise CompileError(
                             f"Subscript length mismatch: variable on RHS side '{sub_expr_key}' has declared subscript of length {len(sub_expr_key)}, but has been used with a subscript of length {len(self.parameter_base_df[sub_expr_key])}",
-                            self.model_code_string, sub_expr.line_index, sub_expr.column_index) from e
-                    self.parameter_base_df[sub_expr_key] = pandas.concat([self.parameter_base_df[sub_expr_key],
-                                                                          rhs_base_df]).drop_duplicates().reset_index(drop=True)
+                            self.model_code_string,
+                            sub_expr.line_index,
+                            sub_expr.column_index,
+                        ) from e
+                    self.parameter_base_df[sub_expr_key] = (
+                        pandas.concat([self.parameter_base_df[sub_expr_key], rhs_base_df]).drop_duplicates().reset_index(drop=True)
+                    )
 
                     # keep track of subscript names for each position
                     for n, subscript in enumerate(sub_expr.subscript.get_key()):
@@ -357,8 +384,12 @@ class Compiler:
             elif isinstance(top_expr, ops.Assignment):
                 lhs = top_expr.lhs
             else:
-                raise CompileError(f"Top-level expressions may only be an assignment or sample statement, but got type {top_expr.__class__.__name__}",
-                                   self.model_code_string, top_expr.line_index, top_expr.column_index)
+                raise CompileError(
+                    f"Top-level expressions may only be an assignment or sample statement, but got type {top_expr.__class__.__name__}",
+                    self.model_code_string,
+                    top_expr.line_index,
+                    top_expr.column_index,
+                )
 
             lhs_key = lhs.get_key()
             logging.debug(f"Second pass for {lhs_key}")
@@ -370,8 +401,12 @@ class Compiler:
                 else:
                     lhs_base_df = None
             else:
-                raise CompileError(f"LHS of statement should be a Data or Param type, but got {lhs.__class__.__name__}",
-                                   self.model_code_string, lhs.line_index, lhs.column_index)
+                raise CompileError(
+                    f"LHS of statement should be a Data or Param type, but got {lhs.__class__.__name__}",
+                    self.model_code_string,
+                    lhs.line_index,
+                    lhs.column_index,
+                )
 
             if isinstance(top_expr, ops.Distr):
                 # If we're working with a sampling statement, create a variable object and link them to ops.Expr
@@ -385,8 +420,12 @@ class Compiler:
                         lower_constraint_value = float(eval(lhs.lower.code()))
                         upper_constraint_value = float(eval(lhs.upper.code()))
                     except Exception as e:
-                        raise CompileError(f"Error when evaluating constraints for {lhs_key}. Constraint expressions must be able to be evaluated at compile time.",
-                                           self.model_code_string, lhs.line_index, lhs.column_index) from e
+                        raise CompileError(
+                            f"Error when evaluating constraints for {lhs_key}. Constraint expressions must be able to be evaluated at compile time.",
+                            self.model_code_string,
+                            lhs.line_index,
+                            lhs.column_index,
+                        ) from e
 
                     # generate variables.Param for LHS. This is because the variable on LHS is first seen here.
                     if lhs.subscript is not None:
@@ -396,19 +435,21 @@ class Compiler:
 
                     # apply constraints
                     lhs_variable.set_constraints(lower_constraint_value, upper_constraint_value)
-                    lhs.variable = lhs_variable # bind to ops.Param in expression tree
+                    lhs.variable = lhs_variable  # bind to ops.Param in expression tree
 
                     self.parameter_variables[lhs_key] = lhs_variable
 
                 else:
                     # should be unreachable since parser checks types
-                    raise CompileError(f"LHS for sample statement has invalid type", self.model_code_string,
-                                       lhs.line_index, lhs.column_index)
+                    raise CompileError(
+                        f"LHS for sample statement has invalid type", self.model_code_string, lhs.line_index, lhs.column_index
+                    )
             elif isinstance(top_expr, ops.Assignment):
                 # Same procedure with assignment statements: create variable object and link back to ops.Expr
                 if not isinstance(lhs, ops.Param):  # shouldn't be reachable because parser catches type errors
-                    raise CompileError("LHS for assignment statement has invalid type", self.model_code_string,
-                                       lhs.line_index, lhs.column_index)
+                    raise CompileError(
+                        "LHS for assignment statement has invalid type", self.model_code_string, lhs.line_index, lhs.column_index
+                    )
 
                 # generate variables.AssignedParam for LHS. This is because the variable on LHS is first seen here.
                 if lhs.subscript is not None:
@@ -455,8 +496,9 @@ class Compiler:
                     # if a param does not exist yet, this means either:
                     # 1. The model's computational graph is not a DAG
                     # 2. The parameter is undefined
-                    raise CompileError(f"Could not find variable {subexpr_key}", self.model_code_string,
-                                       subexpr.line_index, subexpr.column_index)
+                    raise CompileError(
+                        f"Could not find variable {subexpr_key}", self.model_code_string, subexpr.line_index, subexpr.column_index
+                    )
 
                 # resolve subscripts
                 if subexpr.subscript is not None:
@@ -467,13 +509,19 @@ class Compiler:
                     subscript_use_identifier = (subexpr.subscript.get_key(), subexpr.subscript.shifts)
 
                     # get the base df's reference column names
-                    base_df_index = subexpr.subscript.get_key() if isinstance(lhs, ops.Data) else lhs.variable.subscript.check_and_return_subscripts(subexpr.subscript.get_key())
+                    base_df_index = (
+                        subexpr.subscript.get_key()
+                        if isinstance(lhs, ops.Data)
+                        else lhs.variable.subscript.check_and_return_subscripts(subexpr.subscript.get_key())
+                    )
 
                     # extract the subscripts from the base df and link them into variable.SubscriptUse
                     if subscript_use_identifier not in subscript_use_vars_used:
                         variable_subscript_use = variables.SubscriptUse(
-                            subexpr.subscript.get_key(), lhs_base_df.loc[:, base_df_index],
-                            self.variable_subscripts[subexpr_key], subexpr.subscript.shifts
+                            subexpr.subscript.get_key(),
+                            lhs_base_df.loc[:, base_df_index],
+                            self.variable_subscripts[subexpr_key],
+                            subexpr.subscript.shifts,
                         )
                         subscript_use_vars_used[subscript_use_identifier] = variable_subscript_use
 
@@ -484,8 +532,12 @@ class Compiler:
             for subexpr in ops.search_tree(top_expr, ops.Data):
                 subexpr_key = subexpr.get_key()
                 if subexpr.subscript:
-                    raise CompileError(f"Indexing on data variables ({subexpr_key}) not supported",
-                                       self.model_code_string, subexpr.line_index, subexpr.column_index)
+                    raise CompileError(
+                        f"Indexing on data variables ({subexpr_key}) not supported",
+                        self.model_code_string,
+                        subexpr.line_index,
+                        subexpr.column_index,
+                    )
 
             # Now we wrap the entire expression tree into a LineFunction or AssignLineFunction, which hold the python
             # code which actuates the expression tree
@@ -495,7 +547,7 @@ class Compiler:
                     [self.parameter_variables[name] for name in parameter_vars_used],
                     [self.assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
                     subscript_use_vars_used.values(),
-                    top_expr
+                    top_expr,
                 )
             elif isinstance(top_expr, ops.Assignment):
                 line_function = AssignLineFunction(
@@ -504,7 +556,7 @@ class Compiler:
                     [self.parameter_variables[name] for name in parameter_vars_used],
                     [self.assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
                     subscript_use_vars_used.values(),
-                    top_expr
+                    top_expr,
                 )
 
             self.line_functions.append(line_function)
@@ -512,7 +564,15 @@ class Compiler:
             logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
             logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
 
-    def compile(self) -> Tuple[Dict[str, variables.Data], Dict[str, variables.Param], Dict[str, variables.AssignedParam], Dict[str, variables.Subscript], List[LineFunction]]:
+    def compile(
+        self,
+    ) -> Tuple[
+        Dict[str, variables.Data],
+        Dict[str, variables.Param],
+        Dict[str, variables.AssignedParam],
+        Dict[str, variables.Subscript],
+        List[LineFunction],
+    ]:
         if self.parameter_variables:
             raise Exception("Compiler.compile() may be invoked only once per instance. Create a new instance to recompile.")
 
@@ -537,7 +597,9 @@ class Compiler:
         for var_name, subscript in self.parameter_subscript_names.items():
             logging.debug(var_name)
             logging.debug(self.parameter_base_df[var_name])
-            self.variable_subscripts[var_name] = variables.Subscript(self.parameter_base_df[var_name], self.parameter_subscript_names[var_name])
+            self.variable_subscripts[var_name] = variables.Subscript(
+                self.parameter_base_df[var_name], self.parameter_subscript_names[var_name]
+            )
         logging.debug("done printing parameter_base_df")
         logging.debug("now printing variable_subscripts")
 
@@ -562,8 +624,10 @@ class Compiler:
         # run seconds pass, which binds subscripts and does codegen
         self._build_linefunctions(evaluation_order)
 
-        return self.data_variables, self.parameter_variables, self.assigned_parameter_variables, self.variable_subscripts, self.line_functions
-
-
-
-
+        return (
+            self.data_variables,
+            self.parameter_variables,
+            self.assigned_parameter_variables,
+            self.variable_subscripts,
+            self.line_functions,
+        )
