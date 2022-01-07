@@ -189,6 +189,7 @@ class Compiler:
         Given a dependence graph, reorder the expression trees in self.expr_tree_list in topological order.
         """
         var_evalulation_order: List[str] = []  # topologically sorted variable names
+        current_recursion_lhs = None
 
         def recursive_order_search(current):
             if current in var_evalulation_order:
@@ -197,13 +198,17 @@ class Compiler:
                 recursive_order_search(child)
             var_evalulation_order.append(current)
 
-        for expr in self.expr_tree_list:
-            if isinstance(expr, ops.Distr):
-                lhs = expr.variate
-            elif isinstance(expr, ops.Assignment):
-                lhs = expr.lhs
-
-            recursive_order_search(lhs.get_key())
+        try:
+            for expr in self.expr_tree_list:
+                if isinstance(expr, ops.Distr):
+                    lhs = expr.variate
+                elif isinstance(expr, ops.Assignment):
+                    lhs = expr.lhs
+                current_recursion_lhs = lhs
+                recursive_order_search(lhs.get_key())
+        except RecursionError as e:
+            raise CompileError("Could not topologically order the expression tree. This is because your model is cyclic.",
+                               self.model_code_string, current_recursion_lhs.line_index, current_recursion_lhs.column_index) from e
 
         # create (Expr, lhs_var_name) pair, which is used to sort based on lhs_var_name
         expr_tree_list = [[x, x.lhs.get_key() if isinstance(x, ops.Assignment) else x.variate.get_key()] for x in self.expr_tree_list]
