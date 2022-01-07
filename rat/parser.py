@@ -420,7 +420,6 @@ class Parser:
             if isinstance(next_token, Special) and next_token.value == "[":
                 # identifier '[' subscript_expressions ']'
                 self.remove()  # [
-                warnings.warn("Parser: subscripts are assumed to be a single literal, not expression.")
                 expressions, shift_amount = self.expressions("[", allow_shift=True)  # list of expression
                 self.expect_token(Special, "]")
                 self.remove()  # ]
