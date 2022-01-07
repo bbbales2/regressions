@@ -207,8 +207,12 @@ class Compiler:
                 current_recursion_lhs = lhs
                 recursive_order_search(lhs.get_key())
         except RecursionError as e:
-            raise CompileError("Could not topologically order the expression tree. This is because your model is cyclic.",
-                               self.model_code_string, current_recursion_lhs.line_index, current_recursion_lhs.column_index) from e
+            raise CompileError(
+                "Could not topologically order the expression tree. This is because your model is cyclic.",
+                self.model_code_string,
+                current_recursion_lhs.line_index,
+                current_recursion_lhs.column_index,
+            ) from e
 
         # create (Expr, lhs_var_name) pair, which is used to sort based on lhs_var_name
         expr_tree_list = [[x, x.lhs.get_key() if isinstance(x, ops.Assignment) else x.variate.get_key()] for x in self.expr_tree_list]
