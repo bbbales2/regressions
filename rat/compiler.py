@@ -128,7 +128,6 @@ class Compiler:
         1. generate reverse dependency graph
         2-1. generate base_df(reference df) for every subscripted parameter
         2-2. generate variable.Subscript() for each variable/data
-        2-3. generate variable.Data for each data
         3. generate canonical dependency graph
         4-1. generate variable.Param/AssignedParam/Data and variable.SubscriptUse()
         4-2. generate linefunction/assignment_linefunction
@@ -241,6 +240,9 @@ class Compiler:
         subscripts on its RHS.
         Meanwhile, `SubscriptUse` is what's given to Param in RHS. It's inferred from the LHS variable's `Subscript`,
         which is indexed according to the RHS subscript.
+
+        1. generate base_df for every LHS variable
+        2. identify every subscript scheme for all subscripted variables
         """
         # On the first pass, we generate the base reference dataframe for each variable. This goes into
         # variable.Subscript.base_df
@@ -372,7 +374,7 @@ class Compiler:
     def _build_linefunctions(self, ordered_expr_trees: List[ops.Expr]):
         """
         The goal in the second pass is
-        1. Generate variable.Param and variable.AssignedParam for each parameter
+        1. Generate variable.Param, variable.AssignedParam, variable.Data for each respective variable/data
         2. Generate variable.SubscriptUse and map them to variable.Param/AssignedParam. They are used to resolve RHS
         subscripts from the LHS base_df
         3. Generate LineFunction or AssignLineFunction, which encapsulate each expression tree as actual python code.
