@@ -19,6 +19,6 @@ setuptools.setup(
     ],
     scripts=["bin/rat"],
     packages=setuptools.find_packages(),
-    python_requires=">=3.7",
+    python_requires=">=3.10",
     install_requires=requirements,
 )
