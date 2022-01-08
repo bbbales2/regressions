@@ -118,6 +118,7 @@ class Param(Expr):
         return f"Param({self.name}, {self.subscript.__str__()}, lower={self.lower}, upper={self.upper})"
 
 
+@dataclass
 class Distr(Expr):
     variate: Expr
 
