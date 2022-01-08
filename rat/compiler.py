@@ -383,13 +383,14 @@ class Compiler:
 
         The expression trees must be sorted in canonical topological order(LHS | RHS) in order to run succesfully.
         """
+
         def unique_subscript_use_itentifier_generator():
             identifier = 0
 
             while True:
                 yield repr(identifier)
                 identifier += 1
-        
+
         unique_subscript_use_itentifier = unique_subscript_use_itentifier_generator()
 
         subscript_use_vars: List[variables.SubscriptUse] = []
@@ -573,7 +574,7 @@ class Compiler:
                     subscript_use_vars_used,
                     top_expr,
                 )
-                
+
             elif isinstance(top_expr, ops.Assignment):
                 line_function = AssignLineFunction(
                     lhs_key,
@@ -593,15 +594,12 @@ class Compiler:
             self.data_variables.values(),
             self.parameter_variables.values(),
             self.assigned_parameter_variables.values(),
-            self.subscript_use_variables
+            self.subscript_use_variables,
         )
 
         args = [variable.code() for variable in argument_variables]
 
-        code = (
-            f"def log_density({','.join(args)}):\n" +
-            f"    assigned_parameters = {{}}\n"
-        )
+        code = f"def log_density({','.join(args)}):\n" + f"    assigned_parameters = {{}}\n"
         for top_expr in ordered_expr_trees:
             if isinstance(top_expr, ops.Distr):
                 code += f"    target += jax.numpy.sum({top_expr.code()})\n"
