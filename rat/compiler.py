@@ -508,7 +508,10 @@ class Compiler:
                     # 1. The model's computational graph is not a DAG
                     # 2. The parameter is undefined
                     raise CompileError(
-                        f"Could not find a prior declared for variable {subexpr_key}.", self.model_code_string, subexpr.line_index, subexpr.column_index
+                        f"Could not find a prior declared for variable {subexpr_key}.",
+                        self.model_code_string,
+                        subexpr.line_index,
+                        subexpr.column_index,
                     )
 
                 # resolve subscripts
