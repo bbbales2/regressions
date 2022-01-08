@@ -1,10 +1,14 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Tuple, Union
 
 from . import variables
 
 
+@dataclass
 class Expr:
+    line_index: int = field(default=-1, kw_only=True)  # line index of the original model code
+    column_index: int = field(default=-1, kw_only=True)  # column index of the original model code
+
     def __iter__(self):
         return self
 
@@ -18,7 +22,7 @@ class Expr:
         return "Expr()"
 
 
-@dataclass(frozen=True)
+@dataclass
 class RealConstant(Expr):
     value: float
 
@@ -33,7 +37,7 @@ class RealConstant(Expr):
         return f"RealConstant({self.value})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class IntegerConstant(Expr):
     value: int
 
@@ -115,11 +119,12 @@ class Param(Expr):
         return f"Param({self.name}, {self.subscript.__str__()}, lower={self.lower}, upper={self.upper})"
 
 
+@dataclass
 class Distr(Expr):
-    pass
+    variate: Expr
 
 
-@dataclass(frozen=True)
+@dataclass
 class Normal(Distr):
     variate: Expr
     mean: Expr
@@ -135,7 +140,7 @@ class Normal(Distr):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class BernoulliLogit(Distr):
     variate: Expr
     logit_p: Expr
@@ -150,7 +155,7 @@ class BernoulliLogit(Distr):
         return f"BernoulliLogit({self.variate.__str__()}, {self.logit_p.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class LogNormal(Distr):
     variate: Expr
     mean: Expr
@@ -166,7 +171,7 @@ class LogNormal(Distr):
         return f"LogNormal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Cauchy(Distr):
     variate: Expr
     location: Expr
@@ -182,7 +187,7 @@ class Cauchy(Distr):
         return f"Cauchy({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Exponential(Distr):
     variate: Expr
     scale: Expr
@@ -197,7 +202,7 @@ class Exponential(Distr):
         return f"Exponential({self.variate.code()}, {self.scale.code()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Diff(Expr):
     lhs: Expr
     rhs: Expr
@@ -212,7 +217,7 @@ class Diff(Expr):
         return f"Diff({self.lhs.__str__()}, {self.rhs.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Sum(Expr):
     left: Expr
     right: Expr
@@ -227,7 +232,7 @@ class Sum(Expr):
         return f"Sum({self.left.__str__()}, {self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Mul(Expr):
     lbp = 30
     left: Expr
@@ -243,7 +248,7 @@ class Mul(Expr):
         return f"Mul({self.left.__str__()}, {self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Pow(Expr):
     lbp = 40
     left: Expr
@@ -259,7 +264,7 @@ class Pow(Expr):
         return f"Pow({self.left.__str__()}, {self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Div(Expr):
     left: Expr
     right: Expr
@@ -274,7 +279,7 @@ class Div(Expr):
         return f"Div({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Mod(Expr):
     left: Expr
     right: Expr
@@ -289,7 +294,7 @@ class Mod(Expr):
         return f"Mod({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class LogicalOR(Expr):
     left: Expr
     right: Expr
@@ -304,7 +309,7 @@ class LogicalOR(Expr):
         return f"LogicalOR({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class LogicalAND(Expr):
     left: Expr
     right: Expr
@@ -319,7 +324,7 @@ class LogicalAND(Expr):
         return f"LogicalAND({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Equality(Expr):
     left: Expr
     right: Expr
@@ -334,7 +339,7 @@ class Equality(Expr):
         return f"Equality({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Inequality(Expr):
     left: Expr
     right: Expr
@@ -349,7 +354,7 @@ class Inequality(Expr):
         return f"Inequality({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class LessThan(Expr):
     left: Expr
     right: Expr
@@ -364,7 +369,7 @@ class LessThan(Expr):
         return f"LessThan({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class LessThanOrEqual(Expr):
     left: Expr
     right: Expr
@@ -379,7 +384,7 @@ class LessThanOrEqual(Expr):
         return f"LessThanOrEqual({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class GreaterThan(Expr):
     left: Expr
     right: Expr
@@ -394,7 +399,7 @@ class GreaterThan(Expr):
         return f"GreaterThan({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class GreaterThanOrEqual(Expr):
     left: Expr
     right: Expr
@@ -409,7 +414,7 @@ class GreaterThanOrEqual(Expr):
         return f"GreaterThanOrEqual({self.left.__str__(), self.right.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class PrefixNegation(Expr):
     subexpr: Expr
 
@@ -423,7 +428,7 @@ class PrefixNegation(Expr):
         return f"PrefixNegation({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class PrefixLogicalNegation(Expr):
     subexpr: Expr
 
@@ -437,7 +442,7 @@ class PrefixLogicalNegation(Expr):
         return f"PrefixLogicalNegation({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Assignment(Expr):
     lhs: Expr
     rhs: Expr
@@ -452,7 +457,7 @@ class Assignment(Expr):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Log(Expr):
     subexpr: Expr
 
@@ -466,7 +471,7 @@ class Log(Expr):
         return f"Log({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Exp(Expr):
     subexpr: Expr
 
@@ -480,7 +485,7 @@ class Exp(Expr):
         return f"Exp({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Abs(Expr):
     subexpr: Expr
 
@@ -494,7 +499,7 @@ class Abs(Expr):
         return f"Abs({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Floor(Expr):
     subexpr: Expr
 
@@ -508,7 +513,7 @@ class Floor(Expr):
         return f"Floor({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Ceil(Expr):
     subexpr: Expr
 
@@ -522,7 +527,7 @@ class Ceil(Expr):
         return f"Ceil({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Round(Expr):
     subexpr: Expr
 
@@ -536,7 +541,7 @@ class Round(Expr):
         return f"Round({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Sin(Expr):
     subexpr: Expr
 
@@ -550,7 +555,7 @@ class Sin(Expr):
         return f"Sin({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Cos(Expr):
     subexpr: Expr
 
@@ -564,7 +569,7 @@ class Cos(Expr):
         return f"Cos({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Tan(Expr):
     subexpr: Expr
 
@@ -578,7 +583,7 @@ class Tan(Expr):
         return f"Tan({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Arcsin(Expr):
     subexpr: Expr
 
@@ -592,7 +597,7 @@ class Arcsin(Expr):
         return f"Arcsin({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Arccos(Expr):
     subexpr: Expr
 
@@ -606,7 +611,7 @@ class Arccos(Expr):
         return f"Arccos({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Arctan(Expr):
     subexpr: Expr
 
@@ -620,7 +625,7 @@ class Arctan(Expr):
         return f"Arctan({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Logit(Expr):
     subexpr: Expr
 
@@ -634,7 +639,7 @@ class Logit(Expr):
         return f"Logit({self.subexpr.__str__()})"
 
 
-@dataclass(frozen=True)
+@dataclass
 class InverseLogit(Expr):
     subexpr: Expr
 
@@ -670,7 +675,7 @@ class Placeholder(Expr):
         return f"Placeholder({self.name}, {self.index.__str__()})"
 
 
-def search_tree(expr, *types):
+def search_tree(expr: Expr, *types) -> Expr:
     for _type in types:
         if isinstance(expr, _type):
             yield expr

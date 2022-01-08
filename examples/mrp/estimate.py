@@ -4,7 +4,7 @@ from rat.model import Model
 
 mrp_folder = os.path.dirname(__file__)
 
-mrp_df = pandas.read_csv(os.path.join(mrp_folder, "clean.csv"))
+mrp_df = pandas.read_csv(os.path.join(mrp_folder, "clean_small.csv"))
 
 with open(os.path.join(mrp_folder, "mrp.rat")) as f:
     model_string = f.read()

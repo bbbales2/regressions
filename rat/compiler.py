@@ -4,7 +4,8 @@ import pandas
 import jax
 import jax.numpy
 import jax.scipy.stats
-from typing import Iterable, List, Dict, Set, Tuple
+from typing import Iterable, List, Dict, Set, Tuple, Union
+import warnings
 
 from . import ops
 from . import variables
@@ -102,337 +103,545 @@ class AssignLineFunction(LineFunction):
         return self.compiled_function(*args, *self.index_use_numpy)
 
 
-# Iterate over the rhs variables, and store them in the graph
-def generate_dependency_graph(parsed_lines: List[ops.Expr], reversed: bool = True):
-    out_graph = {}
-    for line in parsed_lines:
-        if isinstance(line, ops.Distr):
-            lhs = line.variate
-        elif isinstance(line, ops.Assignment):
-            lhs = line.lhs
-
-        lhs_op_key = lhs.get_key()
-        if lhs_op_key not in out_graph:
-            out_graph[lhs_op_key] = set()
-
-        for subexpr in ops.search_tree(line, ops.Param, ops.Data):
-            rhs_op_key = subexpr.get_key()
-            if rhs_op_key not in out_graph:
-                out_graph[rhs_op_key] = set()
-            if subexpr.get_key() == lhs_op_key:
-                continue
-
-            if reversed:
-                out_graph[rhs_op_key].add(lhs_op_key)
-            else:
-                # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
-                out_graph[lhs_op_key].add(rhs_op_key)
-            # if isinstance(line, ops.Distr):
-            #     if reversed:
-            #         out_graph[rhs_op_key].add(lhs_op_key)
-            #     else:
-            #         # if not isinstance(lhs, ops.Data):  # Data is independent, need nothing to evaluate data
-            #         out_graph[lhs_op_key].add(rhs_op_key)
-            # else:
-            #     if reversed:
-            #         out_graph[rhs_op_key].add(lhs_op_key)
-            #     else:
-            #         out_graph[lhs_op_key].add(rhs_op_key)
-
-    return out_graph
+class CompileError(Exception):
+    def __init__(self, message, code_string: str, line_num: int = -1, column_num: int = -1):
+        code_string = code_string.split("\n")[line_num] if code_string else ""
+        exception_message = f"An error occured while compiling the following line({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
+        super().__init__(exception_message)
 
 
-def topological_sort(graph):
-    evaluation_order = []
-    topsort_visited = set()
+class Compiler:
+    data_df: pandas.DataFrame
+    expr_tree_list: List[ops.Expr]
+    model_code_string: str
 
-    def recursive_order_search(current):
-        topsort_visited.add(current)
-        for child in graph[current]:
-            if child not in topsort_visited:
-                recursive_order_search(child)
+    def __init__(self, data_df: pandas.DataFrame, expr_tree_list: List[ops.Expr], model_code_string: str = ""):
+        """
+        The rat compiler receives the data dataframe and parsed expression trees and generates Python code which is used
+        to declare the target logpdf for inference. During compilation, a total of 2 passes are done through the
+        expression tree, excluding 2 separate topological sort operations for identifying compilation order.
+        The first pass is based on reverse dependency order and resolves subscripts, while the second pass runs in
+        standard dependence order and does the actual codegen/linking with ops.
 
-        evaluation_order.append(current)
+        In a high level, Compiler does the following operations:
 
-    for val in tuple(graph.keys()):
-        if val not in topsort_visited:
-            recursive_order_search(val)
+        1. generate reverse dependency graph
+        2-1. generate base_df(reference df) for every subscripted parameter
+        2-2. generate variable.Subscript() for each variable/data
+        3. generate canonical dependency graph
+        4-1. generate variable.Param/AssignedParam/Data and variable.SubscriptUse()
+        4-2. generate linefunction/assignment_linefunction
+        """
+        self.data_df = data_df
+        self.expr_tree_list = expr_tree_list
+        self.model_code_string = model_code_string
 
-    return evaluation_order
+        # this is the dataframe that goes into variables.Subscript. Each row is a unique combination of indexes
+        self.parameter_base_df: Dict[str, pandas.DataFrame] = {}
 
+        # this is the dictionary that keeps track of what names the parameter subscripts were defined as
+        self.parameter_subscript_names: Dict[str, List[Set[str]]] = {}
 
-def compile(data_df: pandas.DataFrame, parsed_lines: List[ops.Expr]):
-    logging.info(f"rat compiler - starting code generation for {len(parsed_lines)} line(s) of code.")
-    dependency_graph: Dict[str, Set[str]] = {}
-    """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
-    If we think of it as rhs | lhs, the dependency graph is an *acyclic* graph that has directed edges going 
-    from rhs -> lhs. This is because subscripts on rhs can be resolved, given the dataframe of the lhs. However, for
-    assignments, the order is reversed(lhs -> rhs) since we need rhs to infer its subscripts"""
+        # this set keep track of variable names that are not parameters, i.e. assigned by assignment
+        self.assigned_parameter_keys: Set[str] = set()
 
-    # traverse through all lines, assuming they are DAGs. This throws operational semantics out the window, but since
-    # rat doesn't allow control flow(yet), I'm certain a cycle would mean that it's a mis-specified program
+        self.data_variables: Dict[str, variables.Data] = {}
+        self.parameter_variables: Dict[str, variables.Param] = {}
+        self.assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
+        self.variable_subscripts: Dict[str, variables.Subscript] = {}
 
-    dependency_graph = generate_dependency_graph(parsed_lines)
-    evaluation_order = topological_sort(dependency_graph)
-    # assignments need to be treated opposite
+        self.line_functions: List[LineFunction] = []
 
-    # evaluation_order is the list of topologically sorted vertices
-
-    logging.debug(f"reverse dependency graph: {dependency_graph}")
-    logging.debug(f"first pass eval order: {evaluation_order}")
-
-    # this is the dataframe that goes into variables.Subscript. Each row is a unique combination of indexes
-    parameter_base_df: Dict[str, pandas.DataFrame] = {}
-
-    # this is the dictionary that keeps track of what columns the parameter subscripts were defined as
-    parameter_subscript_columns: Dict[str, List[Set[str]]] = {}
-
-    # this set keep track of variable names that are not parameters, i.e. assigned by assignment
-    assigned_parameter_keys: Set[str] = set()
-
-    data_variables: Dict[str, variables.Data] = {}
-    parameter_variables: Dict[str, variables.Param] = {}
-    assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
-    variable_subscripts: Dict[str, variables.Subscript] = {}
-
-    line_functions: List[LineFunction] = []
-
-    # first pass : fill param_base_dfs of all parameters
-    for target_op_name in evaluation_order:
-        logging.debug(f"------first pass starting for {target_op_name}")
-        target_op_subscript_key = None
-        for line in parsed_lines:
+    def _generate_dependency_graph(self, reversed=False) -> Dict[str, Set[str]]:
+        """
+        Generate a dependency graph of all variables/data within self.expr_tree_list.
+        Parameter 'reversed', if True, will reverse the standard dependence order of LHS | RHS into RHS | LHS
+        """
+        dependency_graph: Dict[str, Set[str]] = {}  # this is the dependency graph
+        for line in self.expr_tree_list:  # iterate over every line
             if isinstance(line, ops.Distr):
                 lhs = line.variate
             elif isinstance(line, ops.Assignment):
                 lhs = line.lhs
-                assigned_parameter_keys.add(lhs.get_key())
-                if lhs.get_key() == target_op_name:
-                    if lhs.subscript:
-                        if lhs.get_key() not in parameter_base_df:
-                            raise Exception(f"Can't resolve {lhs.get_key()}")
-                        target_op_subscript_key = lhs.subscript.get_key()
 
-            if not lhs.get_key() == target_op_name:
-                continue
+            lhs_op_key = lhs.get_key()
+            if lhs_op_key not in dependency_graph:
+                dependency_graph[lhs_op_key] = set()
 
-            line_df = None
-            if isinstance(lhs, ops.Data):
-                # If the left hand side is data, the dataframe comes from input
-                line_df = data_df
-            elif isinstance(lhs, ops.Param):
-                # Otherwise, the dataframe comes from the parameter (unless it's scalar then it's none)
-                if lhs.get_key() in parameter_base_df:
-                    if parameter_base_df[lhs.get_key()] is not None:
-                        if lhs.subscript is None:
-                            raise Exception(f"{lhs.get_key()} must declare its subscripts to be used as a reference variable")
-                        target_op_subscript_key = lhs.subscript.get_key()
-                        line_df = parameter_base_df[lhs.get_key()].copy()
-                        line_df.columns = tuple(lhs.subscript.get_key())
-                    else:
-                        line_df = None
-                else:
-                    if not lhs.subscript:
-                        break
-
-            # Find all the data referenced in the line
-            for subexpr in ops.search_tree(line, ops.Data):
-                data_variables[subexpr.get_key()] = variables.Data(subexpr.get_key(), data_df[subexpr.get_key()])
-
-            # Find all the ways that each parameter is subscripted
-            for subexpr in ops.search_tree(line, ops.Param):
-                # Is this handling y = y by ignoring it?
-                if subexpr.get_key() == lhs.get_key():
+            for subexpr in ops.search_tree(line, ops.Param, ops.Data):
+                rhs_op_key = subexpr.get_key()
+                if rhs_op_key == lhs_op_key:
                     continue
-                subexpr_key = subexpr.get_key()
-                if subexpr.subscript:
-                    try:
-                        v_df = line_df.loc[:, subexpr.subscript.get_key()]
-                    except KeyError as e:
-                        raise Exception(f"Dataframe for {lhs.get_key()} cannot be subscripted by {subexpr.subscript.get_key()}") from e
-                    logging.debug(f"{subexpr_key} referenced")
-                    if subexpr_key in parameter_base_df:
-                        v_df.columns = tuple(parameter_base_df[subexpr_key].columns)
-                        parameter_base_df[subexpr_key] = (
-                            pandas.concat([parameter_base_df[subexpr_key], v_df]).drop_duplicates().reset_index(drop=True)
-                        )
-                        for n, key in enumerate(subexpr.subscript.get_key()):
-                            parameter_subscript_columns[subexpr_key][n].add(key)
-                    else:
-                        # initialize the subscript column list length to be the subscript count
-                        parameter_subscript_columns[subexpr_key] = [set() for _ in range(len(subexpr.subscript.get_key()))]
-                        for n, key in enumerate(subexpr.subscript.get_key()):
-                            parameter_subscript_columns[subexpr_key][n].add(key)
-                        parameter_base_df[subexpr_key] = v_df.drop_duplicates().reset_index(drop=True)
 
-        # else:
-        #     # Ignore variables in the input dataframe
-        #     if target_op_name not in data_df.columns:
-        #         raise Exception(
-        #             f"Could not find a definition for {target_op_name} (it should either have a prior if it's a parameter or be assigned if it's a transformed parameter)"
-        #         )
-        if target_op_name in parameter_base_df:
-            parameter_base_df[target_op_name].columns = tuple(target_op_subscript_key)
+                if rhs_op_key not in dependency_graph:
+                    dependency_graph[rhs_op_key] = set()
 
-    logging.debug("first pass finished")
-    logging.debug("now printing parameter_base_df")
-    for key, val in parameter_base_df.items():
-        logging.debug(key)
-        logging.debug(val)
-        variable_subscripts[key] = variables.Subscript(parameter_base_df[key], parameter_subscript_columns[key])
-    logging.debug("done printing parameter_base_df")
-    logging.debug("now printing variable_subscripts")
-    for key, val in variable_subscripts.items():
-        logging.debug(key)
-        logging.debug(val.base_df)
-        logging.info(f"Subscript data for parameter {key}:")
-        val.log_summary(logging.INFO)
-        logging.info("-----")
-    logging.debug("done printing variable_subscripts")
+                if reversed:
+                    dependency_graph[rhs_op_key].add(lhs_op_key)
+                else:
+                    dependency_graph[lhs_op_key].add(rhs_op_key)
 
-    """Now transpose the dependency graph(lhs -> rhs, or lhs | rhs). For a normal DAD, it's as simple as reversing the
-     evaluation order. Unfortunately, since assignments always stay true as (lhs | rhs), we have to rebuild the DAG. :(
-     Because we're trying to evaluate lhs given rhs, this is the canonical dependency graph representation for DAGs"""
-    dependency_graph = generate_dependency_graph(parsed_lines, reversed=False)
-    evaluation_order = topological_sort(dependency_graph)
-    logging.debug(f"canonical dependency graph: {dependency_graph}")
-    logging.debug(f"second pass eval order: {evaluation_order}")
+        return dependency_graph
 
-    # since the statements are topologically sorted, a KeyError means a variable was undefined by the user.
-    # we now iterate over the statements, assigning actual variables with variables.X
-    for target_op_name in evaluation_order:  # current parameter/data name
-        logging.debug("@" * 5)
-        logging.debug(f"running 2nd pass for: {target_op_name}")
-        logging.debug(f"data: {list(data_variables.keys())}")
-        logging.debug(f"parameters: {list(parameter_variables.keys())}")
-        logging.debug(f"assigned parameters {list(assigned_parameter_variables.keys())}")
+    def _order_expr_tree(self, dependency_graph: Dict[str, Set[str]]):
+        """
+        Given a dependence graph, reorder the expression trees in self.expr_tree_list in topological order.
+        """
+        var_evalulation_order: List[str] = []  # topologically sorted variable names
+        current_recursion_lhs = None
 
-        for line in parsed_lines:
-            # the sets below denote variables needed in this line
-            data_vars_used: Set[variables.Data] = set()
-            parameter_vars_used: Set[variables.Param] = set()
-            assigned_parameter_vars_used: Set[variables.AssignedParam] = set()
-            subscript_use_vars: Dict[Tuple, variables.SubscriptUse] = {}
+        def recursive_order_search(current):
+            if current in var_evalulation_order:
+                return
+            for child in dependency_graph[current]:
+                recursive_order_search(child)
+            var_evalulation_order.append(current)
 
-            if isinstance(line, ops.Distr):
-                lhs = line.variate
-            elif isinstance(line, ops.Assignment):
-                lhs = line.lhs
-            lhs_key = lhs.get_key()
-            if lhs_key != target_op_name:
-                continue  # worst case we run n! times where n is # of lines
+        try:
+            for expr in self.expr_tree_list:
+                if isinstance(expr, ops.Distr):
+                    lhs = expr.variate
+                elif isinstance(expr, ops.Assignment):
+                    lhs = expr.lhs
+                current_recursion_lhs = lhs
+                recursive_order_search(lhs.get_key())
+        except RecursionError as e:
+            raise CompileError(
+                "Could not topologically order the expression tree. This is because your model is cyclic.",
+                self.model_code_string,
+                current_recursion_lhs.line_index,
+                current_recursion_lhs.column_index,
+            ) from e
 
-            if isinstance(lhs, ops.Data):
-                lhs_df = data_df
+        # create (Expr, lhs_var_name) pair, which is used to sort based on lhs_var_name
+        expr_tree_list = [[x, x.lhs.get_key() if isinstance(x, ops.Assignment) else x.variate.get_key()] for x in self.expr_tree_list]
+
+        def get_index(name, expr):
+            try:
+                return var_evalulation_order.index(name)
+            except ValueError as e:
+                raise CompileError(
+                    f"First pass error: key {name} not found while ordering expressions. Please check that all variables/parameters have been declared.",
+                    self.model_code_string,
+                    line_num=expr.line_index,
+                    column_num=0,
+                ) from e
+
+        return [elem[0] for elem in sorted(expr_tree_list, key=lambda x: get_index(x[1], x[0]))]
+
+    def _build_base_df(self, rev_ordered_expr_trees: List[ops.Expr]):
+        """
+        First code pass. This function must receive the *reversed* dependence graph, or RHS | LHS where edges go from
+        RHS to LHS. This function will loop over the expression trees once, and write the parameter base dataframes into
+        the class attribute self. parameter_base_df.
+
+        The core two classes related to subscripts are `variables.Subscript` and `variables.SubscriptUse`. In short,
+        `Subscript` denotes the dataframe where the variable is used in LHS. It's used as the basis for resolving
+        subscripts on its RHS.
+        Meanwhile, `SubscriptUse` is what's given to Param in RHS. It's inferred from the LHS variable's `Subscript`,
+        which is indexed according to the RHS subscript.
+
+        1. generate base_df for every LHS variable
+        2. identify every subscript scheme for all subscripted variables
+        """
+        # On the first pass, we generate the base reference dataframe for each variable. This goes into
+        # variable.Subscript.base_df
+
+        for top_expr in rev_ordered_expr_trees:
+            if isinstance(top_expr, ops.Distr):
+                lhs: ops.Expr = top_expr.variate
+            elif isinstance(top_expr, ops.Assignment):
+                lhs: ops.Expr = top_expr.lhs
+
+                # check if lhs type is ops.Param (can't assign to data)
+                if not isinstance(lhs, ops.Param):
+                    raise CompileError(
+                        "LHS of assign statement must be a variable and not data!", self.model_code_string, lhs.line_index, lhs.column_index
+                    )
+
             else:
-                if lhs.subscript is not None:
-                    lhs_df = variable_subscripts[lhs.get_key()].df  # parameter_base_df[lhs.get_key()]
+                # This should never be reached given a well-formed expression tree
+                raise CompileError(
+                    f"Top-level expressions may only be an assignment or sample statement, but got type {top_expr.__class__.__name__}",
+                    self.model_code_string,
+                    top_expr.line_index,
+                    top_expr.column_index,
+                )
 
-            if isinstance(line, ops.Distr):
+            lhs_key = lhs.get_key()
+
+            # we now construct the LHS reference dataframe. This is the dataframe that the LHS variable possesses.
+            # For example, consider `slope[age, country] ~ normal(mu[country], 1);`
+            # The subscript "country" on the RHS is looked up from the LHS dataframe's "country" column.
+            # As you can see, for every line that contains subscripted variables, the LHS's subscripts must be known
+            # in order to resolve the correct subscript values on the RHS. lhs_base_df is the reference base
+            # dataframe that the RHS subscripts are resolved on that line.
+            if isinstance(lhs, ops.Data):
+                # If the LHS type is data, the reference dataframe is the data dataframe
+                lhs_base_df = self.data_df
+
+            elif isinstance(lhs, ops.Param):
+                # Otherwise, we take the reference dataframe of the LHS variable.
+                # Since the lines are evaluated in a topological order, the LHS would have been known at this point.
+                if lhs.subscript:
+                    # subscripts for variables come from the LHS of the line that the variable was used
+                    if lhs.get_key() in self.parameter_base_df:
+                        lhs_base_df = self.parameter_base_df[lhs.get_key()].copy()
+                        # rename the column names(subscript names) of the base_df
+                        # to be compatible on the current line
+                        try:
+                            lhs_base_df.columns = tuple(lhs.subscript.get_key())
+                        except ValueError as e:
+                            # if usage subscript length and declared subscript length do not match, raise exception
+                            raise CompileError(
+                                f"Variable {lhs.get_key()}, has declared {len(lhs.subscript.get_key())}LHS subscript, but was used in RHS as {len(lhs_base_df.columns)} subscripts.",
+                                self.model_code_string,
+                                lhs.line_index,
+                                lhs.column_index,
+                            ) from e
+                    else:
+                        raise CompileError(
+                            f"Variable {lhs.get_key()} was declared to have subscript {lhs.subscript.get_key()}, but no usage of said variable was found.",
+                            self.model_code_string,
+                            lhs.line_index,
+                            lhs.column_index,
+                        )
+                else:
+                    lhs_base_df = None
+
+            for sub_expr in ops.search_tree(top_expr, ops.Param):
+                sub_expr_key = sub_expr.get_key()
+                # we're only interested in the RHS usages:
+                if sub_expr.get_key() == lhs.get_key():
+                    continue
+
+                # if the variable is not subscripted, nothing more needs to be done
+                if not sub_expr.subscript:
+                    continue
+
+                # get the subscripted columns from LHS base df
+                try:
+                    rhs_base_df = lhs_base_df.loc[:, sub_expr.subscript.get_key()]
+                except KeyError as e:
+                    # this means a subscript referenced on RHS does not exist on the LHS base dataframe
+                    raise CompileError(
+                        f"Couldn't index RHS variable {sub_expr_key}'s declared subscript{sub_expr.subscript.get_key()} from LHS base df, which has subscripts {tuple(lhs_base_df.columns)}.",
+                        self.model_code_string,
+                        sub_expr.line_index,
+                        sub_expr.column_index,
+                    ) from e
+                except AttributeError as e:
+                    # this means LHS has no base dataframe but a subscript was attempted from RHS
+                    raise CompileError(
+                        f"Variable on RHS side '{sub_expr_key}' attempted to subscript {sub_expr.subscript.get_key()}, but LHS variable '{lhs.get_key()}' has no subscripts!",
+                        self.model_code_string,
+                        sub_expr.line_index,
+                        sub_expr.column_index,
+                    ) from e
+
+                if sub_expr_key in self.parameter_base_df:
+                    # if we already have a base_df registered, try merging them
+                    try:
+                        rhs_base_df.columns = tuple(self.parameter_base_df[sub_expr_key])
+                    except ValueError as e:
+                        raise CompileError(
+                            f"Subscript length mismatch: variable on RHS side '{sub_expr_key}' has declared subscript of length {len(sub_expr_key)}, but has been used with a subscript of length {len(self.parameter_base_df[sub_expr_key])}",
+                            self.model_code_string,
+                            sub_expr.line_index,
+                            sub_expr.column_index,
+                        ) from e
+                    self.parameter_base_df[sub_expr_key] = (
+                        pandas.concat([self.parameter_base_df[sub_expr_key], rhs_base_df]).drop_duplicates().reset_index(drop=True)
+                    )
+
+                    # keep track of subscript names for each position
+                    for n, subscript in enumerate(sub_expr.subscript.get_key()):
+                        self.parameter_subscript_names[sub_expr_key][n].add(subscript)
+
+                else:  # or generate base df for RHS variable if it doesn't exist
+                    # this list of sets keep track of the aliases of each subscript position
+                    self.parameter_subscript_names[sub_expr_key] = [set() for _ in range((len(sub_expr.subscript.get_key())))]
+                    for n, subscript in enumerate(sub_expr.subscript.get_key()):
+                        self.parameter_subscript_names[sub_expr_key][n].add(subscript)
+
+                    self.parameter_base_df[sub_expr_key] = rhs_base_df.drop_duplicates().reset_index(drop=True)
+
+            if lhs_key in self.parameter_base_df:
+                # Update base_df's column names to the latest subscript definitions.
+                # This means the index names will be set to the subscript names of the LHS definition
+                self.parameter_base_df[lhs_key].columns = tuple(lhs.subscript.get_key())
+
+    def _build_linefunctions(self, ordered_expr_trees: List[ops.Expr]):
+        """
+        The goal in the second pass is
+        1. Generate variable.Param, variable.AssignedParam, variable.Data for each respective variable/data
+        2. Generate variable.SubscriptUse and map them to variable.Param/AssignedParam. They are used to resolve RHS
+        subscripts from the LHS base_df
+        3. Generate LineFunction or AssignLineFunction, which encapsulate each expression tree as actual python code.
+
+        The expression trees must be sorted in canonical topological order(LHS | RHS) in order to run succesfully.
+        """
+        for top_expr in ordered_expr_trees:
+            logging.debug("@" * 5)
+
+            # the following variables are used to keep track of the values used in the current expression tree
+            data_vars_used: Set[str] = set()
+            parameter_vars_used: Set[str] = set()
+            assigned_parameter_vars_used: Set[str] = set()
+            subscript_use_vars_used: Dict[Tuple, variables.SubscriptUse] = {}
+
+            if isinstance(top_expr, ops.Distr):
+                lhs = top_expr.variate
+            elif isinstance(top_expr, ops.Assignment):
+                lhs = top_expr.lhs
+            else:
+                raise CompileError(
+                    f"Top-level expressions may only be an assignment or sample statement, but got type {top_expr.__class__.__name__}",
+                    self.model_code_string,
+                    top_expr.line_index,
+                    top_expr.column_index,
+                )
+
+            lhs_key = lhs.get_key()
+            logging.debug(f"Second pass for {lhs_key}")
+            if isinstance(lhs, ops.Data):
+                lhs_base_df = self.data_df
+            elif isinstance(lhs, ops.Param):
+                if lhs.subscript is not None:
+                    lhs_base_df = self.parameter_base_df[lhs_key]
+                else:
+                    lhs_base_df = None
+            else:
+                raise CompileError(
+                    f"LHS of statement should be a Data or Param type, but got {lhs.__class__.__name__}",
+                    self.model_code_string,
+                    lhs.line_index,
+                    lhs.column_index,
+                )
+
+            if isinstance(top_expr, ops.Distr):
+                # If we're working with a sampling statement, create a variable object and link them to ops.Expr
                 if isinstance(lhs, ops.Data):
                     data_vars_used.add(lhs_key)
-                    lhs.variable = data_variables[lhs.get_key()]
+                    self.data_variables[lhs_key] = variables.Data(lhs_key, self.data_df[lhs_key])
+                    lhs.variable = self.data_variables[lhs_key]
+
                 elif isinstance(lhs, ops.Param):
-                    lower = lhs.lower
-                    upper = lhs.upper
+                    try:  # evaluate constraint expressions
+                        lower_constraint_value = float(eval(lhs.lower.code()))
+                        upper_constraint_value = float(eval(lhs.upper.code()))
+                    except Exception as e:
+                        raise CompileError(
+                            f"Error when evaluating constraints for {lhs_key}. Constraint expressions must be able to be evaluated at compile time.",
+                            self.model_code_string,
+                            lhs.line_index,
+                            lhs.column_index,
+                        ) from e
 
-                    if lhs_key in variable_subscripts:
-                        subexpr = variables.Param(lhs_key, variable_subscripts[lhs_key])
+                    # generate variables.Param for LHS. This is because the variable on LHS is first seen here.
+                    if lhs.subscript is not None:
+                        lhs_variable = variables.Param(lhs_key, self.variable_subscripts[lhs_key])
                     else:
-                        subexpr = variables.Param(lhs_key)
-                    subexpr.set_constraints(float(eval(lower.code())), float(eval(upper.code())))
-                    parameter_variables[lhs_key] = subexpr
-                    lhs.variable = parameter_variables[lhs_key]
+                        lhs_variable = variables.Param(lhs_key)
 
-            elif isinstance(line, ops.Assignment):
-                assert isinstance(line.lhs, ops.Param), "lhs of assignment must be an Identifier denoting a variable name"
-                # assignment lhs are set as variables.AssignedParam, since they're not subject for sampling
+                    # apply constraints
+                    lhs_variable.set_constraints(lower_constraint_value, upper_constraint_value)
+                    lhs.variable = lhs_variable  # bind to ops.Param in expression tree
 
-                if lhs.subscript:
-                    subexpr = variables.AssignedParam(lhs, line.rhs, variable_subscripts[lhs_key])
-                    variable_subscripts[lhs.get_key()].incorporate_shifts(lhs.subscript.shifts)
-                    subexpr.ops_param.subscript.variable = variables.SubscriptUse(
-                        lhs.subscript.get_key(), parameter_base_df[lhs.get_key()], variable_subscripts[lhs_key]
+                    self.parameter_variables[lhs_key] = lhs_variable
+
+                else:
+                    # should be unreachable since parser checks types
+                    raise CompileError(
+                        f"LHS for sample statement has invalid type", self.model_code_string, lhs.line_index, lhs.column_index
                     )
-                else:
-                    subexpr = variables.AssignedParam(lhs, line.rhs)
-                assigned_parameter_variables[lhs_key] = subexpr
-                lhs.variable = subexpr
-
-            # once variable/parameter lhs declarations/sampling are handled, we process rhs
-            for op in ops.search_tree(line, ops.Data):
-                op_key = op.get_key()
-                data_vars_used.add(op_key)
-                if op_key == lhs_key:
-                    continue
-                op.variable = data_variables[op_key]
-
-            for op in ops.search_tree(line, ops.Param):
-                op_key = op.get_key()
-
-                # For assignments, the left hand isn't defined yet so don't mark it as used
-                if isinstance(line, ops.Assignment) and op_key == lhs_key:
-                    continue
-
-                if op_key in assigned_parameter_variables:
-                    assigned_parameter_vars_used.add(op_key)
-                else:
-                    parameter_vars_used.add(op_key)
-
-                if op_key in assigned_parameter_variables:
-                    assigned_parameter_vars_used.add(op_key)
-                    op.variable = assigned_parameter_variables[op_key]
-                else:
-                    parameter_vars_used.add(op_key)
-                    op.variable = parameter_variables[op_key]
-
-                if op.subscript:
-                    variable_subscripts[op_key].incorporate_shifts(op.subscript.shifts)
-
-                    index_use_identifier = (op.subscript.get_key(), op.subscript.shifts)
-
-                    df_index = (
-                        op.subscript.get_key()  # if isinstance(lhs, ops.Data) else lhs.variable.subscript.check_and_return_index(op.subscript.get_key())
+            elif isinstance(top_expr, ops.Assignment):
+                # Same procedure with assignment statements: create variable object and link back to ops.Expr
+                if not isinstance(lhs, ops.Param):  # shouldn't be reachable because parser catches type errors
+                    raise CompileError(
+                        "LHS for assignment statement has invalid type", self.model_code_string, lhs.line_index, lhs.column_index
                     )
 
-                    # Only need to define this particular subscript use once per line (multiple uses will share)
-                    if index_use_identifier not in subscript_use_vars:
-                        index_use = variables.SubscriptUse(
-                            op.subscript.get_key(), lhs_df.loc[:, df_index], variable_subscripts[op_key], op.subscript.shifts
+                # generate variables.AssignedParam for LHS. This is because the variable on LHS is first seen here.
+                if lhs.subscript is not None:
+                    lhs_variable = variables.AssignedParam(lhs, top_expr.rhs, self.variable_subscripts[lhs_key])
+                else:
+                    lhs_variable = variables.AssignedParam(lhs, top_expr.rhs)
+
+                self.assigned_parameter_variables[lhs_key] = lhs_variable
+                lhs.variable = lhs_variable  # link variable.Data to op.Data in expression tree
+
+            #
+            # We now finished creating variable types for the LHS, which is the first time the variable was seen.
+            # Now we resolve the subscripts for each variable type on RHS, by creating SubscriptUse and linking them
+            # into each variables.Param in the line.
+            for subexpr in ops.search_tree(top_expr, ops.Data):
+                subexpr_key = subexpr.get_key()
+                data_vars_used.add(subexpr_key)  # add to referenced data set
+                if subexpr_key == lhs_key:
+                    # We don't manipulate the LHS variable that we just created
+                    continue
+                self.data_variables[subexpr_key] = variables.Data(subexpr_key, self.data_df[subexpr_key])
+                subexpr.variable = self.data_variables[subexpr_key]
+
+            for subexpr in ops.search_tree(top_expr, ops.Param):
+                # iterate through parameters/assigned parameters
+                subexpr_key = subexpr.get_key()
+
+                # add parameter name to referenced data set and link to ops
+                if subexpr_key in self.assigned_parameter_variables:
+                    if subexpr_key != lhs_key:
+                        # For assignments, being on the LHS doesn't mean it's dependent on it
+                        # So we don't mark an assignedparam as being used if it's on the LHS
+                        assigned_parameter_vars_used.add(subexpr_key)
+
+                    # link variable.AssignedParam to op.Param
+                    subexpr.variable = self.assigned_parameter_variables[subexpr_key]
+                elif subexpr_key in self.parameter_variables:
+                    parameter_vars_used.add(subexpr_key)
+
+                    # link variable.Param to op.Param
+                    subexpr.variable = self.parameter_variables[subexpr_key]
+
+                else:
+                    # if a param does not exist yet, this means either:
+                    # 1. The model's computational graph is not a DAG
+                    # 2. The parameter is undefined
+                    raise CompileError(
+                        f"Could not find a prior declared for variable {subexpr_key}.",
+                        self.model_code_string,
+                        subexpr.line_index,
+                        subexpr.column_index,
+                    )
+
+                # resolve subscripts
+                if subexpr.subscript is not None:
+                    # incorporate shifts into variable.Subscript
+                    self.variable_subscripts[subexpr_key].incorporate_shifts(subexpr.subscript.shifts)
+
+                    # check if the subscript-shift combination has been used before
+                    subscript_use_identifier = (subexpr.subscript.get_key(), subexpr.subscript.shifts)
+
+                    # get the base df's reference column names
+                    base_df_index = (
+                        subexpr.subscript.get_key()
+                        if isinstance(lhs, ops.Data)
+                        else lhs.variable.subscript.check_and_return_subscripts(subexpr.subscript.get_key())
+                    )
+
+                    # extract the subscripts from the base df and link them into variable.SubscriptUse
+                    if subscript_use_identifier not in subscript_use_vars_used:
+                        variable_subscript_use = variables.SubscriptUse(
+                            subexpr.subscript.get_key(),
+                            lhs_base_df.loc[:, base_df_index],
+                            self.variable_subscripts[subexpr_key],
+                            subexpr.subscript.shifts,
                         )
+                        subscript_use_vars_used[subscript_use_identifier] = variable_subscript_use
 
-                        subscript_use_vars[index_use_identifier] = index_use
+                    # link the created variable.SubscriptUse into ops.Param
+                    subexpr.subscript.variable = subscript_use_vars_used[subscript_use_identifier]
 
-                    op.subscript.variable = subscript_use_vars[index_use_identifier]
+            # quickly check to make sure subscripts don't exist for Data
+            for subexpr in ops.search_tree(top_expr, ops.Data):
+                subexpr_key = subexpr.get_key()
+                if subexpr.subscript:
+                    raise CompileError(
+                        f"Indexing on data variables ({subexpr_key}) not supported",
+                        self.model_code_string,
+                        subexpr.line_index,
+                        subexpr.column_index,
+                    )
 
-            for op in ops.search_tree(line, ops.Data):
-                op_key = op.get_key()
-                if op.subscript:
-                    raise Exception(f"Indexing on data variables ({op_key}) not supported")
-
-            if isinstance(line, ops.Distr):
+            # Now we wrap the entire expression tree into a LineFunction or AssignLineFunction, which hold the python
+            # code which actuates the expression tree
+            if isinstance(top_expr, ops.Distr):
                 line_function = LineFunction(
-                    [data_variables[name] for name in data_vars_used],
-                    [parameter_variables[name] for name in parameter_vars_used],
-                    [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    subscript_use_vars.values(),
-                    line,
+                    [self.data_variables[name] for name in data_vars_used],
+                    [self.parameter_variables[name] for name in parameter_vars_used],
+                    [self.assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
+                    subscript_use_vars_used.values(),
+                    top_expr,
                 )
-            elif isinstance(line, ops.Assignment):
+            elif isinstance(top_expr, ops.Assignment):
                 line_function = AssignLineFunction(
                     lhs_key,
-                    [data_variables[name] for name in data_vars_used],
-                    [parameter_variables[name] for name in parameter_vars_used],
-                    [assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    subscript_use_vars.values(),
-                    line,
+                    [self.data_variables[name] for name in data_vars_used],
+                    [self.parameter_variables[name] for name in parameter_vars_used],
+                    [self.assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
+                    subscript_use_vars_used.values(),
+                    top_expr,
                 )
-            line_functions.append(line_function)
-            logging.debug("-------------------")
-            break
 
-    logging.debug("2nd pass finished")
-    logging.debug(f"data: {list(data_variables.keys())}")
-    logging.debug(f"parameters: {list(parameter_variables.keys())}")
-    logging.debug(f"assigned parameters {list(assigned_parameter_variables.keys())}")
-    return data_variables, parameter_variables, assigned_parameter_variables, variable_subscripts, line_functions
+            self.line_functions.append(line_function)
+            logging.debug(f"data: {list(self.data_variables.keys())}")
+            logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
+            logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
+
+    def compile(
+        self,
+    ) -> Tuple[
+        Dict[str, variables.Data],
+        Dict[str, variables.Param],
+        Dict[str, variables.AssignedParam],
+        Dict[str, variables.Subscript],
+        List[LineFunction],
+    ]:
+        if self.parameter_variables:
+            raise Exception("Compiler.compile() may be invoked only once per instance. Create a new instance to recompile.")
+
+        # compiles the expression tree into function statements
+        dependency_graph: Dict[str, Set[str]] = self._generate_dependency_graph(reversed=True)
+        """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
+            If we think of it as rhs | lhs, the dependency graph is an *acyclic* graph that has directed edges going 
+            from rhs -> lhs. This is because subscripts on rhs can be resolved, given the dataframe of the lhs. However, for
+            assignments, the order is reversed(lhs -> rhs) since we need rhs to infer its subscripts"""
+
+        # traverse through all lines, assuming they are DAGs.
+        evaluation_order: List[ops.Expr] = self._order_expr_tree(dependency_graph)
+
+        logging.debug(f"reverse dependency graph: {dependency_graph}")
+        logging.debug(f"first pass line eval order: {[x.line_index for x in evaluation_order]}")
+
+        # build the parameter_base_df for each variable
+        self._build_base_df(evaluation_order)
+
+        # build variable.Subscript for each parameter
+        logging.debug("now printing parameter_base_df")
+        for var_name, subscript in self.parameter_subscript_names.items():
+            logging.debug(var_name)
+            logging.debug(self.parameter_base_df[var_name])
+            self.variable_subscripts[var_name] = variables.Subscript(
+                self.parameter_base_df[var_name], self.parameter_subscript_names[var_name]
+            )
+        logging.debug("done printing parameter_base_df")
+        logging.debug("now printing variable_subscripts")
+
+        for key, val in self.variable_subscripts.items():
+            logging.debug(key)
+            logging.debug(val.base_df)
+            logging.info(f"Subscript data for parameter {key}:")
+            val.log_summary(logging.INFO)
+            logging.info("-----")
+        logging.debug("done printing variable_subscripts")
+
+        # rebuild the dependency graph in normal order, that is lhs | rhs. We now convert the expression trees into
+        # Python code(LineFunction)
+        dependency_graph = self._generate_dependency_graph()
+
+        # and reorder the expression trees accordingly
+        evaluation_order = self._order_expr_tree(dependency_graph)
+
+        logging.debug(f"reverse dependency graph: {dependency_graph}")
+        logging.debug(f"second pass line eval order: {[x.line_index for x in evaluation_order]}")
+
+        # run seconds pass, which binds subscripts and does codegen
+        self._build_linefunctions(evaluation_order)
+
+        return (
+            self.data_variables,
+            self.parameter_variables,
+            self.assigned_parameter_variables,
+            self.variable_subscripts,
+            self.line_functions,
+        )

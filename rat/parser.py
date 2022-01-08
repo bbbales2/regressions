@@ -34,9 +34,9 @@ class PrefixOps:
     @staticmethod
     def generate(expr: Expr, tok: Operator):
         if tok.value == "!":
-            return PrefixLogicalNegation(expr)
+            return PrefixLogicalNegation(expr, line_index=tok.line_index, column_index=tok.column_index)
         elif tok.value == "-":
-            return PrefixNegation(expr)
+            return PrefixNegation(expr, line_index=tok.line_index, column_index=tok.column_index)
 
 
 class PostfixOps:  # not used atm
@@ -68,21 +68,21 @@ class InfixOps:
     @staticmethod
     def generate(lhs: Expr, rhs: Expr, token: Type[Token]):
         if token.value == "+":
-            return Sum(lhs, rhs)
+            return Sum(lhs, rhs, line_index=token.line_index, column_index=token.column_index)
         elif token.value == "-":
-            return Diff(lhs, rhs)
+            return Diff(lhs, rhs, line_index=token.line_index, column_index=token.column_index)
         elif token.value == "*":
-            return Mul(lhs, rhs)
+            return Mul(lhs, rhs, line_index=token.line_index, column_index=token.column_index)
         elif token.value == "/":
-            return Div(lhs, rhs)
+            return Div(lhs, rhs, line_index=token.line_index, column_index=token.column_index)
         elif token.value == "^":
-            return Pow(lhs, rhs)
+            return Pow(lhs, rhs, line_index=token.line_index, column_index=token.column_index)
         elif token.value == "%":
-            return Mod(lhs, rhs)
+            return Mod(lhs, rhs, line_index=token.line_index, column_index=token.column_index)
         elif token.value == "<":
-            return LessThan(lhs, rhs)
+            return LessThan(lhs, rhs, line_index=token.line_index, column_index=token.column_index)
         elif token.value == ">":
-            return GreaterThan(lhs, rhs)
+            return GreaterThan(lhs, rhs, line_index=token.line_index, column_index=token.column_index)
         else:
             raise Exception(f"InfixOps: Unknown operator type {token.value}")
 
@@ -109,7 +109,7 @@ class AssignmentOps:
     def generate(lhs: Expr, operator: Operator, rhs: Expr):
         # check() has been ran for operator
         if operator.value == "=":
-            return Assignment(lhs, rhs)
+            return Assignment(lhs, rhs, line_index=operator.line_index, column_index=operator.column_index)
 
 
 class UnaryFunctions:
@@ -144,33 +144,33 @@ class UnaryFunctions:
     @staticmethod
     def generate(subexpr: Expr, func_type: Identifier):
         if func_type.value == "exp":
-            return Exp(subexpr)
+            return Exp(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "log":
-            return Log(subexpr)
+            return Log(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "abs":
-            return Abs(subexpr)
+            return Abs(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "floor":
-            return Floor(subexpr)
+            return Floor(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "ceil":
-            return Ceil(subexpr)
+            return Ceil(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "round":
-            return Round(subexpr)
+            return Round(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "sin":
-            return Sin(subexpr)
+            return Sin(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "cos":
-            return Cos(subexpr)
+            return Cos(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "tan":
-            return Tan(subexpr)
+            return Tan(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "arcsin":
-            return Arcsin(subexpr)
+            return Arcsin(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "arccos":
-            return Arccos(subexpr)
+            return Arccos(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "arctan":
-            return Arctan(subexpr)
+            return Arctan(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "logit":
-            return Logit(subexpr)
+            return Logit(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
         elif func_type.value == "inverse_logit":
-            return InverseLogit(subexpr)
+            return InverseLogit(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
 
 
 class Distributions:
@@ -193,23 +193,23 @@ class Distributions:
         if dist_type.value == "normal":
             if len(expressions) != 2:
                 raise Exception(f"normal distribution needs 2 parameters, but got {len(expressions)}!")
-            return Normal(lhs, expressions[0], expressions[1])
+            return Normal(lhs, expressions[0], expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index)
         elif dist_type.value == "bernoulli_logit":
             if len(expressions) != 1:
                 raise Exception(f"bernoulli_logit distribution needs 1 parameter, but got {len(expressions)}!")
-            return BernoulliLogit(lhs, expressions[0])
+            return BernoulliLogit(lhs, expressions[0], line_index=dist_type.line_index, column_index=dist_type.column_index)
         elif dist_type.value == "log_normal":
             if len(expressions) != 2:
                 raise Exception(f"log_normal distribution needs 2 parameters, but got {len(expressions)}!")
-            return LogNormal(lhs, expressions[0], expressions[1])
+            return LogNormal(lhs, expressions[0], expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index)
         elif dist_type.value == "cauchy":
             if len(expressions) != 2:
                 raise Exception(f"cauchy distribution needs 2 parameters, but got {len(expressions)}!")
-            return Cauchy(lhs, expressions[0], expressions[1])
+            return Cauchy(lhs, expressions[0], expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index)
         elif dist_type.value == "exponential":
             if len(expressions) != 1:
                 raise Exception(f"exponential distribution needs 1 parameter, but got {len(expressions)}!")
-            return Exponential(lhs, expressions[0])
+            return Exponential(lhs, expressions[0], line_index=dist_type.line_index, column_index=dist_type.column_index)
 
 
 class ParseError(Exception):
@@ -360,7 +360,7 @@ class Parser:
                         subscript_name.line_index,
                         subscript_name.column_index,
                     )
-                expression = Data(subscript_name.value)
+                expression = Data(subscript_name.value, line_index=subscript_name.line_index, column_index=subscript_name.column_index)
                 self.remove()  # subscript name
                 self.expect_token(Special, ",")
                 self.remove()  # character ,
@@ -409,7 +409,7 @@ class Parser:
                 return exp
 
             elif token.value in self.data_names:
-                exp = Data(token.value)
+                exp = Data(token.value, line_index=token.line_index, column_index=token.column_index)
                 self.remove()  # identifier
             elif token.value in Distributions.names:
                 raise ParseError("A distribution has been found in an expressions", self.model_string, token.line_index, token.column_index)
@@ -420,7 +420,6 @@ class Parser:
             if isinstance(next_token, Special) and next_token.value == "[":
                 # identifier '[' subscript_expressions ']'
                 self.remove()  # [
-                warnings.warn("Parser: subscripts are assumed to be a single literal, not expression.")
                 expressions, shift_amount = self.expressions("[", allow_shift=True)  # list of expression
                 self.expect_token(Special, "]")
                 self.remove()  # ]
@@ -446,7 +445,7 @@ class Parser:
     def parse_param(self, is_lhs=False):
         self.expect_token(Identifier)
         token = self.peek()
-        exp = Param(token.value)
+        exp = Param(token.value, line_index=token.line_index, column_index=token.column_index)
         self.remove()  # identifier
 
         # check for constraints  param<lower = 0.0, upper = 1.0>

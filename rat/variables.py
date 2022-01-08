@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass
 import jax.numpy as jnp
 import pandas
@@ -123,11 +124,11 @@ class Subscript:
         :param subscript_key: A tuple of strings, which is retrieved by `ops.Subscript.get_key`
         :return: A tuple of strings, which is composed of the columns names of self.df
         """
-        return_list = []
-        for n, subscript_set in enumerate(self.subscripted_sets):
-            for index in subscript_key:
-                if index in subscript_set or self.df.columns[n] == index:
-                    return_list.append(self.df.columns[n])
+        return_list: List[str] = []
+        for col_index, columnwise_subscript_set in enumerate(self.subscripted_sets):
+            for subscript in subscript_key:
+                if subscript in columnwise_subscript_set or self.df.columns[col_index] == subscript:
+                    return_list.append(self.df.columns[col_index])
 
         return tuple(return_list)
 
