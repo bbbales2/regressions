@@ -37,7 +37,7 @@ def test_parser_simple_constraint_sampling():
     expected = Normal(
         Param(
             name="tau",
-            index=None,
+            subscript=None,
             lower=RealConstant(0.0),
             upper=RealConstant(float("inf")),
         ),
@@ -54,7 +54,7 @@ def test_parser_complex_constraint_sampling():
     expected = Normal(
         Param(
             name="tau",
-            index=None,
+            subscript=None,
             lower=Exp(RealConstant(0.0)),
             upper=RealConstant(float("inf")),
         ),
@@ -71,11 +71,11 @@ def test_parser_rhs_index_shift():
     expected = Normal(
         Param(
             name="tau",
-            index=None,
+            subscript=None,
             lower=RealConstant(0.0),
             upper=RealConstant(float("inf")),
         ),
-        Param(name="skills_mu", index=Index(names=("year", "team"), shifts=(1, None))),
+        Param(name="skills_mu", subscript=Subscript(names=("year", "team"), shifts=(1, None))),
         RealConstant(1.0),
     )
     assert statement.__str__() == expected.__str__()
@@ -89,11 +89,11 @@ def test_parser_rhs_index_shift_multiple():
     expected = Normal(
         Param(
             name="tau",
-            index=None,
+            subscript=None,
             lower=RealConstant(0.0),
             upper=RealConstant(float("inf")),
         ),
-        Param(name="skills_mu", index=Index(names=("year", "team"), shifts=(1, -1))),
+        Param(name="skills_mu", subscript=Subscript(names=("year", "team"), shifts=(1, -1))),
         RealConstant(1.0),
     )
 

@@ -149,7 +149,7 @@ class Scanner:
         self.current_char: str = ""  # head character of model string
         self.register: str = ""  # The register stores the string that's currently being digested
 
-        self.index: int = 0  # This is the current model string index
+        self.index: int = 0  # This is the current model string subscript
 
         self.column_index: int = 0
         self.line_index: int = 0
@@ -409,7 +409,7 @@ class Scanner:
             self.raise_error(f"Character '{self.current_char}' cannot be present within scientific notation!")
 
     def operator_state(self):
-        # if self.model_code[self.index].isnumeric() and self.register == "-":
+        # if self.model_code[self.subscript].isnumeric() and self.register == "-":
         #     # transition 1: if we find a numeric, change to integer state
         #     # lookahead used, needs to be improved
         #     #self.register += self.current_char

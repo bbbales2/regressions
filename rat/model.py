@@ -113,8 +113,8 @@ class Model:
         # Copy back to numpy arrays
         base_dfs = {}
         for name, variable in itertools.chain(self.parameter_variables.items(), self.assigned_parameter_variables.items()):
-            if variable.index is not None:
-                base_dfs[name] = variable.index.base_df.copy()
+            if variable.subscript is not None:
+                base_dfs[name] = variable.subscript.base_df.copy()
             else:
                 base_dfs[name] = pandas.DataFrame()
         return constrained_draws, base_dfs

@@ -55,20 +55,20 @@ def test_full():
         ops.Normal(
             ops.Data("score_diff"),
             ops.Diff(
-                ops.Param("skills", ops.Index(("home_team", "year"))),
-                ops.Param("skills", ops.Index(("away_team", "year"))),
+                ops.Param("skills", ops.Subscript(("home_team", "year"))),
+                ops.Param("skills", ops.Subscript(("away_team", "year"))),
             ),
             ops.Param("sigma"),
         ),
         ops.Normal(
-            ops.Param("skills", ops.Index(("team", "year"))),
-            ops.Param("skills_mu", ops.Index(("year",))),
+            ops.Param("skills", ops.Subscript(("team", "year"))),
+            ops.Param("skills_mu", ops.Subscript(("year",))),
             ops.Param("tau"),
         ),
         ops.Normal(
             ops.Param(
                 "skills_mu",
-                ops.Index(("year",)),
+                ops.Subscript(("year",)),
             ),
             ops.RealConstant(0.0),
             ops.RealConstant(1.0),

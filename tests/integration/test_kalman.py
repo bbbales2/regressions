@@ -20,11 +20,11 @@ def test_optimize_kalman():
 
     # parsed_lines = [
     #    ops.Normal(
-    #        ops.Data("y"), ops.Param("mu", ops.Index(("i",))), ops.RealConstant(0.1)
+    #        ops.Data("y"), ops.Param("mu", ops.Subscript(("i",))), ops.RealConstant(0.1)
     #    ),
     #    ops.Normal(
-    #        ops.Param("mu", ops.Index(("i",))),
-    #        ops.Param("mu", ops.Index(("i",), shifts=(1,))),
+    #        ops.Param("mu", ops.Subscript(("i",))),
+    #        ops.Param("mu", ops.Subscript(("i",), shifts=(1,))),
     #        ops.RealConstant(0.3),
     #    ),
     # ]

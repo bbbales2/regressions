@@ -45,10 +45,10 @@ class IntegerConstant(Expr):
 
 
 @dataclass
-class Index(Expr):
+class Subscript(Expr):
     names: Tuple[str]
     shifts: Tuple[Union[str, None]] = (None,)
-    variable: variables.IndexUse = None
+    variable: variables.SubscriptUse = None
 
     def get_key(self):
         return self.names
@@ -63,7 +63,7 @@ class Index(Expr):
 @dataclass
 class Data(Expr):
     name: str
-    index: Index = None
+    subscript: Subscript = None
     variable: variables.Data = None
 
     def get_key(self):
@@ -71,48 +71,48 @@ class Data(Expr):
 
     def code(self):
         variable_code = self.variable.code()
-        if self.index is not None:
-            return variable_code + f"[{self.index.code()}]"
+        if self.subscript is not None:
+            return variable_code + f"[{self.subscript.code()}]"
         else:
             return variable_code
 
     def __str__(self):
-        if self.index is None:
+        if self.subscript is None:
             return f"Data({self.name})"
         else:
-            return f"Data({self.name}, {self.index})"
-        # return f"Placeholder({self.name}, {self.index.__str__()}) = {{{self.value.__str__()}}}"
+            return f"Data({self.name}, {self.subscript})"
+        # return f"Placeholder({self.name}, {self.subscript.__str__()}) = {{{self.value.__str__()}}}"
 
 
 @dataclass
 class Param(Expr):
     name: str
-    index: Index = None
+    subscript: Subscript = None
     lower: Expr = RealConstant(float("-inf"))
     upper: Expr = RealConstant(float("inf"))
     variable: variables.Param = None
 
     def __iter__(self):
-        if self.index is not None:
-            return iter([self.index])
+        if self.subscript is not None:
+            return iter([self.subscript])
         else:
             return iter([])
 
     def scalar(self):
-        return self.index is None
+        return self.subscript is None
 
     def get_key(self):
         return self.name
 
     def code(self):
         variable_code = self.variable.code()
-        if self.index:
-            return variable_code + f"[{self.index.code()}]"
+        if self.subscript:
+            return variable_code + f"[{self.subscript.code()}]"
         else:
             return variable_code
 
     def __str__(self):
-        return f"Param({self.name}, {self.index.__str__()}, lower={self.lower}, upper={self.upper})"
+        return f"Param({self.name}, {self.subscript.__str__()}, lower={self.lower}, upper={self.upper})"
 
 
 class Distr(Expr):
@@ -651,7 +651,7 @@ class InverseLogit(Expr):
 @dataclass
 class Placeholder(Expr):
     name: str
-    index: Union[Index, None]
+    index: Union[Subscript, None]
     value: float = None
 
     def __iter__(self):
