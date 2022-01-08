@@ -3,10 +3,11 @@ from typing import List, Tuple, Union
 
 from . import variables
 
+
 @dataclass
 class Expr:
-    line_index: int = field(default = -1, kw_only = True)  # line index of the original model code
-    column_index: int = field(default = -1, kw_only = True)  # column index of the original model code
+    line_index: int = field(default=-1, kw_only=True)  # line index of the original model code
+    column_index: int = field(default=-1, kw_only=True)  # column index of the original model code
 
     def __iter__(self):
         return self
