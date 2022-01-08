@@ -198,6 +198,7 @@ class SubscriptUse:
     names: Tuple[str]
     df: pandas.DataFrame
     subscript: Subscript
+    unique_id: str
     shifts: Tuple[Union[str, None]] = None
 
     def to_numpy(self):
@@ -207,6 +208,6 @@ class SubscriptUse:
 
     def code(self):
         if all(shift is None for shift in self.shifts):
-            return f"index__{'_'.join(self.names)}"
+            return f"index__{'_'.join(self.names)}__{self.unique_id}"
         else:
-            return f"index__{'_'.join(self.names)}__{'_'.join([str(shift) for shift in self.shifts])}"
+            return f"index__{'_'.join(self.names)}__{'_'.join([str(shift) for shift in self.shifts])}__{self.unique_id}"

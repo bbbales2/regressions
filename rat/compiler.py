@@ -1,3 +1,4 @@
+import itertools
 import logging
 import numpy
 import pandas
@@ -148,6 +149,7 @@ class Compiler:
         self.data_variables: Dict[str, variables.Data] = {}
         self.parameter_variables: Dict[str, variables.Param] = {}
         self.assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
+        self.subscript_use_variables: List[vaiables.SubscriptUse] = []
         self.variable_subscripts: Dict[str, variables.Subscript] = {}
 
         self.line_functions: List[LineFunction] = []
@@ -381,6 +383,16 @@ class Compiler:
 
         The expression trees must be sorted in canonical topological order(LHS | RHS) in order to run succesfully.
         """
+        def unique_subscript_use_itentifier_generator():
+            identifier = 0
+
+            while True:
+                yield repr(identifier)
+                identifier += 1
+        
+        unique_subscript_use_itentifier = unique_subscript_use_itentifier_generator()
+
+        subscript_use_vars: List[variables.SubscriptUse] = []
         for top_expr in ordered_expr_trees:
             logging.debug("@" * 5)
 
@@ -388,7 +400,7 @@ class Compiler:
             data_vars_used: Set[str] = set()
             parameter_vars_used: Set[str] = set()
             assigned_parameter_vars_used: Set[str] = set()
-            subscript_use_vars_used: Dict[Tuple, variables.SubscriptUse] = {}
+            subscript_use_vars_used: List[variables.SubscriptUse] = []
 
             if isinstance(top_expr, ops.Distr):
                 lhs = top_expr.variate
@@ -519,9 +531,6 @@ class Compiler:
                     # incorporate shifts into variable.Subscript
                     self.variable_subscripts[subexpr_key].incorporate_shifts(subexpr.subscript.shifts)
 
-                    # check if the subscript-shift combination has been used before
-                    subscript_use_identifier = (subexpr.subscript.get_key(), subexpr.subscript.shifts)
-
                     # get the base df's reference column names
                     base_df_index = (
                         subexpr.subscript.get_key()
@@ -530,17 +539,18 @@ class Compiler:
                     )
 
                     # extract the subscripts from the base df and link them into variable.SubscriptUse
-                    if subscript_use_identifier not in subscript_use_vars_used:
-                        variable_subscript_use = variables.SubscriptUse(
-                            subexpr.subscript.get_key(),
-                            lhs_base_df.loc[:, base_df_index],
-                            self.variable_subscripts[subexpr_key],
-                            subexpr.subscript.shifts,
-                        )
-                        subscript_use_vars_used[subscript_use_identifier] = variable_subscript_use
+                    variable_subscript_use = variables.SubscriptUse(
+                        subexpr.subscript.get_key(),
+                        lhs_base_df.loc[:, base_df_index],
+                        self.variable_subscripts[subexpr_key],
+                        next(unique_subscript_use_itentifier),
+                        subexpr.subscript.shifts,
+                    )
 
                     # link the created variable.SubscriptUse into ops.Param
-                    subexpr.subscript.variable = subscript_use_vars_used[subscript_use_identifier]
+                    subexpr.subscript.variable = variable_subscript_use
+                    subscript_use_vars_used.append(variable_subscript_use)
+                    self.subscript_use_variables.append(variable_subscript_use)
 
             # quickly check to make sure subscripts don't exist for Data
             for subexpr in ops.search_tree(top_expr, ops.Data):
@@ -560,16 +570,17 @@ class Compiler:
                     [self.data_variables[name] for name in data_vars_used],
                     [self.parameter_variables[name] for name in parameter_vars_used],
                     [self.assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    subscript_use_vars_used.values(),
+                    subscript_use_vars_used,
                     top_expr,
                 )
+                
             elif isinstance(top_expr, ops.Assignment):
                 line_function = AssignLineFunction(
                     lhs_key,
                     [self.data_variables[name] for name in data_vars_used],
                     [self.parameter_variables[name] for name in parameter_vars_used],
                     [self.assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    subscript_use_vars_used.values(),
+                    subscript_use_vars_used,
                     top_expr,
                 )
 
@@ -577,6 +588,30 @@ class Compiler:
             logging.debug(f"data: {list(self.data_variables.keys())}")
             logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
             logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
+
+        argument_variables = itertools.chain(
+            self.data_variables.values(),
+            self.parameter_variables.values(),
+            self.assigned_parameter_variables.values(),
+            self.subscript_use_variables
+        )
+
+        args = [variable.code() for variable in argument_variables]
+
+        code = (
+            f"def log_density({','.join(args)}):\n" +
+            f"    assigned_parameters = {{}}\n"
+        )
+        for top_expr in ordered_expr_trees:
+            if isinstance(top_expr, ops.Distr):
+                code += f"    target += jax.numpy.sum({top_expr.code()})\n"
+            elif isinstance(top_expr, ops.Assignment):
+                lhs_key = top_expr.lhs.get_key()
+                code += f"    assigned_parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
+                code += f"    {top_expr.lhs.code()} = assigned_parameters['{lhs_key}']\n"
+        code += "    return target, assigned_parameters"
+
+        print(code)
 
     def compile(
         self,
