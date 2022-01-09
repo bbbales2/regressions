@@ -289,13 +289,14 @@ class Compiler:
 
         The expression trees must be sorted in canonical topological order(LHS | RHS) in order to run succesfully.
         """
+
         def unique_subscript_use_itentifier_generator():
             identifier = 0
 
             while True:
                 yield repr(identifier)
                 identifier += 1
-        
+
         unique_subscript_use_itentifier = unique_subscript_use_itentifier_generator()
 
         subscript_use_vars: List[variables.SubscriptUse] = []
