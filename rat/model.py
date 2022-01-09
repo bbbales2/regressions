@@ -31,17 +31,17 @@ class Model:
     log_density_jax: Callable[[numpy.array], float]
     log_density_jax_no_jac: Callable[[numpy.array], float]
     size: int
-    device_data : Dict[str, jax.numpy.array]
-    device_subscripts : Dict[str, jax.numpy.array]
-    working_dir : tempfile.TemporaryDirectory
+    device_data: Dict[str, jax.numpy.array]
+    device_subscripts: Dict[str, jax.numpy.array]
+    working_dir: tempfile.TemporaryDirectory
 
-    def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad = True):
+    def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad=True):
         jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
         return jacobian_adjustment, self.compiled_model.transform_parameters(self.device_data, self.device_subscripts, parameters)
 
     def _log_density(self, include_jacobian, unconstrained_parameter_vector):
         # Evaluate model log density given model, data, subscripts and unconstrained parameters
-        jacobian_adjustment, parameters = self._constrain_and_transform_parameters(unconstrained_parameter_vector, pad = True)
+        jacobian_adjustment, parameters = self._constrain_and_transform_parameters(unconstrained_parameter_vector, pad=True)
         target = self.compiled_model.evaluate_densities(self.device_data, self.device_subscripts, parameters)
         return target + (jacobian_adjustment if include_jacobian else 0.0)
 
@@ -50,11 +50,13 @@ class Model:
         num_draws = unconstrained_draws.shape[0]
         num_chains = unconstrained_draws.shape[1]
         constrained_draws = {}
-        
-        constrain_and_transform_parameters_no_pad_jax = jax.jit(lambda x : self._constrain_and_transform_parameters(x, pad = False))
+
+        constrain_and_transform_parameters_no_pad_jax = jax.jit(lambda x: self._constrain_and_transform_parameters(x, pad=False))
         for draw in range(num_draws):
             for chain in range(num_chains):
-                jacobian_adjustment, device_constrained_variables = constrain_and_transform_parameters_no_pad_jax(unconstrained_draws[draw, chain])
+                jacobian_adjustment, device_constrained_variables = constrain_and_transform_parameters_no_pad_jax(
+                    unconstrained_draws[draw, chain]
+                )
 
                 for name, device_constrained_variable in device_constrained_variables.items():
                     if name not in constrained_draws:
@@ -100,9 +102,15 @@ class Model:
             if parsed_lines is None:
                 raise Exception("At least one of model_string or parsed_lines must be non-None")
 
-        data_variables, self.parameter_variables, self.assigned_parameter_variables, subscript_use_variables, model_source_string = compiler.Compiler(data_df, parsed_lines, model_string).compile()
+        (
+            data_variables,
+            self.parameter_variables,
+            self.assigned_parameter_variables,
+            subscript_use_variables,
+            model_source_string,
+        ) = compiler.Compiler(data_df, parsed_lines, model_string).compile()
 
-        self.working_dir = tempfile.TemporaryDirectory(prefix = "rat.")
+        self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")
 
         # Write model source to file and compile and import it
         model_source_file = os.path.join(self.working_dir.name, "model_source.py")

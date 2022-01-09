@@ -12,7 +12,6 @@ from . import ops
 from . import variables
 
 
-
 class CompileError(Exception):
     def __init__(self, message, code_string: str, line_num: int = -1, column_num: int = -1):
         code_string = code_string.split("\n")[line_num] if code_string else ""
@@ -454,7 +453,7 @@ class Compiler:
                         subexpr.column_index,
                     )
 
-            #self.line_functions.append(line_function)
+            # self.line_functions.append(line_function)
             logging.debug(f"data: {list(self.data_variables.keys())}")
             logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
             logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
@@ -483,14 +482,14 @@ class Compiler:
 
         # Generate code for unconstraining and transforming parameters
         code = (
-            f"import rat.constraints\n" +
-            f"import rat.math\n" +
-            f"import jax\n" +
-            f"\nunconstrained_parameter_size = {unconstrained_parameter_size}\n"
-            f"\ndef constrain_parameters(unconstrained_parameter_vector, pad=True):\n" +
-            f"    unconstrained_parameters = {{}}\n" +
-            f"    parameters = {{}}\n" +
-            f"    total = 0.0\n"
+            f"import rat.constraints\n"
+            + f"import rat.math\n"
+            + f"import jax\n"
+            + f"\nunconstrained_parameter_size = {unconstrained_parameter_size}\n"
+            f"\ndef constrain_parameters(unconstrained_parameter_vector, pad=True):\n"
+            + f"    unconstrained_parameters = {{}}\n"
+            + f"    parameters = {{}}\n"
+            + f"    total = 0.0\n"
         )
 
         # Constrain parameters
@@ -533,11 +532,8 @@ class Compiler:
                 code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
         code += "\n    return parameters\n"
 
-        # Generate code for evaluating densities 
-        code += (
-            f"\ndef evaluate_densities(data, subscripts, parameters):\n" +
-            f"    target = 0.0\n"
-        )
+        # Generate code for evaluating densities
+        code += f"\ndef evaluate_densities(data, subscripts, parameters):\n" + f"    target = 0.0\n"
 
         for top_expr in ordered_expr_trees:
             if isinstance(top_expr, ops.Distr):
