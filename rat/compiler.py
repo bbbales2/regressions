@@ -12,97 +12,6 @@ from . import ops
 from . import variables
 
 
-def bernoulli_logit(y, logit_p):
-    log_p = -jax.numpy.log1p(jax.numpy.exp(-logit_p))
-    log1m_p = -logit_p + log_p
-    return jax.numpy.where(y == 0, log1m_p, log_p)
-
-
-def log_normal(y, mu, sigma):
-    logy = jax.numpy.log(y)
-    return jax.scipy.stats.norm.logpdf(logy, mu, sigma) - logy
-
-
-class LineFunction:
-    data_variables: List[variables.Data]
-    parameter_variables: List[variables.Param]
-    subscript_use_variables: List[variables.SubscriptUse]
-    assigned_parameter_variables: List[variables.AssignedParam]
-    line: ops.Expr
-    data_variable_names: List[str]
-    parameter_variable_names: List[str]
-    index_use_numpy: List[numpy.array]
-
-    def __init__(
-        self,
-        data_variables: Iterable[variables.Data],
-        parameter_variables: Iterable[variables.Param],
-        assigned_parameter_variables: Iterable[variables.AssignedParam],
-        subscript_use_variables: Iterable[variables.SubscriptUse],
-        line: ops.Expr,
-    ):
-        self.data_variables = data_variables
-        self.parameter_variables = parameter_variables
-        self.data_variable_names = [data.name for data in data_variables]
-        self.parameter_variable_names = [parameter.name for parameter in parameter_variables]
-        self.assigned_parameter_variables = assigned_parameter_variables
-        self.assigned_parameter_variables_names = [parameter.ops_param.name for parameter in assigned_parameter_variables]
-        self.subscript_use_variables = list(subscript_use_variables)
-        self.line = line
-
-        vectorize_arguments = (
-            [0] * len(self.data_variables)
-            + [None] * len(self.parameter_variables)
-            + [None] * len(self.assigned_parameter_variables)
-            + [0] * len(self.subscript_use_variables)
-        )
-        function_local_scope = {}
-        exec(self.code(), globals(), function_local_scope)
-        self.compiled_function = function_local_scope["func"]
-        if any(x is not None for x in vectorize_arguments):
-            self.compiled_function = jax.vmap(self.compiled_function, vectorize_arguments, 0)
-
-        self.index_use_numpy = [index_use.to_numpy() for index_use in self.subscript_use_variables]
-
-    def code(self):
-        argument_variables = (
-            self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.subscript_use_variables
-        )
-        args = [variable.code() for variable in argument_variables]
-        return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.code()}"])
-
-    def compiled_function_sum(self, *args):
-        return jax.numpy.sum(self.compiled_function(*args))
-
-    def __call__(self, *args):
-        return self.compiled_function_sum(*args, *self.index_use_numpy)
-
-
-class AssignLineFunction(LineFunction):
-    name: str
-
-    def __init__(
-        self,
-        name: str,
-        data_variables: Iterable[variables.Data],
-        parameter_variables: Iterable[variables.Param],
-        assigned_parameter_variables: Iterable[variables.AssignedParam],
-        subscript_use_variables: Iterable[variables.SubscriptUse],
-        line: ops.Expr,
-    ):
-        self.name = name
-        super().__init__(data_variables, parameter_variables, assigned_parameter_variables, subscript_use_variables, line)
-
-    def code(self):
-        argument_variables = (
-            self.data_variables + self.parameter_variables + self.assigned_parameter_variables + self.subscript_use_variables
-        )
-        args = [variable.code() for variable in argument_variables]
-        return "\n".join([f"def func({','.join(args)}):", f"  return {self.line.rhs.code()}"])
-
-    def __call__(self, *args):
-        return self.compiled_function(*args, *self.index_use_numpy)
-
 
 class CompileError(Exception):
     def __init__(self, message, code_string: str, line_num: int = -1, column_num: int = -1):
@@ -131,7 +40,7 @@ class Compiler:
         2-2. generate variable.Subscript() for each variable/data
         3. generate canonical dependency graph
         4-1. generate variable.Param/AssignedParam/Data and variable.SubscriptUse()
-        4-2. generate linefunction/assignment_linefunction
+        4-2. generate python source for model
         """
         self.data_df = data_df
         self.expr_tree_list = expr_tree_list
@@ -149,10 +58,8 @@ class Compiler:
         self.data_variables: Dict[str, variables.Data] = {}
         self.parameter_variables: Dict[str, variables.Param] = {}
         self.assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
-        self.subscript_use_variables: List[vaiables.SubscriptUse] = []
+        self.subscript_use_variables: Dict[str, variables.SubscriptUse] = {}
         self.variable_subscripts: Dict[str, variables.Subscript] = {}
-
-        self.line_functions: List[LineFunction] = []
 
     def _generate_dependency_graph(self, reversed=False) -> Dict[str, Set[str]]:
         """
@@ -373,13 +280,12 @@ class Compiler:
                 # This means the index names will be set to the subscript names of the LHS definition
                 self.parameter_base_df[lhs_key].columns = tuple(lhs.subscript.get_key())
 
-    def _build_linefunctions(self, ordered_expr_trees: List[ops.Expr]):
+    def _build_variables(self, ordered_expr_trees: List[ops.Expr]):
         """
         The goal in the second pass is
         1. Generate variable.Param, variable.AssignedParam, variable.Data for each respective variable/data
         2. Generate variable.SubscriptUse and map them to variable.Param/AssignedParam. They are used to resolve RHS
         subscripts from the LHS base_df
-        3. Generate LineFunction or AssignLineFunction, which encapsulate each expression tree as actual python code.
 
         The expression trees must be sorted in canonical topological order(LHS | RHS) in order to run succesfully.
         """
@@ -395,12 +301,6 @@ class Compiler:
         subscript_use_vars: List[variables.SubscriptUse] = []
         for top_expr in ordered_expr_trees:
             logging.debug("@" * 5)
-
-            # the following variables are used to keep track of the values used in the current expression tree
-            data_vars_used: Set[str] = set()
-            parameter_vars_used: Set[str] = set()
-            assigned_parameter_vars_used: Set[str] = set()
-            subscript_use_vars_used: List[variables.SubscriptUse] = []
 
             if isinstance(top_expr, ops.Distr):
                 lhs = top_expr.variate
@@ -434,7 +334,6 @@ class Compiler:
             if isinstance(top_expr, ops.Distr):
                 # If we're working with a sampling statement, create a variable object and link them to ops.Expr
                 if isinstance(lhs, ops.Data):
-                    data_vars_used.add(lhs_key)
                     self.data_variables[lhs_key] = variables.Data(lhs_key, self.data_df[lhs_key])
                     lhs.variable = self.data_variables[lhs_key]
 
@@ -489,7 +388,6 @@ class Compiler:
             # into each variables.Param in the line.
             for subexpr in ops.search_tree(top_expr, ops.Data):
                 subexpr_key = subexpr.get_key()
-                data_vars_used.add(subexpr_key)  # add to referenced data set
                 if subexpr_key == lhs_key:
                     # We don't manipulate the LHS variable that we just created
                     continue
@@ -502,16 +400,9 @@ class Compiler:
 
                 # add parameter name to referenced data set and link to ops
                 if subexpr_key in self.assigned_parameter_variables:
-                    if subexpr_key != lhs_key:
-                        # For assignments, being on the LHS doesn't mean it's dependent on it
-                        # So we don't mark an assignedparam as being used if it's on the LHS
-                        assigned_parameter_vars_used.add(subexpr_key)
-
                     # link variable.AssignedParam to op.Param
                     subexpr.variable = self.assigned_parameter_variables[subexpr_key]
                 elif subexpr_key in self.parameter_variables:
-                    parameter_vars_used.add(subexpr_key)
-
                     # link variable.Param to op.Param
                     subexpr.variable = self.parameter_variables[subexpr_key]
 
@@ -549,8 +440,7 @@ class Compiler:
 
                     # link the created variable.SubscriptUse into ops.Param
                     subexpr.subscript.variable = variable_subscript_use
-                    subscript_use_vars_used.append(variable_subscript_use)
-                    self.subscript_use_variables.append(variable_subscript_use)
+                    self.subscript_use_variables[variable_subscript_use.code()] = variable_subscript_use
 
             # quickly check to make sure subscripts don't exist for Data
             for subexpr in ops.search_tree(top_expr, ops.Data):
@@ -563,55 +453,97 @@ class Compiler:
                         subexpr.column_index,
                     )
 
-            # Now we wrap the entire expression tree into a LineFunction or AssignLineFunction, which hold the python
-            # code which actuates the expression tree
-            if isinstance(top_expr, ops.Distr):
-                line_function = LineFunction(
-                    [self.data_variables[name] for name in data_vars_used],
-                    [self.parameter_variables[name] for name in parameter_vars_used],
-                    [self.assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    subscript_use_vars_used,
-                    top_expr,
-                )
-                
-            elif isinstance(top_expr, ops.Assignment):
-                line_function = AssignLineFunction(
-                    lhs_key,
-                    [self.data_variables[name] for name in data_vars_used],
-                    [self.parameter_variables[name] for name in parameter_vars_used],
-                    [self.assigned_parameter_variables[name] for name in assigned_parameter_vars_used],
-                    subscript_use_vars_used,
-                    top_expr,
-                )
-
-            self.line_functions.append(line_function)
+            #self.line_functions.append(line_function)
             logging.debug(f"data: {list(self.data_variables.keys())}")
             logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
             logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
 
-        argument_variables = itertools.chain(
-            self.data_variables.values(),
-            self.parameter_variables.values(),
-            self.assigned_parameter_variables.values(),
-            self.subscript_use_variables
-        )
+    def _generate_python_source(self, ordered_expr_trees: List[ops.Expr]):
+        """
+        Return python source containing functions for constraining and transforming variables and
+        evaluating all the log densities
+        """
+        # Get parameter dimensions so can build individual arguments from
+        # unconstrained vector
+        unconstrained_parameter_size = 0
+        parameter_names = []
+        parameter_offsets = []
+        parameter_sizes = []
+        for name, parameter in self.parameter_variables.items():
+            parameter_names.append(name)
+            parameter_offsets.append(unconstrained_parameter_size)
+            parameter_size = parameter.size()
+            parameter_sizes.append(parameter_size)
 
-        args = [variable.code() for variable in argument_variables]
+            if parameter_size is not None:
+                unconstrained_parameter_size += parameter_size
+            else:
+                unconstrained_parameter_size += 1
 
+        # Generate code for unconstraining and transforming parameters
         code = (
-            f"def log_density({','.join(args)}):\n" +
-            f"    assigned_parameters = {{}}\n"
+            f"import rat.constraints\n" +
+            f"import rat.math\n" +
+            f"import jax\n" +
+            f"\nunconstrained_parameter_size = {unconstrained_parameter_size}\n"
+            f"\ndef constrain_parameters(unconstrained_parameter_vector, pad=True):\n" +
+            f"    unconstrained_parameters = {{}}\n" +
+            f"    parameters = {{}}\n" +
+            f"    total = 0.0\n"
         )
+
+        # Constrain parameters
+        for name, offset, size in zip(parameter_names, parameter_offsets, parameter_sizes):
+            unconstrained_reference = f"unconstrained_parameters['{name}']"
+            constrained_reference = f"parameters['{name}']"
+            code += f"\n    # {name}\n"
+            if size is not None:
+                code += f"    {unconstrained_reference} = unconstrained_parameter_vector[..., {offset} : {offset + size}]\n"
+            else:
+                code += f"    {unconstrained_reference} = unconstrained_parameter_vector[..., {offset}]\n"
+
+            variable = self.parameter_variables[name]
+            lower = variable.lower
+            upper = variable.upper
+
+            if lower > float("-inf") or upper < float("inf"):
+                if lower > float("-inf") and upper == float("inf"):
+                    code += f"    {constrained_reference}, constraints_jacobian_adjustment = rat.constraints.lower({unconstrained_reference}, {lower})\n"
+                elif lower == float("inf") and upper < float("inf"):
+                    code += f"    {constrained_reference}, constraints_jacobian_adjustment = rat.constraints.upper({unconstrained_reference}, {upper})\n"
+                elif lower > float("-inf") and upper < float("inf"):
+                    code += f"    {constrained_reference}, constraints_jacobian_adjustment = rat.constraints.finite({unconstrained_reference}, {lower}, {upper})\n"
+
+                code += "    total += jax.numpy.sum(constraints_jacobian_adjustment)\n"
+            else:
+                code += f"    {constrained_reference} = {unconstrained_reference}\n"
+
+            if size is not None and size != variable.padded_size():
+                code += f"    if pad:\n"
+                code += f"        {constrained_reference} = jax.numpy.pad({constrained_reference}, (0, {variable.padded_size() - size}))\n"
+        code += "\n    return total, parameters\n"
+
+        # Transform parameters
+        code += "\ndef transform_parameters(data, subscripts, parameters):"
+        for top_expr in ordered_expr_trees:
+            if isinstance(top_expr, ops.Assignment):
+                lhs_key = top_expr.lhs.get_key()
+                code += f"\n    # {lhs_key}\n"
+                code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
+        code += "\n    return parameters\n"
+
+        # Generate code for evaluating densities 
+        code += (
+            f"\ndef evaluate_densities(data, subscripts, parameters):\n" +
+            f"    target = 0.0\n"
+        )
+
         for top_expr in ordered_expr_trees:
             if isinstance(top_expr, ops.Distr):
                 code += f"    target += jax.numpy.sum({top_expr.code()})\n"
-            elif isinstance(top_expr, ops.Assignment):
-                lhs_key = top_expr.lhs.get_key()
-                code += f"    assigned_parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
-                code += f"    {top_expr.lhs.code()} = assigned_parameters['{lhs_key}']\n"
-        code += "    return target, assigned_parameters"
+        code += "\n    return target"
 
-        print(code)
+        return code
 
     def compile(
         self,
@@ -619,8 +551,8 @@ class Compiler:
         Dict[str, variables.Data],
         Dict[str, variables.Param],
         Dict[str, variables.AssignedParam],
-        Dict[str, variables.Subscript],
-        List[LineFunction],
+        Dict[str, variables.SubscriptUse],
+        str,
     ]:
         if self.parameter_variables:
             raise Exception("Compiler.compile() may be invoked only once per instance. Create a new instance to recompile.")
@@ -661,7 +593,7 @@ class Compiler:
         logging.debug("done printing variable_subscripts")
 
         # rebuild the dependency graph in normal order, that is lhs | rhs. We now convert the expression trees into
-        # Python code(LineFunction)
+        # Python code
         dependency_graph = self._generate_dependency_graph()
 
         # and reorder the expression trees accordingly
@@ -671,12 +603,12 @@ class Compiler:
         logging.debug(f"second pass line eval order: {[x.line_index for x in evaluation_order]}")
 
         # run seconds pass, which binds subscripts and does codegen
-        self._build_linefunctions(evaluation_order)
+        self._build_variables(evaluation_order)
 
         return (
             self.data_variables,
             self.parameter_variables,
             self.assigned_parameter_variables,
-            self.variable_subscripts,
-            self.line_functions,
+            self.subscript_use_variables,
+            self._generate_python_source(evaluation_order),
         )

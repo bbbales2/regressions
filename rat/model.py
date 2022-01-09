@@ -3,6 +3,7 @@ import blackjax.stan_warmup
 import blackjax.nuts
 import functools
 import itertools
+import importlib.util
 import jax
 import jax.experimental.host_callback
 import jax.scipy
@@ -10,8 +11,10 @@ import jax.scipy.optimize
 import jax.numpy
 import logging
 import numpy
+import os
 import pandas
 import scipy.optimize
+import tempfile
 from typing import Callable, List, Dict, Union
 from tqdm import tqdm
 
@@ -28,82 +31,35 @@ class Model:
     log_density_jax: Callable[[numpy.array], float]
     log_density_jax_no_jac: Callable[[numpy.array], float]
     size: int
-    parameter_variables: List[variables.Param]
-    parameter_names: List[str]
-    parameter_offsets: List[int]
-    parameter_sizes: List[Union[None, int]]
+    device_data : Dict[str, jax.numpy.array]
+    device_subscripts : Dict[str, jax.numpy.array]
+    working_dir : tempfile.TemporaryDirectory
 
-    def _constrain(self, unconstrained_parameter_vector, pad=True):
-        constrained_variables = {}
-        total = 0.0
-        for name, offset, size in zip(
-            self.parameter_names,
-            self.parameter_offsets,
-            self.parameter_sizes,
-        ):
-            if size is not None:
-                parameter = unconstrained_parameter_vector[..., offset : offset + size]
-            else:
-                parameter = unconstrained_parameter_vector[..., offset]
-
-            variable = self.parameter_variables[name]
-            lower = variable.lower
-            upper = variable.upper
-            constraints_jacobian_adjustment = 0.0
-
-            if lower > float("-inf") and upper == float("inf"):
-                parameter, constraints_jacobian_adjustment = constraints.lower(parameter, lower)
-            elif lower == float("inf") and upper < float("inf"):
-                parameter, constraints_jacobian_adjustment = constraints.upper(parameter, upper)
-            elif lower > float("inf") and upper < float("inf"):
-                parameter, constraints_jacobian_adjustment = constraints.finite(parameter, lower, upper)
-
-            if pad and size is not None and size != variable.padded_size():
-                parameter = jax.numpy.pad(parameter, (0, variable.padded_size() - size))
-
-            total += jax.numpy.sum(constraints_jacobian_adjustment)
-            constrained_variables[name] = parameter
-
-        return total, constrained_variables
-
-    def _evaluate_program(self, **device_variables):
-        total = 0.0
-        for line_function in self.line_functions:
-            data_arguments = [device_variables[name] for name in line_function.data_variable_names]
-            parameter_arguments = [device_variables[name] for name in line_function.parameter_variable_names]
-            assigned_parameter_arguments = [device_variables[name] for name in line_function.assigned_parameter_variables_names]
-            if isinstance(line_function, compiler.AssignLineFunction):
-                device_variables[line_function.name] = line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
-            else:
-                total += line_function(*data_arguments, *parameter_arguments, *assigned_parameter_arguments)
-
-        return total, device_variables
+    def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad = True):
+        jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
+        return jacobian_adjustment, self.compiled_model.transform_parameters(self.device_data, self.device_subscripts, parameters)
 
     def _log_density(self, include_jacobian, unconstrained_parameter_vector):
-        jacobian_adjustment, constrained_variables = self._constrain(unconstrained_parameter_vector)
-        constrained_variables.update(self.device_data_variables)
-
-        target_program, constrained_variables = self._evaluate_program(**constrained_variables)
-        return target_program + (jacobian_adjustment if include_jacobian else 0.0)
+        # Evaluate model log density given model, data, subscripts and unconstrained parameters
+        jacobian_adjustment, parameters = self._constrain_and_transform_parameters(unconstrained_parameter_vector, pad = True)
+        target = self.compiled_model.evaluate_densities(self.device_data, self.device_subscripts, parameters)
+        return target + (jacobian_adjustment if include_jacobian else 0.0)
 
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
         unconstrained_draws = numpy.array(device_unconstrained_draws)
         num_draws = unconstrained_draws.shape[0]
         num_chains = unconstrained_draws.shape[1]
-        variables_to_extract = set(itertools.chain(self.parameter_variables.keys(), self.assigned_parameter_variables.keys()))
         constrained_draws = {}
-        evaluate_program_with_data = jax.jit(functools.partial(self._evaluate_program, **self.device_data_variables), backend="cpu")
+        
+        constrain_and_transform_parameters_no_pad_jax = jax.jit(lambda x : self._constrain_and_transform_parameters(x, pad = False))
         for draw in range(num_draws):
             for chain in range(num_chains):
-                jacobian_adjustment, constrained_variables = self._constrain(unconstrained_draws[draw, chain], pad=False)
-                device_constrained_variables = {k: jax.numpy.array(v) for k, v in constrained_variables.items()}
-                target, device_constrained_variables = evaluate_program_with_data(**device_constrained_variables)
+                jacobian_adjustment, device_constrained_variables = constrain_and_transform_parameters_no_pad_jax(unconstrained_draws[draw, chain])
 
                 for name, device_constrained_variable in device_constrained_variables.items():
-                    if name in variables_to_extract:
-                        if name not in constrained_draws:
-                            constrained_draws[name] = numpy.zeros((num_draws, num_chains) + device_constrained_variable.shape)
-                        constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
+                    if name not in constrained_draws:
+                        constrained_draws[name] = numpy.zeros((num_draws, num_chains) + device_constrained_variable.shape)
+                    constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
 
         ## This is probably faster than above but uses more device memory
         # jacobian_adjustment, device_constrained_variables = self._constrain(unconstrained_draws, pad=False)
@@ -144,44 +100,33 @@ class Model:
             if parsed_lines is None:
                 raise Exception("At least one of model_string or parsed_lines must be non-None")
 
-        (
-            data_variables,
-            parameter_variables,
-            assigned_parameter_variables,
-            index_variables,
-            line_functions,
-        ) = compiler.Compiler(data_df, parsed_lines, model_string).compile()
+        data_variables, self.parameter_variables, self.assigned_parameter_variables, subscript_use_variables, model_source_string = compiler.Compiler(data_df, parsed_lines, model_string).compile()
 
-        self.parameter_names = []
-        self.parameter_offsets = []
-        self.parameter_sizes = []
+        self.working_dir = tempfile.TemporaryDirectory(prefix = "rat.")
+
+        # Write model source to file and compile and import it
+        model_source_file = os.path.join(self.working_dir.name, "model_source.py")
+        with open(model_source_file, "w") as f:
+            f.write(model_source_string)
+
+        spec = importlib.util.spec_from_file_location("compiled_model", model_source_file)
+        compiled_model = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(compiled_model)
+        self.compiled_model = compiled_model
 
         # Copy data to jax device
-        device_data_variables = {}
+        self.device_data = {}
         for name, data in data_variables.items():
-            device_data_variables[name] = jax.device_put(data.to_numpy())
+            self.device_data[name] = jax.device_put(data.to_numpy())
 
-        # Get parameter dimensions so can build individual arguments from
-        # unconstrained vector
-        unconstrained_parameter_size = 0
-        for name, parameter in parameter_variables.items():
-            self.parameter_names.append(name)
-            self.parameter_offsets.append(unconstrained_parameter_size)
-            parameter_size = parameter.size()
-            self.parameter_sizes.append(parameter_size)
+        # Copy subscripts to jax device
+        self.device_subscripts = {}
+        for name, subscript_use in subscript_use_variables.items():
+            self.device_subscripts[name] = jax.device_put(subscript_use.to_numpy())
 
-            if parameter_size is not None:
-                unconstrained_parameter_size += parameter_size
-            else:
-                unconstrained_parameter_size += 1
-
-        self.line_functions = line_functions
-        self.parameter_variables = parameter_variables
-        self.assigned_parameter_variables = assigned_parameter_variables
-        self.device_data_variables = device_data_variables
         self.log_density_jax = jax.jit(functools.partial(self._log_density, True))
         self.log_density_jax_no_jac = jax.jit(functools.partial(self._log_density, False))
-        self.size = unconstrained_parameter_size
+        self.size = self.compiled_model.unconstrained_parameter_size
 
     def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
         """
