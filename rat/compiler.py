@@ -483,7 +483,6 @@ class Compiler:
         # Generate code for unconstraining and transforming parameters
         code = (
             f"import rat.constraints\n"
-<<<<<<< HEAD
             f"import rat.math\n"
             f"import jax\n"
             f"\nunconstrained_parameter_size = {unconstrained_parameter_size}\n"
@@ -491,15 +490,6 @@ class Compiler:
             f"    unconstrained_parameters = {{}}\n"
             f"    parameters = {{}}\n"
             f"    total = 0.0\n"
-=======
-            + f"import rat.math\n"
-            + f"import jax\n"
-            + f"\nunconstrained_parameter_size = {unconstrained_parameter_size}\n"
-            f"\ndef constrain_parameters(unconstrained_parameter_vector, pad=True):\n"
-            + f"    unconstrained_parameters = {{}}\n"
-            + f"    parameters = {{}}\n"
-            + f"    total = 0.0\n"
->>>>>>> aaec211c28e4a0f46e8df1d1f5c5119e02153512
         )
 
         # Constrain parameters
@@ -542,16 +532,11 @@ class Compiler:
                 code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
         code += "\n    return parameters\n"
 
-<<<<<<< HEAD
         # Generate code for evaluating densities 
         code += (
             f"\ndef evaluate_densities(data, subscripts, parameters):\n"
             f"    target = 0.0\n"
         )
-=======
-        # Generate code for evaluating densities
-        code += f"\ndef evaluate_densities(data, subscripts, parameters):\n" + f"    target = 0.0\n"
->>>>>>> aaec211c28e4a0f46e8df1d1f5c5119e02153512
 
         for top_expr in ordered_expr_trees:
             if isinstance(top_expr, ops.Distr):
