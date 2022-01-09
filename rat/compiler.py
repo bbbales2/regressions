@@ -532,11 +532,8 @@ class Compiler:
                 code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
         code += "\n    return parameters\n"
 
-        # Generate code for evaluating densities 
-        code += (
-            f"\ndef evaluate_densities(data, subscripts, parameters):\n"
-            f"    target = 0.0\n"
-        )
+        # Generate code for evaluating densities
+        code += f"\ndef evaluate_densities(data, subscripts, parameters):\n" f"    target = 0.0\n"
 
         for top_expr in ordered_expr_trees:
             if isinstance(top_expr, ops.Distr):
