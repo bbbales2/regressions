@@ -483,13 +483,13 @@ class Compiler:
 
         # Generate code for unconstraining and transforming parameters
         code = (
-            f"import rat.constraints\n" +
-            f"import rat.math\n" +
-            f"import jax\n" +
+            f"import rat.constraints\n"
+            f"import rat.math\n"
+            f"import jax\n"
             f"\nunconstrained_parameter_size = {unconstrained_parameter_size}\n"
-            f"\ndef constrain_parameters(unconstrained_parameter_vector, pad=True):\n" +
-            f"    unconstrained_parameters = {{}}\n" +
-            f"    parameters = {{}}\n" +
+            f"\ndef constrain_parameters(unconstrained_parameter_vector, pad=True):\n"
+            f"    unconstrained_parameters = {{}}\n"
+            f"    parameters = {{}}\n"
             f"    total = 0.0\n"
         )
 
@@ -535,7 +535,7 @@ class Compiler:
 
         # Generate code for evaluating densities 
         code += (
-            f"\ndef evaluate_densities(data, subscripts, parameters):\n" +
+            f"\ndef evaluate_densities(data, subscripts, parameters):\n"
             f"    target = 0.0\n"
         )
 

@@ -6,22 +6,17 @@ import itertools
 import importlib.util
 import jax
 import jax.experimental.host_callback
-import jax.scipy
-import jax.scipy.optimize
-import jax.numpy
-import logging
 import numpy
 import os
 import pandas
 import scipy.optimize
 import tempfile
+import types
 from typing import Callable, List, Dict, Union
 from tqdm import tqdm
 
 from . import compiler
 from . import ops
-from . import variables
-from . import constraints
 from .scanner import Scanner
 from .parser import Parser
 from . import fit
@@ -34,6 +29,7 @@ class Model:
     device_data : Dict[str, jax.numpy.array]
     device_subscripts : Dict[str, jax.numpy.array]
     working_dir : tempfile.TemporaryDirectory
+    compiled_model : types.ModuleType
 
     def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad = True):
         jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
