@@ -3,7 +3,7 @@ import pytest
 from rat import variables
 from rat.scanner import Scanner
 from rat.parser import Parser
-from rat.compiler import log_normal
+from rat.math import log_normal
 
 
 def test_log_normal_parser():

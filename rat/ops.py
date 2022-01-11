@@ -58,7 +58,7 @@ class Subscript(Expr):
         return self.names
 
     def code(self):
-        return self.variable.code()
+        return f"subscripts['{self.variable.code()}']"
 
     def __str__(self):
         return f"Index(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
@@ -76,9 +76,9 @@ class Data(Expr):
     def code(self):
         variable_code = self.variable.code()
         if self.subscript is not None:
-            return variable_code + f"[{self.subscript.code()}]"
+            return f"data['{variable_code}'][{self.subscript.code()}]"
         else:
-            return variable_code
+            return f"data['{variable_code}']"
 
     def __str__(self):
         if self.subscript is None:
@@ -111,9 +111,9 @@ class Param(Expr):
     def code(self):
         variable_code = self.variable.code()
         if self.subscript:
-            return variable_code + f"[{self.subscript.code()}]"
+            return f"parameters['{variable_code}'][{self.subscript.code()}]"
         else:
-            return variable_code
+            return f"parameters['{variable_code}']"
 
     def __str__(self):
         return f"Param({self.name}, {self.subscript.__str__()}, lower={self.lower}, upper={self.upper})"
@@ -149,7 +149,7 @@ class BernoulliLogit(Distr):
         return iter([self.variate, self.logit_p])
 
     def code(self):
-        return f"bernoulli_logit({self.variate.code()}, {self.logit_p.code()})"
+        return f"rat.math.bernoulli_logit({self.variate.code()}, {self.logit_p.code()})"
 
     def __str__(self):
         return f"BernoulliLogit({self.variate.__str__()}, {self.logit_p.__str__()})"
@@ -165,7 +165,7 @@ class LogNormal(Distr):
         return iter([self.variate, self.mean, self.std])
 
     def code(self):
-        return f"log_normal({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
+        return f"rat.math.log_normal({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
 
     def __str__(self):
         return f"LogNormal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"

@@ -142,7 +142,7 @@ class Data:
         return jnp.array(self.series)
 
     def code(self):
-        return f"data__{self.name}"
+        return f"{self.name}"
 
 
 @dataclass
@@ -174,7 +174,7 @@ class Param:
             return len(self.subscript.df.index)
 
     def code(self):
-        return f"param__{self.name}"
+        return f"{self.name}"
 
 
 @dataclass
@@ -190,7 +190,7 @@ class AssignedParam:
             return len(self.subscript.base_df.index)
 
     def code(self):
-        return f"assigned_param__{self.ops_param.name}"
+        return f"{self.ops_param.name}"
 
 
 @dataclass
@@ -198,6 +198,7 @@ class SubscriptUse:
     names: Tuple[str]
     df: pandas.DataFrame
     subscript: Subscript
+    unique_id: str
     shifts: Tuple[Union[str, None]] = None
 
     def to_numpy(self):
@@ -207,6 +208,6 @@ class SubscriptUse:
 
     def code(self):
         if all(shift is None for shift in self.shifts):
-            return f"index__{'_'.join(self.names)}"
+            return f"{'_'.join(self.names)}__{self.unique_id}"
         else:
-            return f"index__{'_'.join(self.names)}__{'_'.join([str(shift) for shift in self.shifts])}"
+            return f"{'_'.join(self.names)}__{'_'.join([str(shift) for shift in self.shifts])}__{self.unique_id}"
