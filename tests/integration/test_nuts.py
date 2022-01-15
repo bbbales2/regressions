@@ -19,7 +19,7 @@ def test_nuts():
     def negative_log_density(q):
         zq = (q - 1.3) / 3.0
         return 0.5 * jax.numpy.dot(zq, zq)
-    
+
     M_inv = numpy.identity(2)
 
     ham = nuts.Hamiltonian(negative_log_density, M_inv)
@@ -28,16 +28,16 @@ def test_nuts():
     for n in range(1, qs.shape[0]):
         next_draw = nuts.one_sample_nuts(qs[n - 1], 2.1, ham, 0)
         qs[n] = next_draw["q"]
-        #print(qs[n])
-    
+        # print(qs[n])
+
     print("Finished sampling")
     print("Mean")
-    print(numpy.mean(qs, axis = 0))
+    print(numpy.mean(qs, axis=0))
     print("Standard deviation")
-    print(numpy.std(qs, axis = 0))
+    print(numpy.std(qs, axis=0))
     print("Standard error")
-    print(numpy.std(qs, axis = 0) / numpy.sqrt(qs.shape[0]))
-    
+    print(numpy.std(qs, axis=0) / numpy.sqrt(qs.shape[0]))
+
 
 if __name__ == "__main__":
     test_nuts()
