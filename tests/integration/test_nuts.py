@@ -24,11 +24,11 @@ def test_nuts():
 
     potential = nuts.Potential(negative_log_density)
 
-    rng = numpy.random.default_rng(seed = 1)
+    rng = numpy.random.default_rng(seed=1)
 
     qs = numpy.zeros((100, M_inv.shape[0]))
     for n in range(1, qs.shape[0]):
-        next_draw = nuts.one_sample_nuts(qs[n - 1], 0.2, potential, M_inv, rng, debug = True)
+        next_draw = nuts.one_sample_nuts(qs[n - 1], 0.2, potential, M_inv, rng, debug=True)
         qs[n] = next_draw["q"]
         print(qs[n], next_draw["accept_stat"])
 

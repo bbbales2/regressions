@@ -44,7 +44,7 @@ class Potential:
 
         if active_thread not in self.active_threads:
             raise Exception("Called gradient without activating thread")
-        
+
         self.arguments[active_thread] = q0
 
         while True:
@@ -58,10 +58,10 @@ class Potential:
                     self.gradient_computed_event.set()
                     self.gradient_computed_event.clear()
                     break
-            
+
             # There's a race condition here that hopefully doesn't lead to errors. If a non-running thread doesn't
             # get to wait before the running thread sets and clears the event, it will wait for the next round to run
-            gradients_computed = gradient_computed_event.wait(timeout = 0.1)
+            gradients_computed = gradient_computed_event.wait(timeout=0.1)
             if gradients_computed:
                 break
 
@@ -72,7 +72,7 @@ class Potential:
         active_thread = threading.get_ident()
         with self.context_lock:
             self.active_threads.add(active_thread)
-        
+
         try:
             yield self._value_and_grad
         finally:
@@ -93,7 +93,7 @@ def one_sample_nuts(
     M_inv: numpy.array,
     rng: numpy.random.Generator,
     max_treedepth: int = 10,
-    debug: bool = False
+    debug: bool = False,
 ):
     """
     Generate a draw using Multinomial NUTS (https://arxiv.org/abs/1701.02434 with the original
@@ -121,7 +121,7 @@ def one_sample_nuts(
 
     # directions is a length max_treedepth vector that maps each treedepth
     #  to an integration direction (left or right)
-    directions = rng.integers(low = 0, high = 2, size=max_treedepth + 1) * 2 - 1
+    directions = rng.integers(low=0, high=2, size=max_treedepth + 1) * 2 - 1
     # depth_map will be a vector of length 2^max_treedepth that maps each of
     #  the possibly 2^max_treedepth points to a treedepth
     depth_map = [0]
@@ -279,7 +279,7 @@ def one_sample_nuts(
         # sample from the new subtree according to the equation in A.2.1 in https://arxiv.org/abs/1701.02434
         #  (near the end of that section)
         if len(depth_steps) > 1:
-            i_new = rng.choice(depth_steps, p = scipy.special.softmax(log_pi[depth_steps]))
+            i_new = rng.choice(depth_steps, p=scipy.special.softmax(log_pi[depth_steps]))
         else:
             i_new = depth_steps[0]
 
@@ -323,7 +323,7 @@ def one_sample_nuts(
             "max_treedepth": max_treedepth,
             "trajectory": trajectory_df,  # tibble containing details of trajectory
             "directions": directions,  # direction integrated in each subtree
-            "accept_stat": accept_stat
+            "accept_stat": accept_stat,
         }
     else:
         return {"q": q, "accept_stat": accept_stat}
