@@ -17,18 +17,20 @@ test_dir = pathlib.Path(__file__).parent
 
 def test_nuts():
     def negative_log_density(q):
-        zq = (q - 1.3) / 3.0
+        zq = (q - 1.3) / 0.1
         return 0.5 * jax.numpy.dot(zq, zq)
 
     M_inv = numpy.identity(2)
 
-    ham = nuts.Hamiltonian(negative_log_density, M_inv)
+    potential = nuts.Potential(negative_log_density)
 
-    qs = numpy.zeros((500, M_inv.shape[0]))
+    rng = numpy.random.default_rng(seed = 1)
+
+    qs = numpy.zeros((100, M_inv.shape[0]))
     for n in range(1, qs.shape[0]):
-        next_draw = nuts.one_sample_nuts(qs[n - 1], 2.1, ham, 0)
+        next_draw = nuts.one_sample_nuts(qs[n - 1], 0.2, potential, M_inv, rng, debug = True)
         qs[n] = next_draw["q"]
-        # print(qs[n])
+        print(qs[n], next_draw["accept_stat"])
 
     print("Finished sampling")
     print("Mean")
