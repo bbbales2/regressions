@@ -7,6 +7,7 @@ import pathlib
 import pandas
 import pytest
 import plotnine
+import time
 
 from rat import nuts
 from rat import compiler
@@ -47,24 +48,29 @@ def test_multithreaded_nuts():
     def negative_log_density(q):
         return -jax.numpy.sum(jax.scipy.stats.norm.logpdf(q, loc=17.1, scale=jax.numpy.array([0.3, 1.4])))
 
-    potential = nuts.Potential(negative_log_density)
-
+    chains = 4
+    size = 2
     def generate_draws():
         rng = numpy.random.default_rng()
-        initial_draw = numpy.zeros(2)
+        initial_draw = numpy.zeros(size)
 
         draw, stepsize, diagonal_inverse_metric = nuts.warmup(potential, rng, initial_draw)
         return nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 1000)
 
-    with ThreadPoolExecutor(max_workers=4) as e:
+    start = time.time()
+    with ThreadPoolExecutor(max_workers=chains) as e:
+        potential = nuts.Potential(negative_log_density, chains, size)
+
         results = []
-        for chain in range(4):
+        for chain in range(chains):
             results.append(e.submit(generate_draws))
 
         draws = numpy.array([result.result() for result in results])
-
+    print("Total time: ", time.time() - start)
+    print("Total gradient time: ", sum(time for N, time in potential.metrics.values()))
+    
     for count, (N, total_time) in potential.metrics.items():
-        print(count, N, total_time / N)
+        print("Time for gradients: ", count, N, total_time, total_time / N)
 
     means = numpy.mean(draws, axis=(0, 1))
     stds = numpy.std(draws, axis=(0, 1))

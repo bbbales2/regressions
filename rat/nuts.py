@@ -35,75 +35,102 @@ class Potential:
     """Dictionary of thread id to results"""
 
     metrics: Dict[int, Tuple[int, float]]
+    """Performance metrics"""
 
-    def __init__(self, negative_log_density):
+    maximum_threads: int
+    """Maximum number of client threads"""
+
+    local_identity: Dict[int, int]
+    """Remap thread identities to integers"""
+
+    def __init__(self, negative_log_density, maximum_threads, size):
         self.value_and_grad_negative_log_density = jax.jit(jax.vmap(jax.value_and_grad(negative_log_density)))
-        self.active_threads = set()
-        self.waiting_threads = set()
+        self.active_threads = numpy.zeros(maximum_threads, dtype = bool)
+        self.waiting_threads = numpy.zeros(maximum_threads, dtype = bool)
         self.context_lock = threading.Lock()
         self.gradient_computed_event = threading.Event()
-        self.arguments = {}
-        self.results = {}
+
+        self.arguments = numpy.zeros((maximum_threads, size), dtype = numpy.float32)
+        self.potential_results = numpy.zeros(maximum_threads, dtype = numpy.float32)
+        self.gradient_results = numpy.zeros((maximum_threads, size), dtype = numpy.float32)
+
         self.metrics = defaultdict(lambda: [0, 0.0])
+        self.maximum_threads = maximum_threads
+        self.local_identity = {}
 
     def _single_value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
         device_U, device_gradient = self.value_and_grad_negative_log_density(q0)
         return float(device_U), numpy.array(device_gradient)
+    
+    def _get_ident(self):
+        threading_identity = threading.get_ident()
+
+        try:
+            return self.local_identity[threading_identity]
+        except:
+            if len(self.local_identity) == self.maximum_threads:
+                raise Exception("This potential is already at it's maximum number of threads")
+            
+            new_local_identity = len(self.local_identity)
+
+            self.local_identity[threading_identity] = new_local_identity
+
+            return new_local_identity
 
     def _value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
-        active_thread = threading.get_ident()
+        active_thread = self._get_ident()
 
-        if active_thread not in self.active_threads:
+        if not self.active_threads[active_thread]:
             raise Exception("Called gradient without activating thread")
 
-        self.arguments[active_thread] = q0
+        self.arguments[active_thread, :] = q0
 
         while True:
             with self.context_lock:
-                self.waiting_threads.add(active_thread)
+                self.waiting_threads[active_thread] = True
 
-                if len(self.active_threads - self.waiting_threads) == 0:
+                number_waiting_threads = self.waiting_threads.sum()
+
+                if (self.active_threads.sum() - number_waiting_threads) == 0:
                     start = time.time()
 
-                    active_thread_list = list(self.active_threads)
-                    number_active_threads = len(active_thread_list)
-                    arguments = jax.numpy.array([self.arguments[thread] for thread in active_thread_list])
+                    waiting_thread_list = list(thread for thread, active in enumerate(self.waiting_threads) if active)
 
-                    device_U, device_gradients = self.value_and_grad_negative_log_density(arguments)
-
-                    U = numpy.array(device_U)
-                    gradients = numpy.array(device_gradients)
-
-                    for i, thread in enumerate(active_thread_list):
-                        self.results[thread] = U[i], gradients[i, :]
+                    device_U, device_gradients = self.value_and_grad_negative_log_density(self.arguments[waiting_thread_list, :])
+                    
+                    self.potential_results[waiting_thread_list] = device_U
+                    self.gradient_results[waiting_thread_list, :] = device_gradients
 
                     self.gradient_computed_event.set()
                     self.gradient_computed_event.clear()
 
-                    self.metrics[number_active_threads][0] += 1
-                    self.metrics[number_active_threads][1] += time.time() - start
+                    self.metrics[number_waiting_threads][0] += number_waiting_threads
+                    self.metrics[number_waiting_threads][1] += time.time() - start
 
+                    self.waiting_threads[active_thread] = False
                     break
 
             # There's a race condition here that hopefully doesn't lead to errors. If a non-running thread doesn't
             # get to wait before the running thread sets and clears the event, it will wait for the next round to run
-            gradients_computed = self.gradient_computed_event.wait(timeout=0.1)
+            gradients_computed = self.gradient_computed_event.wait(timeout=0.01)
             if gradients_computed:
+                with self.context_lock:
+                    self.waiting_threads[active_thread] = False
                 break
 
-        return self.results[active_thread]
+        return self.potential_results[active_thread], self.gradient_results[active_thread, :]
 
     @contextmanager
     def activate_thread(self) -> Callable[[numpy.array], Tuple[float, numpy.array]]:
-        active_thread = threading.get_ident()
+        active_thread = self._get_ident()
         with self.context_lock:
-            self.active_threads.add(active_thread)
+            self.active_threads[active_thread] = True
 
         try:
             yield self._value_and_grad
         finally:
             with self.context_lock:
-                self.active_threads.remove(active_thread)
+                self.active_threads[active_thread] = False
 
 
 def uturn(q_plus: numpy.array, q_minus: numpy.array, p_plus: numpy.array, p_minus: numpy.array) -> bool:

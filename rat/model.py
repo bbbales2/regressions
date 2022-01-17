@@ -191,7 +191,7 @@ class Model:
         def negative_log_density(q):
             return -self.log_density_jax(q)
 
-        potential = nuts.Potential(negative_log_density)
+        potential = nuts.Potential(negative_log_density, chains, self.size)
         rng = numpy.random.default_rng()
 
         # Ordered as (draws, chains, param)
