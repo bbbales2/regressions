@@ -48,7 +48,7 @@ def test_multithreaded_nuts():
     def negative_log_density(q):
         return -jax.numpy.sum(jax.scipy.stats.norm.logpdf(q, loc=17.1, scale=jax.numpy.array([0.3, 1.4])))
 
-    chains = 4
+    chains = 8
     size = 2
     def generate_draws():
         rng = numpy.random.default_rng()

@@ -9,6 +9,7 @@ import os
 import pandas
 import scipy.optimize
 import tempfile
+import time
 import types
 from typing import Callable, List, Dict, Union
 from tqdm import tqdm

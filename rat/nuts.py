@@ -48,6 +48,7 @@ class Potential:
         self.active_threads = numpy.zeros(maximum_threads, dtype = bool)
         self.waiting_threads = numpy.zeros(maximum_threads, dtype = bool)
         self.context_lock = threading.Lock()
+        self.gradient_request_event = threading.Event()
         self.gradient_computed_event = threading.Event()
 
         self.arguments = numpy.zeros((maximum_threads, size), dtype = numpy.float32)
@@ -58,9 +59,12 @@ class Potential:
         self.maximum_threads = maximum_threads
         self.local_identity = {}
 
-    def _single_value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
-        device_U, device_gradient = self.value_and_grad_negative_log_density(q0)
-        return float(device_U), numpy.array(device_gradient)
+        self.worker_thread = threading.Thread(target = self._worker_target, daemon=True)
+        self.worker_thread.start()
+
+    #def _single_value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
+    #    device_U, device_gradient = self.value_and_grad_negative_log_density(q0)
+    #    return float(device_U), numpy.array(device_gradient)
     
     def _get_ident(self):
         threading_identity = threading.get_ident()
@@ -76,6 +80,30 @@ class Potential:
             self.local_identity[threading_identity] = new_local_identity
 
             return new_local_identity
+    
+    def _worker_target(self):
+        while True:
+            self.gradient_request_event.wait()
+
+            with self.context_lock:
+                number_waiting_threads = self.waiting_threads.sum()
+
+                start = time.time()
+                waiting_thread_list = list(thread for thread, active in enumerate(self.waiting_threads) if active)
+
+                device_U, device_gradients = self.value_and_grad_negative_log_density(self.arguments[waiting_thread_list, :])
+                
+                self.potential_results[waiting_thread_list] = device_U
+                self.gradient_results[waiting_thread_list, :] = device_gradients
+
+                self.gradient_computed_event.set()
+                self.gradient_computed_event.clear()
+
+                metrics = self.metrics[number_waiting_threads]
+
+                duration = time.time() - start
+                metrics[0] += number_waiting_threads
+                metrics[1] += duration
 
     def _value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
         active_thread = self._get_ident()
@@ -92,27 +120,15 @@ class Potential:
                 number_waiting_threads = self.waiting_threads.sum()
 
                 if (self.active_threads.sum() - number_waiting_threads) == 0:
-                    start = time.time()
-
-                    waiting_thread_list = list(thread for thread, active in enumerate(self.waiting_threads) if active)
-
-                    device_U, device_gradients = self.value_and_grad_negative_log_density(self.arguments[waiting_thread_list, :])
-                    
-                    self.potential_results[waiting_thread_list] = device_U
-                    self.gradient_results[waiting_thread_list, :] = device_gradients
-
-                    self.gradient_computed_event.set()
-                    self.gradient_computed_event.clear()
-
-                    self.metrics[number_waiting_threads][0] += number_waiting_threads
-                    self.metrics[number_waiting_threads][1] += time.time() - start
-
-                    self.waiting_threads[active_thread] = False
-                    break
+                    # There's a race condition here -- if the gradient gets computed before
+                    # this thread waits then that's bad, not sure if it locks things up
+                    # or just makes things inefficient
+                    self.gradient_request_event.set()
+                    self.gradient_request_event.clear()
 
             # There's a race condition here that hopefully doesn't lead to errors. If a non-running thread doesn't
             # get to wait before the running thread sets and clears the event, it will wait for the next round to run
-            gradients_computed = self.gradient_computed_event.wait(timeout=0.01)
+            gradients_computed = self.gradient_computed_event.wait(timeout=0.001)
             if gradients_computed:
                 with self.context_lock:
                     self.waiting_threads[active_thread] = False
@@ -188,7 +204,7 @@ def one_draw(
         return 0.5 * numpy.dot(p, p * diag_M_inv)
 
     with potential.activate_thread() as value_and_grad:
-        U0, grad0 = value_and_grad(q0)
+        U0, grad = value_and_grad(q0)
         H0 = kinetic_energy(p0) + U0
 
         # directions is a length max_treedepth vector that maps each treedepth
@@ -314,7 +330,7 @@ def one_draw(
                 q = qs[i_prev, :].copy()
                 p = ps[i_prev, :].copy()
 
-                U, grad = value_and_grad(q)
+                #U, grad = value_and_grad(q)
 
                 # Initialize pointer into checks list
                 check_i = 0
