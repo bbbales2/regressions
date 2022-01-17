@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import jax
 import logging
 import numpy
@@ -5,6 +6,7 @@ import os
 import pathlib
 import pandas
 import pytest
+import plotnine
 
 from rat import nuts
 from rat import compiler
@@ -17,31 +19,57 @@ test_dir = pathlib.Path(__file__).parent
 
 def test_nuts():
     def negative_log_density(q):
-        zq = (q - 1.3) / 0.1
-        return 0.5 * jax.numpy.dot(zq, zq)
+        return -jax.numpy.sum(jax.scipy.stats.norm.logpdf(q, loc = 17.1, scale = jax.numpy.array([0.3, 1.4])))
 
-    M_inv = numpy.identity(2)
+    potential = nuts.Potential(negative_log_density)
+    rng = numpy.random.default_rng()
+
+    initial_draw = numpy.zeros(2)
+
+    draw, stepsize, diagonal_inverse_metric = nuts.warmup(potential, rng, initial_draw)
+
+    #qs = numpy.zeros((100, diag_M_inv.shape[0]))
+    #for n in range(1, qs.shape[0]):
+    #    next_draw = nuts.one_draw(potential, rng, qs[n - 1], 0.1, diag_M_inv, debug = True)
+    #    qs[n] = next_draw["q"]
+    #    print(qs[n], next_draw["accept_stat"])
+
+    draws = nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 10000)
+
+    means = numpy.mean(draws, axis=0)
+    stds = numpy.std(draws, axis=0)
+
+    assert means == pytest.approx([17.1, 17.1], rel = 0.05)
+    assert stds == pytest.approx([0.3, 1.4], rel = 0.10)
+
+def test_multithreaded_nuts():
+    def negative_log_density(q):
+        return -jax.numpy.sum(jax.scipy.stats.norm.logpdf(q, loc = 17.1, scale = jax.numpy.array([0.3, 1.4])))
 
     potential = nuts.Potential(negative_log_density)
 
-    rng = numpy.random.default_rng(seed = 1)
+    def generate_draws():
+        rng = numpy.random.default_rng()
+        initial_draw = numpy.zeros(2)
 
-    qs = numpy.zeros((100, M_inv.shape[0]))
-    for n in range(1, qs.shape[0]):
-        next_draw = nuts.one_sample_nuts(qs[n - 1], 0.2, potential, M_inv, rng, debug = True)
-        qs[n] = next_draw["q"]
-        print(qs[n], next_draw["accept_stat"])
+        draw, stepsize, diagonal_inverse_metric = nuts.warmup(potential, rng, initial_draw)
+        return nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 1000)
 
-    print("Finished sampling")
-    print("Mean")
-    print(numpy.mean(qs, axis=0))
-    print("Standard deviation")
-    print(numpy.std(qs, axis=0))
-    print("Standard error")
-    print(numpy.std(qs, axis=0) / numpy.sqrt(qs.shape[0]))
+    with ThreadPoolExecutor(max_workers=4) as e:
+        results = []
+        for chain in range(4):
+            results.append(e.submit(generate_draws))
 
+        draws = numpy.array([result.result() for result in results])
 
+    for count, (N, total_time) in potential.metrics.items():
+        print(count, N, total_time / N)
+
+    means = numpy.mean(draws, axis=(0, 1))
+    stds = numpy.std(draws, axis=(0, 1))
+    
 if __name__ == "__main__":
-    test_nuts()
-#    logging.getLogger().setLevel(logging.DEBUG)
-#    pytest.main([__file__, "-s", "-o", "log_cli=true"])
+    #test_nuts()
+    test_multithreaded_nuts()
+    #logging.getLogger().setLevel(logging.DEBUG)
+    #pytest.main([__file__, "-s", "-o", "log_cli=true"])
