@@ -48,7 +48,7 @@ def test_multithreaded_nuts():
     def negative_log_density(q):
         return -jax.numpy.sum(jax.scipy.stats.norm.logpdf(q, loc=17.1, scale=jax.numpy.array([0.3, 1.4])))
 
-    chains = 8
+    chains = 4
     size = 2
     def generate_draws():
         rng = numpy.random.default_rng()
@@ -67,10 +67,10 @@ def test_multithreaded_nuts():
 
         draws = numpy.array([result.result() for result in results])
     print("Total time: ", time.time() - start)
-    print("Total gradient time: ", sum(time for N, time in potential.metrics.values()))
+    print("Total gradient time: ", sum(N * gradient_time for N, gradient_time in potential.metrics.values()))
     
-    for count, (N, total_time) in potential.metrics.items():
-        print("Time for gradients: ", count, N, total_time, total_time / N)
+    for count, (N, gradient_time) in potential.metrics.items():
+        print("Time for gradients: ", count, N, gradient_time, gradient_time * N)
 
     means = numpy.mean(draws, axis=(0, 1))
     stds = numpy.std(draws, axis=(0, 1))
