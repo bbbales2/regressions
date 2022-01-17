@@ -190,7 +190,7 @@ def one_draw(
         return 0.5 * numpy.dot(p, p * diag_M_inv)
 
     with potential.activate_thread() as value_and_grad:
-        U0, grad = value_and_grad(q0)
+        U0, grad0 = value_and_grad(q0)
         H0 = kinetic_energy(p0) + U0
 
         # directions is a length max_treedepth vector that maps each treedepth
@@ -316,7 +316,7 @@ def one_draw(
                 q = qs[i_prev, :].copy()
                 p = ps[i_prev, :].copy()
 
-                #U, grad = value_and_grad(q)
+                U, grad = value_and_grad(q)
 
                 # Initialize pointer into checks list
                 check_i = 0
