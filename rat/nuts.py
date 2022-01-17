@@ -55,7 +55,7 @@ class Potential:
 
         if active_thread not in self.active_threads:
             raise Exception("Called gradient without activating thread")
-        
+
         self.arguments[active_thread] = q0
 
         while True:
@@ -84,7 +84,7 @@ class Potential:
                     self.metrics[number_active_threads][1] += time.time() - start
 
                     break
-            
+
             # There's a race condition here that hopefully doesn't lead to errors. If a non-running thread doesn't
             # get to wait before the running thread sets and clears the event, it will wait for the next round to run
             gradients_computed = self.gradient_computed_event.wait(timeout = 0.1)
@@ -98,7 +98,7 @@ class Potential:
         active_thread = threading.get_ident()
         with self.context_lock:
             self.active_threads.add(active_thread)
-        
+
         try:
             yield self._value_and_grad
         finally:
@@ -123,7 +123,7 @@ def one_draw(
     stepsize: float,
     diagonal_inverse_metric: numpy.array,
     max_treedepth: int = 10,
-    debug: bool = False
+    debug: bool = False,
 ):
     """
     Generate a draw using Multinomial NUTS (https://arxiv.org/abs/1701.02434 with the original
