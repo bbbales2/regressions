@@ -86,7 +86,7 @@ def test_full():
     ]
 
     model = Model(data_df, parsed_lines=parsed_lines)
-    fit = model.sample(num_draws=20, num_warmup = 201)
+    fit = model.sample(num_draws=20, num_warmup=201)
 
     tau_df = fit.draws("tau")
     skills_df = fit.draws("skills")

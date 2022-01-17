@@ -44,8 +44,8 @@ class Potential:
         self.gradient_computed_event = threading.Event()
         self.arguments = {}
         self.results = {}
-        self.metrics = defaultdict(lambda : [0, 0.0])
-    
+        self.metrics = defaultdict(lambda: [0, 0.0])
+
     def _single_value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
         device_U, device_gradient = self.value_and_grad_negative_log_density(q0)
         return float(device_U), numpy.array(device_gradient)
@@ -87,7 +87,7 @@ class Potential:
 
             # There's a race condition here that hopefully doesn't lead to errors. If a non-running thread doesn't
             # get to wait before the running thread sets and clears the event, it will wait for the next round to run
-            gradients_computed = self.gradient_computed_event.wait(timeout = 0.1)
+            gradients_computed = self.gradient_computed_event.wait(timeout=0.1)
             if gradients_computed:
                 break
 
@@ -110,11 +110,12 @@ def uturn(q_plus: numpy.array, q_minus: numpy.array, p_plus: numpy.array, p_minu
     # no_uturn_forward = numpy.dot(p_plus, q_plus - q_minus) > 0
     # no_uturn_backward = numpy.dot(-p_minus, q_minus - q_plus) > 0
 
-    #return not(no_uturn_forward or no_uturn_backward)
+    # return not(no_uturn_forward or no_uturn_backward)
     uturn_forward = numpy.dot(p_plus, q_plus - q_minus) <= 0
     uturn_backward = numpy.dot(-p_minus, q_minus - q_plus) <= 0
 
     return uturn_forward and uturn_backward
+
 
 def one_draw(
     potential: Potential,
@@ -146,17 +147,17 @@ def one_draw(
     h = stepsize
     diag_M_inv = diagonal_inverse_metric
 
-    #L_inv = numpy.linalg.cholesky(M_inv)
+    # L_inv = numpy.linalg.cholesky(M_inv)
     diag_L_inv = numpy.sqrt(diag_M_inv)
     size = diag_L_inv.shape[0]
 
     z = rng.normal(size=size)
 
-    #p0 = numpy.linalg.solve(L_inv.transpose(), z)
+    # p0 = numpy.linalg.solve(L_inv.transpose(), z)
     p0 = z / diag_L_inv
 
     def kinetic_energy(p):
-        #return 0.5 * numpy.dot(p, numpy.dot(M_inv, p))
+        # return 0.5 * numpy.dot(p, numpy.dot(M_inv, p))
         return 0.5 * numpy.dot(p, p * diag_M_inv)
 
     with potential.activate_thread() as value_and_grad:
@@ -165,7 +166,7 @@ def one_draw(
 
         # directions is a length max_treedepth vector that maps each treedepth
         #  to an integration direction (left or right)
-        directions = rng.integers(low = 0, high = 2, size=max_treedepth + 1) * 2 - 1
+        directions = rng.integers(low=0, high=2, size=max_treedepth + 1) * 2 - 1
 
         # depth_map will be a vector of length 2^max_treedepth that maps each of
         #  the possibly 2^max_treedepth points to a treedepth
@@ -175,10 +176,10 @@ def one_draw(
 
             new_section = numpy.repeat(depth, 2 ** max(0, depth - 1))
             if direction < 0:
-                #depth_map = ([depth] * 2 ** max(0, depth - 1)) + depth_map
+                # depth_map = ([depth] * 2 ** max(0, depth - 1)) + depth_map
                 depth_map = numpy.hstack((new_section, depth_map))
             else:
-                #depth_map = depth_map + ([depth] * 2 ** max(0, depth - 1))
+                # depth_map = depth_map + ([depth] * 2 ** max(0, depth - 1))
                 depth_map = numpy.hstack((depth_map, new_section))
 
         depth_map = depth_map.astype(int)
@@ -278,7 +279,7 @@ def one_draw(
 
             # Actually do the integrationg
             if True:
-            #with potential.activate_thread() as value_and_grad:
+                # with potential.activate_thread() as value_and_grad:
                 dt = h * directions[depth]
 
                 i_prev = depth_steps[0] - directions[depth]
@@ -297,17 +298,17 @@ def one_draw(
                 half_dt = dt / 2
                 half_dt_grad = half_dt * grad
                 dt_diag_M_inv = dt * diag_M_inv
-                for leapfrogs_taken, i in enumerate(depth_steps, start = 1):
+                for leapfrogs_taken, i in enumerate(depth_steps, start=1):
                     # leapfrog step
-                    #p_half = p - (dt / 2) * grad
-                    p -= half_dt_grad # p here is actually p_half
-                    #q = q + dt * numpy.dot(M_inv, p_half)
-                    #q = q + dt * diag_M_inv * p_half
+                    # p_half = p - (dt / 2) * grad
+                    p -= half_dt_grad  # p here is actually p_half
+                    # q = q + dt * numpy.dot(M_inv, p_half)
+                    # q = q + dt * diag_M_inv * p_half
                     q += dt_diag_M_inv * p
                     U, grad = value_and_grad(q)
                     half_dt_grad = half_dt * grad
-                    #p = p_half - (dt / 2) * grad
-                    p -= half_dt_grad # p here is indeed p
+                    # p = p_half - (dt / 2) * grad
+                    p -= half_dt_grad  # p here is indeed p
 
                     H = kinetic_energy(p) + U
 
@@ -333,7 +334,7 @@ def one_draw(
                             break
 
                         check_i += 1
-                    
+
                     if uturn_detected_new_tree:
                         break
 
@@ -368,7 +369,9 @@ def one_draw(
             if accept_stat is None:
                 accept_stat = p_tree_accept
             else:
-                accept_stat = (accept_stat * (len(depth_steps) - 1) + p_tree_accept * leapfrogs_taken) / (leapfrogs_taken + len(depth_steps) - 1)
+                accept_stat = (accept_stat * (len(depth_steps) - 1) + p_tree_accept * leapfrogs_taken) / (
+                    leapfrogs_taken + len(depth_steps) - 1
+                )
 
             # log of the sum of pi (A.3.1 of https://arxiv.org/abs/1701.02434) of the new subtree
             log_sum_pi_new = scipy.special.logsumexp(log_pi_steps)
@@ -376,7 +379,7 @@ def one_draw(
             # sample from the new subtree according to the equation in A.2.1 in https://arxiv.org/abs/1701.02434
             #  (near the end of that section)
             if depth > 1:
-                i_new = rng.choice(depth_steps, p = scipy.special.softmax(log_pi_steps))
+                i_new = rng.choice(depth_steps, p=scipy.special.softmax(log_pi_steps))
             else:
                 i_new = depth_steps[0]
 
@@ -412,16 +415,22 @@ def one_draw(
             )
         ).iloc[steps_taken]
 
-        return q, accept_stat, 2**depth, {
-            "i": i_old - min(numpy.nonzero(depth_map <= depth)[0]) + 1,  # q is the ith row of trajectory
-            "q0": q0,
-            "h": h,
-            "max_treedepth": max_treedepth,
-            "trajectory": trajectory_df,  # tibble containing details of trajectory
-            "directions": directions,  # direction integrated in each subtree
-        }
+        return (
+            q,
+            accept_stat,
+            2 ** depth,
+            {
+                "i": i_old - min(numpy.nonzero(depth_map <= depth)[0]) + 1,  # q is the ith row of trajectory
+                "q0": q0,
+                "h": h,
+                "max_treedepth": max_treedepth,
+                "trajectory": trajectory_df,  # tibble containing details of trajectory
+                "directions": directions,  # direction integrated in each subtree
+            },
+        )
     else:
-        return q, accept_stat, 2**depth
+        return q, accept_stat, 2 ** depth
+
 
 @dataclass
 class StepsizeAdapter:
@@ -434,7 +443,7 @@ class StepsizeAdapter:
     _s_bar: int = 0
     _x_bar: int = 0
 
-    def adapt(self, accept_stat : float) -> float:
+    def adapt(self, accept_stat: float) -> float:
         self._counter += 1
 
         accept_stat = min(1.0, accept_stat)
@@ -445,7 +454,7 @@ class StepsizeAdapter:
         self._s_bar = (1.0 - eta) * self._s_bar + eta * (self.target_accept_stat - accept_stat)
 
         x = math.log(self.initial_stepsize) - self._s_bar * math.sqrt(self._counter) / self.gamma
-        x_eta = self._counter**(-self.kappa)
+        x_eta = self._counter ** (-self.kappa)
 
         self._x_bar = (1.0 - x_eta) * self._x_bar + x_eta * x
 
@@ -453,6 +462,7 @@ class StepsizeAdapter:
 
     def adapted_stepsize(self):
         return math.exp(self._x_bar)
+
 
 def warmup(
     potential: Potential,
@@ -466,7 +476,7 @@ def warmup(
     stage_2_size: int = 850,
     stage_2_window_count: int = 4,
     stage_3_size: int = 50,
-    debug: bool = False
+    debug: bool = False,
 ):
     size = initial_draw.shape[0]
     stepsize = initial_stepsize
@@ -476,7 +486,7 @@ def warmup(
     else:
         diagonal_inverse_metric = initial_diagonal_inverse_metric
         assert diagonal_inverse_metric.shape[0] == size and diagonal_inverse_metric.shape[1] == size
-    
+
     with tqdm(total=stage_1_size + stage_2_size + stage_3_size, desc="Moving from initial condition") as progress_bar:
         # Find an initial stepsize that is large enough we are under our target accept rate
         while True:
@@ -491,7 +501,7 @@ def warmup(
             next_draw, accept_stat, steps = one_draw(potential, rng, initial_draw, stepsize, diagonal_inverse_metric)
             if accept_stat > target_accept_stat:
                 break
-        
+
         # Stage 1, leave initial conditions in the dust, adapting stepsize
         current_draw = initial_draw
         stepsize_adapter = StepsizeAdapter(target_accept_stat, stepsize)
@@ -508,10 +518,10 @@ def warmup(
         # windows that sequentially double in size and in total take less than
         # or equal to stage_2_size draws. In math terms that is something like:
         # window_size + 2 * window_size + 4 * window_size + ... <= stage_2_size
-        window_size = math.floor(stage_2_size / (2**stage_2_window_count - 1))
+        window_size = math.floor(stage_2_size / (2 ** stage_2_window_count - 1))
 
         for i in range(stage_2_window_count - 1):
-            stage_2_windows.append(window_size * 2**i)
+            stage_2_windows.append(window_size * 2 ** i)
 
         # The last window is whatever is left
         stage_2_windows.append(stage_2_size - sum(stage_2_windows))
@@ -525,7 +535,7 @@ def warmup(
                 stepsize = stepsize_adapter.adapt(accept_stat)
                 progress_bar.update()
                 progress_bar.set_description(f"Building a metric [leapfrogs {steps}]")
-            new_diagonal_inverse_metric = numpy.var(window_draws, axis = 0)
+            new_diagonal_inverse_metric = numpy.var(window_draws, axis=0)
             max_scale_change = max(diagonal_inverse_metric / new_diagonal_inverse_metric)
             stepsize = stepsize * max_scale_change
             diagonal_inverse_metric = new_diagonal_inverse_metric
@@ -537,8 +547,9 @@ def warmup(
             stepsize = stepsize_adapter.adapt(accept_stat)
             progress_bar.update()
             progress_bar.set_description(f"Finalizing timestep [leapfrogs {steps}]")
-    
+
     return current_draw, stepsize_adapter.adapted_stepsize(), diagonal_inverse_metric
+
 
 def sample(
     potential: Potential,
@@ -559,5 +570,5 @@ def sample(
             draws[i, :] = current_draw
             progress_bar.update()
             progress_bar.set_description(f"Sampling [leapfrogs {steps}]")
-    
+
     return draws

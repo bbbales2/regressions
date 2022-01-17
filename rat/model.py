@@ -203,23 +203,25 @@ class Model:
             stage_2_size = num_warmup - stage_1_size - stage_3_size
 
             initial_draw, stepsize, diagonal_inverse_metric = nuts.warmup(
-                potential, rng, initial_position,
-                target_accept_stat = target_acceptance_rate,
+                potential,
+                rng,
+                initial_position,
+                target_accept_stat=target_acceptance_rate,
                 stage_1_size=stage_1_size,
                 stage_2_size=stage_2_size,
-                stage_3_size=stage_3_size
+                stage_3_size=stage_3_size,
             )
 
             return nuts.sample(potential, rng, initial_draw, stepsize, diagonal_inverse_metric, num_draws)
 
-        with ThreadPoolExecutor(max_workers = chains) as e:
+        with ThreadPoolExecutor(max_workers=chains) as e:
             results = []
             for chain in range(chains):
                 results.append(e.submit(generate_draws))
 
             for chain, result in enumerate(results):
                 unconstrained_draws[:, chain, :] = result.result()
-            
+
         constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
 
         return fit.SampleFit._from_constrained_variables(constrained_draws, base_dfs)
