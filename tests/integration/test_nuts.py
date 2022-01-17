@@ -50,6 +50,7 @@ def test_multithreaded_nuts():
 
     chains = 4
     size = 2
+
     def generate_draws():
         rng = numpy.random.default_rng()
         initial_draw = numpy.zeros(size)
@@ -68,7 +69,7 @@ def test_multithreaded_nuts():
         draws = numpy.array([result.result() for result in results])
     print("Total time: ", time.time() - start)
     print("Total gradient time: ", sum(N * gradient_time for N, gradient_time in potential.metrics.values()))
-    
+
     for count, (N, gradient_time) in potential.metrics.items():
         print("Time for gradients: ", count, N, gradient_time, gradient_time * N)
 
