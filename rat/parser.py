@@ -173,6 +173,30 @@ class UnaryFunctions:
             return InverseLogit(subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
 
 
+class BinaryFunctions:
+    """
+    A utility class that's used to identify and build binary functions.
+    """
+
+    names = ["shift"]
+    precedence = {
+        "shift": 100,
+    }
+
+    @staticmethod
+    def check(tok: Type[Token]):
+        if isinstance(tok, Identifier) and tok.value in BinaryFunctions.names:
+            return True
+        return False
+
+    @staticmethod
+    def generate(arg1: Expr, arg2: Expr, func_type: Identifier):
+        if func_type.value == "shift":
+            if not isinstance(arg1, )
+            return Shift(name=arg1, shift_expr=arg2, line_index=func_type.line_index, column_index=func_type.column_index)
+
+
+
 class Distributions:
     """
     A utility class that's used to identify and build distributions.
@@ -309,7 +333,7 @@ class Parser:
             next_token.column_index,
         )
 
-    def expressions(self, entry_token_value, allow_shift=False) -> Tuple[List[Expr], Tuple[int]]:
+    def expressions(self, entry_token_value) -> List[Expr]:
         """
         expressions are used to evaluate repeated, comma-separeted expressions in the form "expr, expr, expr"
         It's primarily used to evaluate subscripts or function arguments. In the case it's evaluating subscripts, it
@@ -319,10 +343,7 @@ class Parser:
         parantheses. So the entry token would be "(" and exit token ")".
         For subscripts, it would be something like "my_variable[sub_1, shift(sub_2, 1)]. That would mean entry token
         "[" and exit token "]".
-        :param allow_shift: This is for a quick sanity check that checks whether shift() is allowed to be used within
-        the expression sequence.
-        :return: A Tuple of length 2, with the first value being a list of expressions, and second value being a Tuple
-        of integers denoting shift amounts, if any.
+        :return: list of expressions
         """
         if entry_token_value == "[":
             exit_value = "]"
@@ -331,7 +352,6 @@ class Parser:
         else:
             raise Exception(f"expresions() received invalid entry token value with value {entry_token_value}, but expected '[' or ']'")
         expressions = []
-        shift_amounts = []  # integer specifying the amount to shift for each subscript
         while True:
             token = self.peek()
             shift_amount = None
@@ -342,38 +362,33 @@ class Parser:
                 elif token.value == ",":
                     self.remove()  # character ,
                     continue
-            elif isinstance(token, Identifier) and token.value == "shift":
-                if not allow_shift:
-                    raise ParseError(
-                        "shift() has been used in a position that is not allowed.", self.model_string, token.line_index, token.column_index
-                    )
-                # parse lag(subscript, integer)
-                self.remove()  # identifier "shift"
-                self.expect_token(Special, "(")
-                self.remove()  # character )
-                self.expect_token(Identifier)  # subscript name
-                subscript_name = self.peek()
-                if subscript_name.value not in self.data_names:
-                    raise ParseError(
-                        "Subscript specified with shift() must be in data columns.",
-                        self.model_string,
-                        subscript_name.line_index,
-                        subscript_name.column_index,
-                    )
-                expression = Data(subscript_name.value, line_index=subscript_name.line_index, column_index=subscript_name.column_index)
-                self.remove()  # subscript name
-                self.expect_token(Special, ",")
-                self.remove()  # character ,
-                shift_amount = self.expression()
-                shift_amount = int(eval(shift_amount.code()))
-                self.expect_token(Special, ")")
-                self.remove()  # character )
+            # elif isinstance(token, Identifier) and token.value == "shift":
+            #     # parse shift(subscript, integer)
+            #     self.remove()  # identifier "shift"
+            #     self.expect_token(Special, "(")
+            #     self.remove()  # character )
+            #     self.expect_token(Identifier)  # subscript name
+            #     subscript_name = self.peek()
+            #     if subscript_name.value not in self.data_names:
+            #         raise ParseError(
+            #             "Subscript specified with shift() must be in data columns.",
+            #             self.model_string,
+            #             subscript_name.line_index,
+            #             subscript_name.column_index,
+            #         )
+            #     expression = Data(subscript_name.value, line_index=subscript_name.line_index, column_index=subscript_name.column_index)
+            #     self.remove()  # subscript name
+            #     self.expect_token(Special, ",")
+            #     self.remove()  # character ,
+            #     shift_amount = self.expression()
+            #     shift_amount = int(eval(shift_amount.code()))
+            #     self.expect_token(Special, ")")
+            #     self.remove()  # character )
             else:
                 expression = self.expression()
-            expressions.append(expression)
-            shift_amounts.append(shift_amount)
+                expressions.append(expression)
 
-        return expressions, tuple(shift_amounts)
+        return expressions
 
     def parse_nud(self, is_lhs=False):
         token = self.peek()
@@ -408,6 +423,14 @@ class Parser:
                 exp = UnaryFunctions.generate(argument, func_name)
                 return exp
 
+            elif BinaryFunctions.check(token):
+                func_name = token
+                self.remove()  # function name
+                self.expect_token(Special, "(")
+                self.remove()  # (
+                arguments = self.expressions("(")
+                self.expect_token(Special, ")")
+
             elif token.value in self.data_names:
                 exp = Data(token.value, line_index=token.line_index, column_index=token.column_index)
                 self.remove()  # identifier
@@ -420,13 +443,12 @@ class Parser:
             if isinstance(next_token, Special) and next_token.value == "[":
                 # identifier '[' subscript_expressions ']'
                 self.remove()  # [
-                expressions, shift_amount = self.expressions("[", allow_shift=True)  # list of expression
+                expressions = self.expressions("[")  # list of expression
                 self.expect_token(Special, "]")
                 self.remove()  # ]
                 # Assume subscript is a single identifier - this is NOT GOOD
                 exp.subscript = Subscript(
                     names=tuple(expression.name for expression in expressions),
-                    shifts=shift_amount,
                 )
 
             return exp
@@ -583,9 +605,9 @@ class Parser:
         if Distributions.check(token):
             raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)
 
-        # Step 1. evaluate lhs, assume it's expression
+        # Step 1. evaluate base, assume it's expression
         lhs = self.parse_nud(is_lhs=True)
-        # if isinstance(lhs, Param) or isinstance(lhs, Data):
+        # if isinstance(base, Param) or isinstance(base, Data):
         if isinstance(lhs, Expr):
             op = self.peek()
             if AssignmentOps.check(op):

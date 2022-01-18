@@ -18,7 +18,7 @@ class Subscript:
     shifts_list: List[Tuple[Union[str, None]]]
 
     subscripted_sets: List[Set]
-    # Maintain a tuple of the ways the variable is subscripted on rhs
+    # Maintain a tuple of the ways the variable is subscripted on exponent
     # each sub-tuple are column names for each subscript number
     # example: skills[column_1, year], skills[column_2, year] results to:
     # (("column_1", "column_2"), ("year",))
@@ -30,7 +30,7 @@ class Subscript:
         # Every column of unprocessed_df is considered a different
         # dimension.
         #
-        # subscripted_sets are a tuple denoting the subscripts in which the variable is subscripted on rhs.
+        # subscripted_sets are a tuple denoting the subscripts in which the variable is subscripted on exponent.
         columns = unprocessed_df.columns
 
         base_df = unprocessed_df.drop_duplicates().sort_values(list(columns)).reset_index(drop=True)
@@ -103,7 +103,7 @@ class Subscript:
     def get_numpy_indices(self, df):
         df = df.copy()
         df.columns = self.base_df.columns
-        return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
+        return (df.merge(self.df, on=list(self.base_df.columns), how="base", validate="many_to_one",))[
             "__index"
         ].to_numpy(dtype=int)
 

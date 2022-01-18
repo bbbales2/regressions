@@ -390,7 +390,7 @@ class Scanner:
         elif self.current_char == "-":
             # Allow negative powers i.e. 1e-10
             if self.register[-1] == "e":
-                # - is allowed right after 'e'
+                # - is allowed exponent after 'e'
                 self.register += self.current_char
             else:
                 # if we aleady have a integer, the negative sign is an operator

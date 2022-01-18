@@ -72,7 +72,7 @@ def _check_convergence_and_select_one_chain(draw_dfs, tolerance):
             grouped_df = draw_df.groupby(group_columns)
             median_df = grouped_df.agg({name: numpy.median}).rename(columns={name: "median"})
             converged_df = (
-                draw_df.merge(median_df, on=group_columns, how="left")
+                draw_df.merge(median_df, on=group_columns, how="base")
                 .assign(absolute_difference=lambda df: (df[name] - df["median"]).abs())
                 .assign(tolerance=lambda df: numpy.maximum(tolerance, tolerance * df[name].abs()))
                 .assign(converged=lambda df: df["absolute_difference"] < df["tolerance"])

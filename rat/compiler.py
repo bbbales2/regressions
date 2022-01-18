@@ -161,7 +161,7 @@ class Compiler:
             elif isinstance(top_expr, ops.Assignment):
                 lhs: ops.Expr = top_expr.lhs
 
-                # check if lhs type is ops.Param (can't assign to data)
+                # check if base type is ops.Param (can't assign to data)
                 if not isinstance(lhs, ops.Param):
                     raise CompileError(
                         "LHS of assign statement must be a variable and not data!", self.model_code_string, lhs.line_index, lhs.column_index
@@ -557,9 +557,9 @@ class Compiler:
         # compiles the expression tree into function statements
         dependency_graph: Dict[str, Set[str]] = self._generate_dependency_graph(reversed=True)
         """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
-            If we think of it as rhs | lhs, the dependency graph is an *acyclic* graph that has directed edges going 
-            from rhs -> lhs. This is because subscripts on rhs can be resolved, given the dataframe of the lhs. However, for
-            assignments, the order is reversed(lhs -> rhs) since we need rhs to infer its subscripts"""
+            If we think of it as exponent | base, the dependency graph is an *acyclic* graph that has directed edges going 
+            from exponent -> base. This is because subscripts on exponent can be resolved, given the dataframe of the base. However, for
+            assignments, the order is reversed(base -> exponent) since we need exponent to infer its subscripts"""
 
         # traverse through all lines, assuming they are DAGs.
         evaluation_order: List[ops.Expr] = self._order_expr_tree(dependency_graph)
@@ -589,7 +589,7 @@ class Compiler:
             logging.info("-----")
         logging.debug("done printing variable_subscripts")
 
-        # rebuild the dependency graph in normal order, that is lhs | rhs. We now convert the expression trees into
+        # rebuild the dependency graph in normal order, that is base | exponent. We now convert the expression trees into
         # Python code
         dependency_graph = self._generate_dependency_graph()
 
