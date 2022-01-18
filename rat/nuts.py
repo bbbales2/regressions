@@ -180,7 +180,7 @@ def one_draw(
     diag_L_inv = numpy.sqrt(diag_M_inv)
     size = diag_L_inv.shape[0]
 
-    z = rng.normal(size=size)
+    z = rng.normal(0.0, 1.0, size)
 
     # p0 = numpy.linalg.solve(L_inv.transpose(), z)
     p0 = z / diag_L_inv
@@ -196,6 +196,9 @@ def one_draw(
         # directions is a length max_treedepth vector that maps each treedepth
         #  to an integration direction (left or right)
         directions = rng.integers(low=0, high=2, size=max_treedepth + 1) * 2 - 1
+
+        choice_draws = rng.random(size = max_treedepth)
+        pick_draws = rng.random(size = max_treedepth)
 
         # depth_map will be a vector of length 2^max_treedepth that maps each of
         #  the possibly 2^max_treedepth points to a treedepth
@@ -301,7 +304,7 @@ def one_draw(
                         checks.append((start, end))
 
             # Sort into order that checks happen
-            checks.sort()
+            checks.sort(key = lambda x : x[1])
 
             # Initialize u-turn check variable
             uturn_detected_new_tree = False
@@ -339,7 +342,8 @@ def one_draw(
                     # p = p_half - (dt / 2) * grad
                     p -= half_dt_grad  # p here is indeed p
 
-                    H = kinetic_energy(p) + U
+                    K = kinetic_energy(p)
+                    H = K + U
 
                     qs[i] = q
                     ps[i] = p
@@ -408,14 +412,14 @@ def one_draw(
             # sample from the new subtree according to the equation in A.2.1 in https://arxiv.org/abs/1701.02434
             #  (near the end of that section)
             if depth > 1:
-                i_new = rng.choice(depth_steps, p=scipy.special.softmax(log_pi_steps))
+                i_new = depth_steps[numpy.where(choice_draws[depth - 1] < numpy.cumsum(scipy.special.softmax(log_pi_steps)))[0][0]]
             else:
                 i_new = depth_steps[0]
 
             # Pick between the samples generated from the new and old subtrees using the biased progressive sampling in
             #  A.3.2 of https://arxiv.org/abs/1701.02434
             p_new = min(1, numpy.exp(log_sum_pi_new - log_sum_pi_old))
-            if rng.random() < p_new:
+            if pick_draws[depth - 1] < p_new:
                 i_old = i_new
 
             # Update log of sum of pi of overall tree
