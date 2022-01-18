@@ -45,14 +45,14 @@ class Potential:
 
     def __init__(self, negative_log_density, maximum_threads, size):
         self.value_and_grad_negative_log_density = jax.jit(jax.vmap(jax.value_and_grad(negative_log_density)))
-        self.active_threads = numpy.zeros(maximum_threads, dtype = bool)
-        self.waiting_threads = numpy.zeros(maximum_threads, dtype = bool)
+        self.active_threads = numpy.zeros(maximum_threads, dtype=bool)
+        self.waiting_threads = numpy.zeros(maximum_threads, dtype=bool)
         self.context_lock = threading.Lock()
         self.gradient_computed_condition = threading.Condition(self.context_lock)
 
-        self.arguments = numpy.zeros((maximum_threads, size), dtype = numpy.float32)
-        self.potential_results = numpy.zeros(maximum_threads, dtype = numpy.float32)
-        self.gradient_results = numpy.zeros((maximum_threads, size), dtype = numpy.float32)
+        self.arguments = numpy.zeros((maximum_threads, size), dtype=numpy.float32)
+        self.potential_results = numpy.zeros(maximum_threads, dtype=numpy.float32)
+        self.gradient_results = numpy.zeros((maximum_threads, size), dtype=numpy.float32)
 
         self.metrics = defaultdict(lambda: [0, 0.0])
         self.maximum_threads = maximum_threads
@@ -61,7 +61,7 @@ class Potential:
     def _single_value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
         device_U, device_gradient = self.value_and_grad_negative_log_density(q0)
         return float(device_U), numpy.array(device_gradient)
-    
+
     def _get_ident(self):
         threading_identity = threading.get_ident()
 
@@ -70,7 +70,7 @@ class Potential:
         except:
             if len(self.local_identity) == self.maximum_threads:
                 raise Exception("This potential is already at it's maximum number of threads")
-            
+
             new_local_identity = len(self.local_identity)
 
             self.local_identity[threading_identity] = new_local_identity
@@ -95,7 +95,7 @@ class Potential:
                     start = time.time()
 
                     device_U, device_gradients = self.value_and_grad_negative_log_density(self.arguments[self.waiting_threads, :])
-                    
+
                     self.potential_results[self.waiting_threads] = device_U
                     self.gradient_results[self.waiting_threads, :] = device_gradients
 
