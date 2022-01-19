@@ -626,6 +626,10 @@ class Parser:
                 return Distributions.generate(lhs, expressions, distribution)
 
             else:
-                raise ParseError(f"Unknown operator '{op.value}' in statement", self.model_string, op.line_index, op.column_index)
+                if op.value == "<":
+                    raise ParseError(f"Constraints must be present in front of subscripts", self.model_string, op.line_index,
+                                     op.column_index)
+                else:
+                    raise ParseError(f"Unknown operator '{op.value}' in statement", self.model_string, op.line_index, op.column_index)
 
         return Expr()

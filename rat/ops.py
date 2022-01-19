@@ -9,7 +9,7 @@ from . import types
 
 class ConstantFoldError(Exception):
     def __init__(self, msg):
-        super.__init__(msg)
+        super().__init__(msg)
 
 
 @dataclass
@@ -195,7 +195,8 @@ class Data(Expr):
             return f"data['{variable_code}']"
 
     def fold(self):
-        self.subscript = self.subscript.fold()
+        if self.subscript:
+            self.subscript = self.subscript.fold()
         return Data(name=self.name, subscript=self.subscript, line_index=self.line_index, column_index=self.column_index)
 
     def __post_init__(self):
@@ -232,12 +233,13 @@ class Param(Expr):
     def fold(self):
         self.lower = self.lower.fold()
         self.upper = self.upper.fold()
-        self.subscript = self.subscript.fold()
-        if not issubclass(self.lower.out_type, types.NumericType):
+        if self.subscript:
+            self.subscript = self.subscript.fold()
+        if not isinstance(self.lower, (RealConstant, IntegerConstant)):
             raise ConstantFoldError(
                 f"Lower bound value must fold-able into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!"
             )
-        if not issubclass(self.upper.out_type, types.NumericType):
+        if not isinstance(self.upper, (RealConstant, IntegerConstant)):
             raise ConstantFoldError(
                 f"Upper bound value must fold-able into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!"
             )
@@ -365,7 +367,7 @@ class Cauchy(Distr):
         )
 
     def __str__(self):
-        return f"Cauchy({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
+        return f"Cauchy({self.variate.__str__()}, {self.location.__str__()}, {self.scale.__str__()})"
 
 
 @dataclass
