@@ -243,7 +243,14 @@ class Param(Expr):
             raise ConstantFoldError(
                 f"Upper bound value must fold-able into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!"
             )
-        return Param(name=self.name, subscript=self.subscript, lower=self.lower, upper=self.upper, line_index=self.line_index, column_index=self.column_index)
+        return Param(
+            name=self.name,
+            subscript=self.subscript,
+            lower=self.lower,
+            upper=self.upper,
+            line_index=self.line_index,
+            column_index=self.column_index,
+        )
 
     def __post_init__(self):
         self.out_type = types.NumericType

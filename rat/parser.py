@@ -406,7 +406,7 @@ class Parser:
                 if not is_subscript:
                     exp = Data(name=token.value, line_index=token.line_index, column_index=token.column_index)
                 else:
-                    exp = Subscript(names=(token.value, ), line_index=token.line_index, column_index=token.column_index)
+                    exp = Subscript(names=(token.value,), line_index=token.line_index, column_index=token.column_index)
                 self.remove()  # identifier
 
             elif token.value in Distributions.names:
@@ -415,7 +415,7 @@ class Parser:
                 if not is_subscript:
                     exp = self.parse_param(is_lhs=is_lhs)
                 else:
-                    exp = Subscript(names=(token.value, ), line_index=token.line_index, column_index=token.column_index)
+                    exp = Subscript(names=(token.value,), line_index=token.line_index, column_index=token.column_index)
                     self.remove()  # token identifier(subscript)
 
             next_token = self.peek()
@@ -578,8 +578,7 @@ class Parser:
                     exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
 
                 else:
-                    raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index,
-                                     token.column_index)
+                    raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
 
             else:
                 raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
