@@ -605,9 +605,9 @@ class Parser:
         if Distributions.check(token):
             raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)
 
-        # Step 1. evaluate base, assume it's expression
+        # Step 1. evaluate lhs, assume it's expression
         lhs = self.parse_nud(is_lhs=True)
-        # if isinstance(base, Param) or isinstance(base, Data):
+        # if isinstance(lhs, Param) or isinstance(lhs, Data):
         if isinstance(lhs, Expr):
             op = self.peek()
             if AssignmentOps.check(op):

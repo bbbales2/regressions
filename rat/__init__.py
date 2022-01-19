@@ -112,7 +112,7 @@ and righthand side are separated by `~`) and assignments (the lefthand side
 and righthand side are separated by `=`).
 
 Sampling statements come in two varieties, likelihoods and priors. Likelihoods
-are the sampling statements where the variable name on the base hand side of the
+are the sampling statements where the variable name on the left hand side of the
 `~` comes from the input dataframe (and priors are the other ones). This section
 discusses the basics of likelihood statements. Priors and assignments are discussed
 later (under section [Priors](#priors) and [Transformed Parameters](#transformed-parameters)).
@@ -167,7 +167,7 @@ Because it is not subscripted, Rat infers it is a scalar parameter.
 ## Priors
 
 Priors in Rat are sampling statements that are not likelihoods (the name on the
-base hand side does not appear in the input dataframe). Priors cannot reference
+left hand side does not appear in the input dataframe). Priors cannot reference
 columns of the input dataframe (it's an error).
 
 The above example can be extended to have a prior on `skill`:
@@ -248,7 +248,7 @@ supports a `lower`, `upper` and a combination of the two constraints.
 Rat may infer that a variable is a parameter by its use, but this parameter
 doesn't necessarily need to be a parameter of the joint distribution sampled
 with MCMC. Transformed parameters are immutable functions of other parameters
-that are set in assignment statements (statements where the base and righthand
+that are set in assignment statements (statements where the left and right hand
 side is separated by an `=`).
 
 One of the basic things transformed parameters let us do is implement a
@@ -294,12 +294,12 @@ tau<lower = 0.0> ~ log_normal(0, 1);
 ```
 
 The new line of code is the second -- in this case we say the elements of
-`theta` are equal to the expression on the exponent hand side. Transformed
+`theta` are equal to the expression on the right hand side. Transformed
 parameters are immutable, so once they are set they cannot be changed.
 Similarly, a transformed parameter cannot be used on the righthand side of
 its own assignment.
 
-Variables on the exponent hand side of an assignment that Rat does not recognize
+Variables on the right hand side of an assignment that Rat does not recognize
 will be inferred as other parameters. In this case, `mu`, `tau`, and `z`,
 the untransformed versions of `theta`.
 
