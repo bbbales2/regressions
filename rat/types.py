@@ -4,7 +4,7 @@ RealType: real number set
 IntegerType: integer set
 SubscriptType: Literal identifying subscript column name. They are distinct from strings.
 """
-from typing import List, Dict, Tuple, Type
+from typing import Dict, Tuple, Type
 
 
 class BaseType:
@@ -37,4 +37,4 @@ def get_output_type(signatures: Dict[Tuple[Type[BaseType], ...], Type[BaseType]]
         if all([issubclass(in_sigs[i], in_sig[i]) for i in range(len(in_sigs))]):
             return out_sig
 
-    raise TypeCheckError(f"Type signature {[x.name for x in in_sigs]} is invalid.")
+    raise TypeCheckError(f"Input Type signature {[x.name for x in in_sigs]} is invalid.")

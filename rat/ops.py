@@ -112,7 +112,7 @@ class Subscript(Expr):
         return self
 
     def __str__(self):
-        return f"Index(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
+        return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
 
 @dataclass
@@ -135,15 +135,14 @@ class SubscriptOp(Expr):
         names = []
         shifts = []
         for subscript in self.subscripts:
-            if isinstance(subscript, Shift):
-                subscript = subscript.fold()
-                shifts.extend(subscript.shifts)
-                names.extend(subscript.names)
-            elif isinstance(subscript, Data):
-                names.append(subscript.name)
-                shifts.append(None)
+            subscript = subscript.fold()
+            shifts.extend(subscript.shifts)
+            names.extend(subscript.names)
 
         return Subscript(names=tuple(names), shifts=tuple(shifts), line_index=self.line_index, column_index=self.column_index)
+
+    def __str__(self):
+        return f"SubscriptOp({','.join([x.__str__() for x in self.subscripts])})"
 
 
 @dataclass
@@ -160,7 +159,7 @@ class Shift(Expr):
         self.out_type = types.get_output_type(signatures, (self.subscript.out_type, self.shift_expr.out_type))
 
     def fold(self) -> Subscript:
-        if isinstance(self.subscript, Data):
+        if isinstance(self.subscript, (Data, Param)):
             names = (self.subscript.name,)
         else:
             names = self.subscript.names
@@ -168,7 +167,7 @@ class Shift(Expr):
         if self.shift_expr:
             folded_shift_amount = self.shift_expr.fold()
             if not isinstance(folded_shift_amount, IntegerConstant):
-                raise types.TypeCheckError(f"Could not fold shift amount into an Integer! (Got type {folded_shift_amount.out_type}")
+                raise types.TypeCheckError(f"Could not fold shift amount into an Integer! (Got type {folded_shift_amount.out_type})")
             folded_shifts = (self.shift_expr.fold(),)
         else:
             folded_shifts = (None,)
@@ -176,7 +175,7 @@ class Shift(Expr):
         return Subscript(names=names, shifts=folded_shifts, line_index=self.subscript.line_index, column_index=self.subscript.column_index)
 
     def __str__(self):
-        return f"shift(subscript={self.name}, amount={self.shift_expr})"
+        return f"shift(subscript={self.subscript}, amount={self.shift_expr})"
 
 
 @dataclass
@@ -197,10 +196,10 @@ class Data(Expr):
 
     def fold(self):
         self.subscript = self.subscript.fold()
-        return self
+        return Data(name=self.name, subscript=self.subscript, line_index=self.line_index, column_index=self.column_index)
 
     def __post_init__(self):
-        self.out_type = types.SubscriptType
+        self.out_type = types.NumericType
 
     def __str__(self):
         if self.subscript is None:
@@ -242,10 +241,10 @@ class Param(Expr):
             raise ConstantFoldError(
                 f"Upper bound value must fold-able into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!"
             )
-        return self
+        return Param(name=self.name, subscript=self.subscript, lower=self.lower, upper=self.upper, line_index=self.line_index, column_index=self.column_index)
 
     def __post_init__(self):
-        self.out_type = types.RealType
+        self.out_type = types.NumericType
 
     def code(self):
         variable_code = self.variable.code()
@@ -284,6 +283,7 @@ class Normal(Distr):
     def fold(self):
         self.mean = self.mean.fold()
         self.std = self.std.fold()
+        self.variate = self.variate.fold()
         return Normal(variate=self.variate, mean=self.mean, std=self.std, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
@@ -307,7 +307,8 @@ class BernoulliLogit(Distr):
 
     def fold(self):
         logit_p = self.logit_p.fold()
-        return BernoulliLogit(variate=self.variate, logit_p=logit_p, line_index=self.line_index, column_index=self.column_index)
+        variate = self.variate.fold()
+        return BernoulliLogit(variate=variate, logit_p=logit_p, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"BernoulliLogit({self.variate.__str__()}, {self.logit_p.__str__()})"
@@ -332,6 +333,7 @@ class LogNormal(Distr):
     def fold(self):
         self.mean = self.mean.fold()
         self.std = self.std.fold()
+        self.variate = self.variate.fold()
         return LogNormal(variate=self.variate, mean=self.mean, std=self.std, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
@@ -357,6 +359,7 @@ class Cauchy(Distr):
     def fold(self):
         self.location = self.location.fold()
         self.scale = self.scale.fold()
+        self.variate = self.variate.fold()
         return Cauchy(
             variate=self.variate, location=self.location, scale=self.scale, line_index=self.line_index, column_index=self.column_index
         )
@@ -382,6 +385,7 @@ class Exponential(Distr):
 
     def fold(self):
         self.scale = self.scale.fold()
+        self.variate = self.variate.fold()
         return Exponential(variate=self.variate, scale=self.scale, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):

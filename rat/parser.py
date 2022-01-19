@@ -325,7 +325,7 @@ class Parser:
             next_token.column_index,
         )
 
-    def expressions(self, entry_token_value) -> List[Expr]:
+    def expressions(self, entry_token_value, is_subscript=False) -> List[Expr]:
         """
         expressions are used to evaluate repeated, comma-separated expressions in the form "expr, expr, expr"
         It's primarily used to evaluate subscripts or function arguments. In the case it's evaluating subscripts, it
@@ -353,35 +353,13 @@ class Parser:
                 elif token.value == ",":
                     self.remove()  # character ,
                     continue
-            # elif isinstance(token, Identifier) and token.value == "shift":
-            #     # parse shift(subscript, integer)
-            #     self.remove()  # identifier "shift"
-            #     self.expect_token(Special, "(")
-            #     self.remove()  # character )
-            #     self.expect_token(Identifier)  # subscript name
-            #     subscript_name = self.peek()
-            #     if subscript_name.value not in self.data_names:
-            #         raise ParseError(
-            #             "Subscript specified with shift() must be in data columns.",
-            #             self.model_string,
-            #             subscript_name.line_index,
-            #             subscript_name.column_index,
-            #         )
-            #     expression = Data(subscript_name.value, line_index=subscript_name.line_index, column_index=subscript_name.column_index)
-            #     self.remove()  # subscript name
-            #     self.expect_token(Special, ",")
-            #     self.remove()  # character ,
-            #     shift_amount = self.expression()
-            #     shift_amount = int(eval(shift_amount.code()))
-            #     self.expect_token(Special, ")")
-            #     self.remove()  # character )
             else:
-                expression = self.expression()
+                expression = self.expression(is_subscript=is_subscript)
                 expressions.append(expression)
 
         return expressions
 
-    def parse_nud(self, is_lhs=False):
+    def parse_nud(self, is_lhs=False, is_subscript=False):
         token = self.peek()
         if isinstance(token, RealLiteral):  # if just a real number, return it
             exp = RealConstant(value=float(token.value))
@@ -396,7 +374,7 @@ class Parser:
             self.expect_token(Operator, PrefixOps.ops)  # operator
             self.remove()
 
-            next_expression = self.expression(PrefixOps.precedence[token.value])
+            next_expression = self.expression(PrefixOps.precedence[token.value], is_lhs=is_lhs, is_subscript=is_subscript)
             exp = PrefixOps.generate(next_expression, token)
             return exp
 
@@ -407,7 +385,7 @@ class Parser:
 
                 self.expect_token(Special, "(")
                 self.remove()  # (
-                argument = self.expression()
+                argument = self.expression(is_lhs=is_lhs, is_subscript=is_subscript)
 
                 self.expect_token(Special, ")")
                 self.remove()  # )
@@ -419,24 +397,32 @@ class Parser:
                 self.remove()  # function name
                 self.expect_token(Special, "(")
                 self.remove()  # (
-                arguments = self.expressions("(")
+                arguments = self.expressions("(", is_subscript=is_subscript)
                 self.expect_token(Special, ")")
                 self.remove()  # )
                 exp = BinaryFunctions.generate(arguments[0], arguments[1], func_name)
 
             elif token.value in self.data_names:
-                exp = Data(name=token.value, line_index=token.line_index, column_index=token.column_index)
+                if not is_subscript:
+                    exp = Data(name=token.value, line_index=token.line_index, column_index=token.column_index)
+                else:
+                    exp = Subscript(names=(token.value, ), line_index=token.line_index, column_index=token.column_index)
                 self.remove()  # identifier
+
             elif token.value in Distributions.names:
                 raise ParseError("A distribution has been found in an expressions", self.model_string, token.line_index, token.column_index)
             else:
-                exp = self.parse_param(is_lhs=is_lhs)
+                if not is_subscript:
+                    exp = self.parse_param(is_lhs=is_lhs)
+                else:
+                    exp = Subscript(names=(token.value, ), line_index=token.line_index, column_index=token.column_index)
+                    self.remove()  # token identifier(subscript)
 
             next_token = self.peek()
             if isinstance(next_token, Special) and next_token.value == "[":
                 # identifier '[' subscript_expressions ']'
                 self.remove()  # [
-                subscript_expressions = self.expressions("[")  # list of expressions
+                subscript_expressions = self.expressions("[", is_subscript=True)  # list of expressions
                 # The data types in the parsed expressions are being used as subscripts
                 self.expect_token(Special, "]")
                 self.remove()  # ]
@@ -447,7 +433,7 @@ class Parser:
 
         elif isinstance(token, Special) and token.value == "(":  # ( expression )
             self.remove()  # (
-            exp = self.expression()
+            exp = self.expression(is_lhs=is_lhs, is_subscript=is_subscript)
             self.expect_token(Special, ")")
             self.remove()  # )
             return exp
@@ -535,14 +521,14 @@ class Parser:
 
         return exp
 
-    def expression(self, min_precedence=0, is_lhs=False):
+    def expression(self, min_precedence=0, is_lhs=False, is_subscript=False):
         """
         This function is used to evaluate an expression. Please refer to the BNF grammer to see what types of
         rules are being applied.
         :param min_precedence: Minimum precedence value to evaluate
         :return: An `ops.Expr` object.
         """
-        left = self.parse_nud(is_lhs=is_lhs)
+        left = self.parse_nud(is_lhs=is_lhs, is_subscript=is_subscript)
         token = self.peek()
 
         while True:
@@ -552,7 +538,7 @@ class Parser:
                 break
             elif isinstance(token, Special) and token.value == "(":  # '(' expression ')'
                 self.remove()  # (
-                next_expression = self.expression()
+                next_expression = self.expression(is_lhs=is_lhs, is_subscript=is_subscript)
                 self.expect_token(Special, ")")  # )
                 self.remove()  # )
                 exp = next_expression  # expression
@@ -562,7 +548,7 @@ class Parser:
                     break
                 self.expect_token(Operator, InfixOps.ops)
                 self.remove()  # op
-                rhs = self.expression(InfixOps.precedence[token.value])
+                rhs = self.expression(min_precedence=InfixOps.precedence[token.value], is_lhs=is_lhs, is_subscript=is_subscript)
                 exp = InfixOps.generate(left, rhs, token)
 
             elif isinstance(token, Identifier):
@@ -574,7 +560,7 @@ class Parser:
 
                     self.expect_token(Special, "(")
                     self.remove()  # (
-                    argument = self.expression()
+                    argument = self.expression(is_lhs=is_lhs, is_subscript=is_subscript)
 
                     self.expect_token(Special, ")")
                     self.remove()  # )
@@ -586,10 +572,14 @@ class Parser:
                     self.remove()  # function name
                     self.expect_token(Special, "(")
                     self.remove()  # (
-                    arguments = self.expressions("(")
+                    arguments = self.expressions(entry_token_value="(", is_subscript=is_subscript)
                     self.expect_token(Special, ")")
                     self.remove()  # )
                     exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
+
+                else:
+                    raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index,
+                                     token.column_index)
 
             else:
                 raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
