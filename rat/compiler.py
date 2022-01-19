@@ -202,7 +202,7 @@ class Compiler:
                         except ValueError as e:
                             # if usage subscript length and declared subscript length do not match, raise exception
                             raise CompileError(
-                                f"Variable {lhs.get_key()}, has declared {len(lhs.subscript.get_key())}LHS subscript, but was used in RHS as {len(lhs_base_df.columns)} subscripts.",
+                                f"Variable {lhs.get_key()}, has declared {len(lhs.subscript.get_key())} LHS subscript, but was used in RHS as {len(lhs_base_df.columns)} subscripts.",
                                 self.model_code_string,
                                 lhs.line_index,
                                 lhs.column_index,
