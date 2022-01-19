@@ -199,7 +199,9 @@ class Distributions:
         if dist_type.value == "normal":
             if len(expressions) != 2:
                 raise Exception(f"normal distribution needs 2 parameters, but got {len(expressions)}!")
-            return Normal(variate=lhs, mean=expressions[0], std=expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index)
+            return Normal(
+                variate=lhs, mean=expressions[0], std=expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index
+            )
         elif dist_type.value == "bernoulli_logit":
             if len(expressions) != 1:
                 raise Exception(f"bernoulli_logit distribution needs 1 parameter, but got {len(expressions)}!")
@@ -207,11 +209,19 @@ class Distributions:
         elif dist_type.value == "log_normal":
             if len(expressions) != 2:
                 raise Exception(f"log_normal distribution needs 2 parameters, but got {len(expressions)}!")
-            return LogNormal(variate=lhs, mean=expressions[0], std=expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index)
+            return LogNormal(
+                variate=lhs, mean=expressions[0], std=expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index
+            )
         elif dist_type.value == "cauchy":
             if len(expressions) != 2:
                 raise Exception(f"cauchy distribution needs 2 parameters, but got {len(expressions)}!")
-            return Cauchy(variate=lhs, location=expressions[0], scale=expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index)
+            return Cauchy(
+                variate=lhs,
+                location=expressions[0],
+                scale=expressions[1],
+                line_index=dist_type.line_index,
+                column_index=dist_type.column_index,
+            )
         elif dist_type.value == "exponential":
             if len(expressions) != 1:
                 raise Exception(f"exponential distribution needs 1 parameter, but got {len(expressions)}!")

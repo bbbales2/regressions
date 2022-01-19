@@ -48,6 +48,7 @@ class RealConstant(Expr):
     """
     Elementary value, cannot be folded anymore
     """
+
     value: float
 
     def code(self):
@@ -72,6 +73,7 @@ class IntegerConstant(Expr):
     """
     Elementary value, cannot be folded anymore
     """
+
     value: int
 
     def code(self):
@@ -92,6 +94,7 @@ class Subscript(Expr):
     """
     Elementary value, cannot be folded anymore
     """
+
     names: Tuple[str]
     shifts: Tuple[Union[Expr, None]] = (None,)
     variable: variables.SubscriptUse = None
@@ -118,12 +121,11 @@ class SubscriptOp(Expr):
     SubscriptOp = operator[] (Subscript, ..., Subscript)
     (Subscript, ..., Subscript) -> Subscript
     """
+
     subscripts: List[Expr]
 
     def __post_init__(self):
-        signatures = {
-            (types.SubscriptType, ) * len(self.subscripts): types.SubscriptType
-        }
+        signatures = {(types.SubscriptType,) * len(self.subscripts): types.SubscriptType}
         self.out_type = types.get_output_type(signatures, tuple([x.out_type for x in self.subscripts]))
 
     def fold(self) -> Subscript:
@@ -141,10 +143,7 @@ class SubscriptOp(Expr):
                 names.append(subscript.name)
                 shifts.append(None)
 
-
         return Subscript(names=tuple(names), shifts=tuple(shifts), line_index=self.line_index, column_index=self.column_index)
-
-
 
 
 @dataclass
@@ -152,18 +151,17 @@ class Shift(Expr):
     """
     This is a function with signature (Subscript, Integer) -> Subscript
     """
+
     subscript: Expr
     shift_expr: Expr
 
     def __post_init__(self):
-        signatures = {
-            (types.SubscriptType, types.IntegerType): types.SubscriptType
-        }
+        signatures = {(types.SubscriptType, types.IntegerType): types.SubscriptType}
         self.out_type = types.get_output_type(signatures, (self.subscript.out_type, self.shift_expr.out_type))
 
     def fold(self) -> Subscript:
         if isinstance(self.subscript, Data):
-            names = (self.subscript.name, )
+            names = (self.subscript.name,)
         else:
             names = self.subscript.names
 
@@ -171,12 +169,11 @@ class Shift(Expr):
             folded_shift_amount = self.shift_expr.fold()
             if not isinstance(folded_shift_amount, IntegerConstant):
                 raise types.TypeCheckError(f"Could not fold shift amount into an Integer! (Got type {folded_shift_amount.out_type}")
-            folded_shifts = (self.shift_expr.fold(), )
+            folded_shifts = (self.shift_expr.fold(),)
         else:
-            folded_shifts = (None, )
+            folded_shifts = (None,)
 
-        return Subscript(names=names, shifts=folded_shifts, line_index=self.subscript.line_index,
-                         column_index=self.subscript.column_index)
+        return Subscript(names=names, shifts=folded_shifts, line_index=self.subscript.line_index, column_index=self.subscript.column_index)
 
     def __str__(self):
         return f"shift(subscript={self.name}, amount={self.shift_expr})"
@@ -238,9 +235,13 @@ class Param(Expr):
         self.upper = self.upper.fold()
         self.subscript = self.subscript.fold()
         if not issubclass(self.lower.out_type, types.NumericType):
-            raise ConstantFoldError(f"Lower bound value must fold-able into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!")
+            raise ConstantFoldError(
+                f"Lower bound value must fold-able into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!"
+            )
         if not issubclass(self.upper.out_type, types.NumericType):
-            raise ConstantFoldError(f"Upper bound value must fold-able into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!")
+            raise ConstantFoldError(
+                f"Upper bound value must fold-able into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!"
+            )
         return self
 
     def __post_init__(self):
@@ -301,10 +302,8 @@ class BernoulliLogit(Distr):
         return f"rat.math.bernoulli_logit({self.variate.code()}, {self.logit_p.code()})"
 
     def __post_init__(self):
-        signatures = {
-            (types.NumericType, ): types.IntegerType
-        }
-        self.out_type = types.get_output_type(signatures, (self.logit_p.out_type, ))
+        signatures = {(types.NumericType,): types.IntegerType}
+        self.out_type = types.get_output_type(signatures, (self.logit_p.out_type,))
 
     def fold(self):
         logit_p = self.logit_p.fold()
@@ -327,9 +326,7 @@ class LogNormal(Distr):
         return f"rat.math.log_normal({self.variate.code()}, {self.mean.code()}, {self.std.code()})"
 
     def __post_init__(self):
-        signatures = {
-            (types.NumericType, types.NumericType): types.RealType
-        }
+        signatures = {(types.NumericType, types.NumericType): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
 
     def fold(self):
@@ -354,15 +351,15 @@ class Cauchy(Distr):
         return f"jax.scipy.stats.cauchy.logpdf({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
 
     def __post_init__(self):
-        signatures = {
-            (types.NumericType, types.NumericType): types.RealType
-        }
+        signatures = {(types.NumericType, types.NumericType): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.location.out_type, self.scale.out_type))
 
     def fold(self):
         self.location = self.location.fold()
         self.scale = self.scale.fold()
-        return Cauchy(variate=self.variate, location=self.location, scale=self.scale, line_index=self.line_index, column_index=self.column_index)
+        return Cauchy(
+            variate=self.variate, location=self.location, scale=self.scale, line_index=self.line_index, column_index=self.column_index
+        )
 
     def __str__(self):
         return f"Cauchy({self.variate.code()}, {self.location.code()}, {self.scale.code()})"
@@ -380,10 +377,8 @@ class Exponential(Distr):
         return f"jax.scipy.stats.expon.logpdf({self.variate.code()}, loc=0, scale={self.scale.code()})"
 
     def __post_init__(self):
-        signatures = {
-            (types.NumericType, ): types.RealType
-        }
-        self.out_type = types.get_output_type(signatures, (self.scale.out_type, ))
+        signatures = {(types.NumericType,): types.RealType}
+        self.out_type = types.get_output_type(signatures, (self.scale.out_type,))
 
     def fold(self):
         self.scale = self.scale.fold()
@@ -594,10 +589,10 @@ class PrefixNegation(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.IntegerType, ): types.IntegerType,
-            (types.RealType, ): types.RealType,
+            (types.IntegerType,): types.IntegerType,
+            (types.RealType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -625,10 +620,10 @@ class Assignment(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.IntegerType, ): types.IntegerType,
-            (types.RealType, ): types.RealType,
+            (types.IntegerType,): types.IntegerType,
+            (types.RealType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.rhs.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.rhs.out_type,))
 
     def fold(self):
         rhs = self.rhs.fold()
@@ -650,9 +645,9 @@ class Log(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.RealType,
+            (types.NumericType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -677,9 +672,9 @@ class Exp(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.RealType,
+            (types.NumericType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -704,10 +699,10 @@ class Abs(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.IntegerType, ): types.IntegerType,
-            (types.RealType, ): types.RealType,
+            (types.IntegerType,): types.IntegerType,
+            (types.RealType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -732,9 +727,9 @@ class Floor(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.IntegerType,
+            (types.NumericType,): types.IntegerType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -759,9 +754,9 @@ class Ceil(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.IntegerType,
+            (types.NumericType,): types.IntegerType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -786,9 +781,9 @@ class Round(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.IntegerType,
+            (types.NumericType,): types.IntegerType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -813,9 +808,9 @@ class Sin(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.RealType,
+            (types.NumericType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -840,9 +835,9 @@ class Cos(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.RealType,
+            (types.NumericType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -867,9 +862,9 @@ class Tan(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.RealType,
+            (types.NumericType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -894,9 +889,9 @@ class Arcsin(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.RealType,
+            (types.NumericType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -921,9 +916,9 @@ class Arccos(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.RealType,
+            (types.NumericType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -948,9 +943,9 @@ class Arctan(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.NumericType, ): types.RealType,
+            (types.NumericType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -975,9 +970,9 @@ class Logit(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.RealType, ): types.RealType,
+            (types.RealType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
@@ -1002,9 +997,9 @@ class InverseLogit(Expr):
 
     def __post_init__(self):
         signatures = {
-            (types.RealType, ): types.RealType,
+            (types.RealType,): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type, ))
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def fold(self):
         self.subexpr = self.subexpr.fold()
