@@ -100,7 +100,12 @@ def test_parser_rhs_index_shift():
             lower=RealConstant(0.0),
             upper=RealConstant(float("inf")),
         ),
-        Param(name="skills_mu", subscript=SubscriptOp(subscripts=[Shift(Subscript(names=("year", )), shift_expr=IntegerConstant(1)), Subscript(names=("team", ))])),
+        Param(
+            name="skills_mu",
+            subscript=SubscriptOp(
+                subscripts=[Shift(Subscript(names=("year",)), shift_expr=IntegerConstant(1)), Subscript(names=("team",))]
+            ),
+        ),
         RealConstant(1.0),
     )
     assert statement.__str__() == expected.__str__()
@@ -130,7 +135,12 @@ def test_parser_rhs_index_shift_multiple():
             lower=RealConstant(0.0),
             upper=RealConstant(float("inf")),
         ),
-        Param(name="skills_mu", subscript=SubscriptOp([Shift(Subscript(("year", )), IntegerConstant(1)), Shift(Subscript(("team", )), PrefixNegation(IntegerConstant(1)))])),
+        Param(
+            name="skills_mu",
+            subscript=SubscriptOp(
+                [Shift(Subscript(("year",)), IntegerConstant(1)), Shift(Subscript(("team",)), PrefixNegation(IntegerConstant(1)))]
+            ),
+        ),
         RealConstant(1.0),
     )
     assert statement.__str__() == expected.__str__()
