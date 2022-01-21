@@ -185,6 +185,7 @@ class Data(Expr):
     """
     Augmented AST node
     """
+
     name: str
     subscript: Union[Subscript, SubscriptOp] = None
     variable: variables.Data = None
@@ -220,6 +221,7 @@ class Param(Expr):
     """
     Augumented AST
     """
+
     name: str
     subscript: Subscript = None
     lower: Expr = RealConstant(value=float("-inf"))
@@ -246,12 +248,14 @@ class Param(Expr):
         if not isinstance(self.lower, (RealConstant, IntegerConstant)):
             raise ConstantFoldError(
                 f"Lower bound value must fold into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!",
-                self.line_index, self.column_index
+                self.line_index,
+                self.column_index,
             )
         if not isinstance(self.upper, (RealConstant, IntegerConstant)):
             raise ConstantFoldError(
                 f"Upper bound value must fold into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!",
-                self.line_index, self.column_index
+                self.line_index,
+                self.column_index,
             )
         return Param(
             name=self.name,
