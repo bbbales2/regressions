@@ -435,7 +435,9 @@ class Parser:
                 self.expect_token(Special, "]")
                 self.remove()  # ]
                 try:
-                    exp.subscript = SubscriptOp(subscripts=subscript_expressions, line_index=next_token.line_index, column_index=next_token.column_index)
+                    exp.subscript = SubscriptOp(
+                        subscripts=subscript_expressions, line_index=next_token.line_index, column_index=next_token.column_index
+                    )
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, next_token.line_index, next_token.column_index)
 
