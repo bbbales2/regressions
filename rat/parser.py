@@ -606,7 +606,7 @@ class Parser:
 
         return left
 
-    def statement(self):
+    def statement(self, fold=True):
         """
         Evaluates a single statement. Statements in rat are either assignments or sampling statements. They will get
         resolved into an `ops.Assignment` or an `ops.Distr` object.
@@ -626,7 +626,11 @@ class Parser:
                 self.remove()  # assignment operator
                 rhs = self.expression()
                 try:
-                    return AssignmentOps.generate(lhs, rhs, op).fold()
+                    stmt = AssignmentOps.generate(lhs, rhs, op)
+                    if fold:
+                        return stmt.fold()
+                    else:
+                        return stmt
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, op.line_index, op.column_index)
                 except ConstantFoldError as e:
@@ -646,7 +650,11 @@ class Parser:
                 self.expect_token(Special, ")")
                 self.remove()  # )
                 try:
-                    return Distributions.generate(lhs, expressions, distribution).fold()
+                    distr = Distributions.generate(lhs, expressions, distribution)
+                    if fold:
+                        return distr.fold()
+                    else:
+                        return distr
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, distribution.line_index, distribution.column_index)
                 except ConstantFoldError as e:
