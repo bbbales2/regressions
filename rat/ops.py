@@ -8,7 +8,9 @@ from . import types
 
 
 class ConstantFoldError(Exception):
-    def __init__(self, msg):
+    def __init__(self, msg, line_index, column_index):
+        self.line_index = line_index
+        self.column_index = column_index
         super().__init__(msg)
 
 
@@ -26,7 +28,7 @@ class Expr:
 
     def __post_init__(self):
         """
-        post_init must resolve and set self.out_type
+        __post_init__ must resolve and set self.out_type
         """
         pass
 
@@ -96,7 +98,7 @@ class Subscript(Expr):
     """
 
     names: Tuple[str]
-    shifts: Tuple[Union[Expr, None]] = (None,)
+    shifts: Tuple[Union[int, None]] = (None,)
     variable: variables.SubscriptUse = None
 
     def get_key(self):
@@ -132,8 +134,8 @@ class SubscriptOp(Expr):
         """
         Combines multiple subscripts into a single subscript
         """
-        names = []
-        shifts = []
+        names: List[str] = []
+        shifts: List[Union[Expr, None]] = []
         for subscript in self.subscripts:
             subscript = subscript.fold()
             shifts.extend(subscript.shifts)
@@ -159,16 +161,16 @@ class Shift(Expr):
         self.out_type = types.get_output_type(signatures, (self.subscript.out_type, self.shift_expr.out_type))
 
     def fold(self) -> Subscript:
-        if isinstance(self.subscript, (Data, Param)):
-            names = (self.subscript.name,)
-        else:
+        if isinstance(self.subscript, Subscript):
             names = self.subscript.names
+        else:
+            raise types.TypeCheckError(f"Found unknown expression {self.subscript} in shift.")
 
         if self.shift_expr:
             folded_shift_amount = self.shift_expr.fold()
             if not isinstance(folded_shift_amount, IntegerConstant):
                 raise types.TypeCheckError(f"Could not fold shift amount into an Integer! (Got type {folded_shift_amount.out_type})")
-            folded_shifts = (self.shift_expr.fold(),)
+            folded_shifts = (folded_shift_amount.value,)
         else:
             folded_shifts = (None,)
 
@@ -180,6 +182,9 @@ class Shift(Expr):
 
 @dataclass
 class Data(Expr):
+    """
+    Augmented AST node
+    """
     name: str
     subscript: Union[Subscript, SubscriptOp] = None
     variable: variables.Data = None
@@ -212,6 +217,9 @@ class Data(Expr):
 
 @dataclass
 class Param(Expr):
+    """
+    Augumented AST
+    """
     name: str
     subscript: Subscript = None
     lower: Expr = RealConstant(value=float("-inf"))
@@ -237,11 +245,13 @@ class Param(Expr):
             self.subscript = self.subscript.fold()
         if not isinstance(self.lower, (RealConstant, IntegerConstant)):
             raise ConstantFoldError(
-                f"Lower bound value must fold-able into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!"
+                f"Lower bound value must fold into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!",
+                self.line_index, self.column_index
             )
         if not isinstance(self.upper, (RealConstant, IntegerConstant)):
             raise ConstantFoldError(
-                f"Upper bound value must fold-able into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!"
+                f"Upper bound value must fold into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!",
+                self.line_index, self.column_index
             )
         return Param(
             name=self.name,

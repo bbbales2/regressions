@@ -9,6 +9,7 @@ from .scanner import (
     NullToken,
 )
 from .ops import *
+from .types import TypeCheckError
 import warnings
 import jax.numpy
 
@@ -375,12 +376,14 @@ class Parser:
             self.remove()
 
             next_expression = self.expression(PrefixOps.precedence[token.value], is_lhs=is_lhs, is_subscript=is_subscript)
-            exp = PrefixOps.generate(next_expression, token)
+            try:
+                exp = PrefixOps.generate(next_expression, token)
+            except TypeCheckError as e:
+                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
             return exp
 
         elif isinstance(token, Identifier):
             if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
-                func_name = token
                 self.remove()  # functionName
 
                 self.expect_token(Special, "(")
@@ -389,18 +392,23 @@ class Parser:
 
                 self.expect_token(Special, ")")
                 self.remove()  # )
-                exp = UnaryFunctions.generate(argument, func_name)
+                try:
+                    exp = UnaryFunctions.generate(argument, token)
+                except TypeCheckError as e:
+                    raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
                 return exp
 
             elif BinaryFunctions.check(token):  # binaryFunction '(' expression, expression ')'
-                func_name = token
                 self.remove()  # function name
                 self.expect_token(Special, "(")
                 self.remove()  # (
                 arguments = self.expressions("(", is_subscript=is_subscript)
                 self.expect_token(Special, ")")
                 self.remove()  # )
-                exp = BinaryFunctions.generate(arguments[0], arguments[1], func_name)
+                try:
+                    exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
+                except TypeCheckError as e:
+                    raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
 
             elif token.value in self.data_names:
                 if not is_subscript:
@@ -426,8 +434,10 @@ class Parser:
                 # The data types in the parsed expressions are being used as subscripts
                 self.expect_token(Special, "]")
                 self.remove()  # ]
-                # Assume subscript is a single identifier - this is NOT GOOD
-                exp.subscript = SubscriptOp(subscripts=subscript_expressions, line_index=token.line_index, column_index=token.column_index)
+                try:
+                    exp.subscript = SubscriptOp(subscripts=subscript_expressions, line_index=next_token.line_index, column_index=next_token.column_index)
+                except TypeCheckError as e:
+                    raise ParseError(str(e), self.model_string, next_token.line_index, next_token.column_index)
 
             return exp
 
@@ -549,13 +559,15 @@ class Parser:
                 self.expect_token(Operator, InfixOps.ops)
                 self.remove()  # op
                 rhs = self.expression(min_precedence=InfixOps.precedence[token.value], is_lhs=is_lhs, is_subscript=is_subscript)
-                exp = InfixOps.generate(left, rhs, token)
+                try:
+                    exp = InfixOps.generate(left, rhs, token)
+                except TypeCheckError as e:
+                    raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
 
             elif isinstance(token, Identifier):
                 if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
                     if UnaryFunctions.precedence[token.value] <= min_precedence:
                         break
-                    func_name = token
                     self.remove()  # functionName
 
                     self.expect_token(Special, "(")
@@ -564,7 +576,10 @@ class Parser:
 
                     self.expect_token(Special, ")")
                     self.remove()  # )
-                    exp = UnaryFunctions.generate(argument, func_name)
+                    try:
+                        exp = UnaryFunctions.generate(argument, token)
+                    except TypeCheckError as e:
+                        raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
 
                 elif BinaryFunctions.check(token):
                     if BinaryFunctions.precedence[token.value] <= min_precedence:
@@ -575,7 +590,10 @@ class Parser:
                     arguments = self.expressions(entry_token_value="(", is_subscript=is_subscript)
                     self.expect_token(Special, ")")
                     self.remove()  # )
-                    exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
+                    try:
+                        exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
+                    except TypeCheckError as e:
+                        raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
 
                 else:
                     raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
@@ -607,7 +625,12 @@ class Parser:
             if AssignmentOps.check(op):
                 self.remove()  # assignment operator
                 rhs = self.expression()
-                return AssignmentOps.generate(lhs, rhs, op)
+                try:
+                    return AssignmentOps.generate(lhs, rhs, op).fold()
+                except TypeCheckError as e:
+                    raise ParseError(str(e), self.model_string, op.line_index, op.column_index)
+                except ConstantFoldError as e:
+                    raise ParseError(str(e), self.model_string, e.line_index, e.column_index)
 
             elif isinstance(op, Special) and op.value == "~":
                 # distribution declaration
@@ -622,7 +645,12 @@ class Parser:
                 expressions = self.expressions("(")  # list of expression
                 self.expect_token(Special, ")")
                 self.remove()  # )
-                return Distributions.generate(lhs, expressions, distribution)
+                try:
+                    return Distributions.generate(lhs, expressions, distribution).fold()
+                except TypeCheckError as e:
+                    raise ParseError(str(e), self.model_string, distribution.line_index, distribution.column_index)
+                except ConstantFoldError as e:
+                    raise ParseError(str(e), self.model_string, e.line_index, e.column_index)
 
             else:
                 if op.value == "<":
