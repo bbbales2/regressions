@@ -650,7 +650,8 @@ class Assignment(Expr):
 
     def fold(self):
         rhs = self.rhs.fold()
-        return Assignment(lhs=self.lhs, rhs=rhs, line_index=self.line_index, column_index=self.column_index)
+        lhs = self.lhs.fold()
+        return Assignment(lhs=lhs, rhs=rhs, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
