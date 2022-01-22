@@ -145,8 +145,20 @@ def uturn(q_plus: numpy.array, q_minus: numpy.array, p_plus: numpy.array, p_minu
 
     return uturn_forward and uturn_backward
 
-
+import one_step
 def one_draw(
+    potential: Potential,
+    rng: numpy.random.Generator,
+    current_draw: numpy.array,
+    stepsize: float,
+    diagonal_inverse_metric: numpy.array,
+    max_treedepth: int = 10,
+    debug: bool = False,
+):
+    with potential.activate_thread() as value_and_grad:
+        return one_step.do_it(value_and_grad, rng, current_draw, diagonal_inverse_metric, stepsize, max_treedepth)
+
+def one_draw2(
     potential: Potential,
     rng: numpy.random.Generator,
     current_draw: numpy.array,

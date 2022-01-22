@@ -22,7 +22,7 @@ def test_nuts():
     def negative_log_density(q):
         return -jax.numpy.sum(jax.scipy.stats.norm.logpdf(q, loc=17.1, scale=jax.numpy.array([0.3, 1.4])))
 
-    potential = nuts.Potential(negative_log_density)
+    potential = nuts.Potential(negative_log_density, 1, 2)
     rng = numpy.random.default_rng()
 
     initial_draw = numpy.zeros(2)
@@ -76,6 +76,9 @@ def test_multithreaded_nuts():
     means = numpy.mean(draws, axis=(0, 1))
     stds = numpy.std(draws, axis=(0, 1))
 
+    plot = plotnine.qplot(range(draws.shape[1]), draws[0, :, 0])
+    plot.draw(show = True)
+
 def test_one_draw():
     def negative_log_density(q):
         return 0.5 * jax.numpy.dot(q, q)
@@ -83,17 +86,17 @@ def test_one_draw():
     chains = 1
     size = 2
 
-    rng = numpy.random.default_rng(seed = 1)
-    initial_draw = numpy.zeros(size)
+    rng = numpy.random.default_rng(seed = 5)
+    initial_draw = numpy.ones(size)
 
     potential = nuts.Potential(negative_log_density, chains, size)
 
-    nuts.one_draw(potential, rng, initial_draw, 0.05, numpy.array([0.3, 1.7]))
+    nuts.one_draw(potential, rng, initial_draw, 0.005, numpy.array([1.3, 1.7]))
 
 
 if __name__ == "__main__":
-    # test_nuts()
-    #test_multithreaded_nuts()
-    test_one_draw()
+    #test_nuts()
+    test_multithreaded_nuts()
+    #test_one_draw()
     # logging.getLogger().setLevel(logging.DEBUG)
     # pytest.main([__file__, "-s", "-o", "log_cli=true"])
