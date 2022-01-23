@@ -179,9 +179,10 @@ class Potential:
 class StepsizeAdapter:
     """
     Do stepsize adaptation like Stan (https://github.com/stan-dev/stan/blob/develop/src/stan/mcmc/stepsize_adaptation.hpp)
-    
+
     I've renamed delta from the Stan implementation to target_accept_stat and mu is equal to log(initial_stepsize)
     """
+
     target_accept_stat: float
     initial_stepsize: float
     gamma: float = 0.05
