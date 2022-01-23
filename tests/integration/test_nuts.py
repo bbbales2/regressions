@@ -89,7 +89,7 @@ def test_one_draw():
 
     potential = nuts.Potential(negative_log_density, chains, size)
 
-    next_draw, accept_stat, steps = nuts.one_draw(potential, rng, initial_draw, 0.005, numpy.array([1.3, 1.7]))
+    next_draw, accept_stat, steps = nuts.one_draw_potential(potential, rng, initial_draw, 0.005, numpy.array([1.3, 1.7]))
 
     assert next_draw == pytest.approx([0.9861392099298243, 0.9739089300939995])
     assert accept_stat == 1.0
