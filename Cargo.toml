@@ -1,0 +1,15 @@
+[package]
+name = "one_step"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "one_step"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.15.1", features = ["extension-module"] }
+numpy = "0.15"
+itertools = "0.10"
+ndarray = "0.15"
