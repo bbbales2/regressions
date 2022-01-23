@@ -217,8 +217,8 @@ def one_draw2(
         #  to an integration direction (left or right)
         directions = rng.integers(low=0, high=2, size=max_treedepth + 1) * 2 - 1
 
-        choice_draws = rng.random(size = max_treedepth)
-        pick_draws = rng.random(size = max_treedepth)
+        choice_draws = rng.random(size=max_treedepth)
+        pick_draws = rng.random(size=max_treedepth)
 
         # depth_map will be a vector of length 2^max_treedepth that maps each of
         #  the possibly 2^max_treedepth points to a treedepth
@@ -324,7 +324,7 @@ def one_draw2(
                         checks.append((start, end))
 
             # Sort into order that checks happen
-            checks.sort(key = lambda x : x[1])
+            checks.sort(key=lambda x: x[1])
 
             # Initialize u-turn check variable
             uturn_detected_new_tree = False
