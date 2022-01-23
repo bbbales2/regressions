@@ -16,6 +16,10 @@ from . import one_draw
 
 
 class Potential:
+    """
+    Potential is a tool for synchronizing gradient calculations between many threads
+    """
+
     value_and_grad_negative_log_density: Callable[[numpy.array], Tuple[float, numpy.array]]
     """Gradient of negative log density"""
 
@@ -47,6 +51,17 @@ class Potential:
     """Remap thread identities to integers"""
 
     def __init__(self, negative_log_density, maximum_threads, size):
+        """
+        negative_log_density should be a jax-friendly negative log density function that
+        returns a scalar and takes in a vector of length size.
+
+        maximum_threads is the maximum number of threads that will be using this
+        potential for its lifetime (which could be greater than the number using
+        it at any one point).
+
+        maximum_threads and size are used to pre-allocate memory, so they must be
+        specified.
+        """
         self.value_and_grad_negative_log_density = jax.jit(jax.vmap(jax.value_and_grad(negative_log_density)))
         self.active_threads = numpy.zeros(maximum_threads, dtype=bool)
         self.waiting_threads = numpy.zeros(maximum_threads, dtype=bool)
@@ -139,6 +154,21 @@ class Potential:
 
     @contextmanager
     def activate_thread(self) -> Callable[[numpy.array], Tuple[float, numpy.array]]:
+        """
+        Use this function as a context manager, i.e.,
+
+        ```python
+        with potential.activate_thread as value_and_grad:
+            U, grad = value_and_grad(q)
+        ```
+
+        The object returned by the context manager (value_and_grad) provides values and
+        gradients of the function passed into Potential.__init__. Gradients amongst
+        difference threads will be batched together for efficiency.
+
+        It is an error to try to compute gradients with a Potential without using this
+        context manager.
+        """
         try:
             yield self.__enter__()
         finally:
@@ -147,6 +177,11 @@ class Potential:
 
 @dataclass
 class StepsizeAdapter:
+    """
+    Do stepsize adaptation like Stan (https://github.com/stan-dev/stan/blob/develop/src/stan/mcmc/stepsize_adaptation.hpp)
+    
+    I've renamed delta from the Stan implementation to target_accept_stat and mu is equal to log(initial_stepsize)
+    """
     target_accept_stat: float
     initial_stepsize: float
     gamma: float = 0.05
@@ -215,8 +250,33 @@ def warmup(
     stage_2_size: int = 850,
     stage_2_window_count: int = 4,
     stage_3_size: int = 50,
-    debug: bool = False,
 ):
+    """
+    Do warmup for a NUTS sampler given a potential (function proportional to the negative log
+    density of the distribution we want to sample), a random number generator, and an
+    initial position in sample space
+
+    Return a tuple (draw, stepsize, diagonal_inverse_metric) where draw is a suitable
+    draw for starting an MCMC calculation, stepsize is a stepsize that will hopefully
+    allow the sampler to hit the target acceptance rate, and diagonal_inverse_metric
+    is a scaling of parameter space to make the NUTS sampler reasonably efficient
+
+    Though stepsize and diagonal_inverse_metric are estimated in the process, optional
+    initial values can be provided.
+
+    target_accept_stat is the target acceptance rate for the sampler.
+
+    Adaptation is broken into three stages, each using a specified number of MCMC draws to
+    accomplish their task.
+
+    Stage 1 adapts a stepsize and tries to move the sampler close to where it will equilibrate.
+
+    Stage 2 adapts a metric iteratively. It is further broken into stages (how many times the
+    metric is recomputed). The number of stages here can be specified with stage_2_window_count.
+
+    Stage 3 adapts a final timestep after an appropriate metric has been found.
+    """
+
     size = initial_draw.shape[0]
     stepsize = initial_stepsize
 
@@ -299,6 +359,13 @@ def sample(
     num_draws: int,
     max_treedepth: int = 10,
 ):
+    """
+    Run the NUTS sampler given a potential (function proportional to negative log density of distribution
+    we want to sample), a random number generator, an initial draw, a stepsize, a diagonal inverse metric,
+    a desired number of draws, and the maximum treedepth to be used in the calculation.
+
+    The initial draw, stepsize, and diagonal inverse metric should be computed with warmup in most situations.
+    """
     size = initial_draw.shape[0]
     draws = numpy.zeros((num_draws, size))
 
