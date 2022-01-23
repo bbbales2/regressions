@@ -95,16 +95,8 @@ def test_one_draw():
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     #test_nuts()
     #test_multithreaded_nuts()
     #test_one_draw()
     logging.getLogger().setLevel(logging.DEBUG)
     pytest.main([__file__, "-s", "-o", "log_cli=true"])
-=======
-    # test_nuts()
-    # test_multithreaded_nuts()
-    test_one_draw()
-    # logging.getLogger().setLevel(logging.DEBUG)
-    # pytest.main([__file__, "-s", "-o", "log_cli=true"])
->>>>>>> 82a9e6bb2df735691d0ff1143aacb9970016c864
