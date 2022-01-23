@@ -12,6 +12,8 @@ from typing import Callable, Set, Tuple, Dict
 from tqdm import tqdm
 
 
+from . import one_step
+
 class Potential:
     value_and_grad_negative_log_density: Callable[[numpy.array], Tuple[float, numpy.array]]
     """Gradient of negative log density"""
@@ -113,7 +115,7 @@ class Potential:
             # There's a race condition here that hopefully doesn't lead to errors. If a non-running thread doesn't
             # get to wait before the running thread sets and clears the event, it will wait for the next round to run
             with self.context_lock:
-                gradients_computed = self.gradient_computed_condition.wait(timeout=0.01)
+                gradients_computed = self.gradient_computed_condition.wait(timeout=0.001)
 
             if gradients_computed:
                 with self.context_lock:
@@ -122,17 +124,24 @@ class Potential:
 
         return self.potential_results[active_thread], self.gradient_results[active_thread, :]
 
-    @contextmanager
-    def activate_thread(self) -> Callable[[numpy.array], Tuple[float, numpy.array]]:
+    def __enter__(self):
         active_thread = self._get_ident()
         with self.context_lock:
             self.active_threads[active_thread] = True
 
+        return self._value_and_grad
+    
+    def __exit__(self):
+        active_thread = self._get_ident()
+        with self.context_lock:
+            self.active_threads[active_thread] = False
+
+    @contextmanager
+    def activate_thread(self) -> Callable[[numpy.array], Tuple[float, numpy.array]]:
         try:
-            yield self._value_and_grad
+            yield self.__enter__()
         finally:
-            with self.context_lock:
-                self.active_threads[active_thread] = False
+            self.__exit__()
 
 
 def uturn(q_plus: numpy.array, q_minus: numpy.array, p_plus: numpy.array, p_minus: numpy.array) -> bool:
@@ -145,7 +154,6 @@ def uturn(q_plus: numpy.array, q_minus: numpy.array, p_plus: numpy.array, p_minu
 
     return uturn_forward and uturn_backward
 
-import one_step
 def one_draw(
     potential: Potential,
     rng: numpy.random.Generator,

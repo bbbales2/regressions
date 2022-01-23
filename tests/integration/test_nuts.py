@@ -35,7 +35,7 @@ def test_nuts():
     #    qs[n] = next_draw["q"]
     #    print(qs[n], next_draw["accept_stat"])
 
-    draws = nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 10000)
+    draws = nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 1000)
 
     means = numpy.mean(draws, axis=0)
     stds = numpy.std(draws, axis=0)
@@ -48,7 +48,7 @@ def test_multithreaded_nuts():
     def negative_log_density(q):
         return -jax.numpy.sum(jax.scipy.stats.norm.logpdf(q, loc=17.1, scale=jax.numpy.array([0.3, 1.4])))
 
-    chains = 4
+    chains = 2
     size = 2
 
     def generate_draws():
@@ -67,18 +67,15 @@ def test_multithreaded_nuts():
             results.append(e.submit(generate_draws))
 
         draws = numpy.array([result.result() for result in results])
-    print("Total time: ", time.time() - start)
-    print("Total gradient time: ", sum(N * gradient_time for N, gradient_time in potential.metrics.values()))
-
-    for count, (N, gradient_time) in potential.metrics.items():
-        print("Time for gradients: ", count, N, gradient_time, gradient_time * N)
 
     means = numpy.mean(draws, axis=(0, 1))
     stds = numpy.std(draws, axis=(0, 1))
 
-    plot = plotnine.qplot(range(draws.shape[1]), draws[0, :, 0])
-    plot.draw(show = True)
+    assert means == pytest.approx([17.1, 17.1], rel=0.05)
+    assert stds == pytest.approx([0.3, 1.4], rel=0.10)
 
+# This is a pretty fragile test that will break on different versions of numpy
+# Might have to turn it off
 def test_one_draw():
     def negative_log_density(q):
         return 0.5 * jax.numpy.dot(q, q)
@@ -91,12 +88,15 @@ def test_one_draw():
 
     potential = nuts.Potential(negative_log_density, chains, size)
 
-    nuts.one_draw(potential, rng, initial_draw, 0.005, numpy.array([1.3, 1.7]))
+    next_draw, accept_stat, steps = nuts.one_draw(potential, rng, initial_draw, 0.005, numpy.array([1.3, 1.7]))
+
+    assert next_draw == pytest.approx([0.9861392099298243, 0.9739089300939995])
+    assert accept_stat == 1.0
 
 
 if __name__ == "__main__":
     #test_nuts()
-    test_multithreaded_nuts()
+    #test_multithreaded_nuts()
     #test_one_draw()
-    # logging.getLogger().setLevel(logging.DEBUG)
-    # pytest.main([__file__, "-s", "-o", "log_cli=true"])
+    logging.getLogger().setLevel(logging.DEBUG)
+    pytest.main([__file__, "-s", "-o", "log_cli=true"])

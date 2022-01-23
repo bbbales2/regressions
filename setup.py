@@ -1,4 +1,5 @@
 import setuptools
+from setuptools_rust import Binding, RustExtension
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -17,8 +18,10 @@ setuptools.setup(
         "License :: OSI Approved :: GPLv3 License",
         "Operating System :: OS Independent",
     ],
+    rust_extensions=[RustExtension("rat.one_step", binding=Binding.PyO3)],
     scripts=["bin/rat"],
     packages=setuptools.find_packages(),
     python_requires=">=3.10",
     install_requires=requirements,
+    zip_safe=False,
 )

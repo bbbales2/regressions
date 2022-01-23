@@ -40,7 +40,7 @@ def test_cli_sample():
     data_filename = os.path.join(test_dir, "eight_schools.csv")
 
     cmd_defaults = f"{rat_path} {model_filename} {data_filename} {{output_folder}} --method=sample --chains=4"
-    cmd_specific = cmd_defaults + f" --init=0.1 --num_warmup=200 --num_draws=200 --target_acceptance_rate=0.85 --overwrite"
+    cmd_specific = cmd_defaults + f" --init=0.1 --num_warmup=400 --num_draws=400 --target_acceptance_rate=0.85 --overwrite"
 
     for cmd in [cmd_defaults, cmd_specific]:
         with tempfile.TemporaryDirectory() as output_folder:
