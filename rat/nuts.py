@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from . import one_draw
 
+
 class Potential:
     value_and_grad_negative_log_density: Callable[[numpy.array], Tuple[float, numpy.array]]
     """Gradient of negative log density"""
@@ -130,7 +131,7 @@ class Potential:
             self.active_threads[active_thread] = True
 
         return self._value_and_grad
-    
+
     def __exit__(self):
         active_thread = self._get_ident()
         with self.context_lock:
@@ -182,7 +183,7 @@ def one_draw_potential(
     current_draw: numpy.array,
     stepsize: float,
     diagonal_inverse_metric: numpy.array,
-    max_treedepth: int = 10
+    max_treedepth: int = 10,
 ):
     """
     Generate a draw using Multinomial NUTS (https://arxiv.org/abs/1701.02434 with the original

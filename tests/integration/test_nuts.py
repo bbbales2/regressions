@@ -74,6 +74,7 @@ def test_multithreaded_nuts():
     assert means == pytest.approx([17.1, 17.1], rel=0.05)
     assert stds == pytest.approx([0.3, 1.4], rel=0.10)
 
+
 # This is a pretty fragile test that will break on different versions of numpy
 # Might have to turn it off
 def test_one_draw():
@@ -83,7 +84,7 @@ def test_one_draw():
     chains = 1
     size = 2
 
-    rng = numpy.random.default_rng(seed = 5)
+    rng = numpy.random.default_rng(seed=5)
     initial_draw = numpy.ones(size)
 
     potential = nuts.Potential(negative_log_density, chains, size)
@@ -95,8 +96,8 @@ def test_one_draw():
 
 
 if __name__ == "__main__":
-    #test_nuts()
-    #test_multithreaded_nuts()
-    #test_one_draw()
+    # test_nuts()
+    # test_multithreaded_nuts()
+    # test_one_draw()
     logging.getLogger().setLevel(logging.DEBUG)
     pytest.main([__file__, "-s", "-o", "log_cli=true"])
