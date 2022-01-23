@@ -1,12 +1,10 @@
 
 use pyo3::prelude::*;
 use pyo3::prelude::{PyResult, Python, PyObject};
-use pyo3::types::{PyDict, IntoPyDict, PyTuple};
+use pyo3::types::IntoPyDict;
 use pyo3::conversion::ToPyObject;
-use std::collections::HashMap;
 use ndarray::*;
-use ndarray::prelude::*;
-use numpy::{IntoPyArray, PyArrayDyn, PyReadonlyArray1};
+use numpy::{IntoPyArray, PyReadonlyArray1};
 use std::iter::FromIterator;
 use numpy::ToPyArray;
 use pyo3::{pymodule, types::PyModule};
@@ -15,9 +13,6 @@ fn uturn(q_plus: &ArrayView1<f64>, q_minus: &ArrayView1<f64>, p_plus: &ArrayView
     let uturn_forward = (q_plus - q_minus).dot(p_plus) <= 0.0;
     let uturn_backward = -(q_minus - q_plus).dot(p_minus) <= 0.0;
 
-    //let uturn_forward = itertools::izip!(p_plus, q_plus, q_minus).map(|(p_plus_e, q_plus_e, q_minus_e)| p_plus_e * (q_plus_e - q_minus_e)).sum::<f64>() <= 0.0;
-    //let uturn_backward = itertools::izip!(p_minus, q_plus, q_minus).map(|(p_minus_e, q_plus_e, q_minus_e)| -p_minus_e * (q_minus_e - q_plus_e)).sum::<f64>() <= 0.0;
-
     uturn_forward && uturn_backward
 }
 
@@ -25,17 +20,13 @@ fn kinetic_energy(p : &Array1<f64>, diag_m_inv : &Array1<f64>) -> f64 {
     0.5 * (p * diag_m_inv).dot(p)
 }
 
-// fn value_and_grad(q : &Array1<f64>) -> (f64, Array1<f64>) {
-//     let result = Python::with_gil(|py| -> PyResult<()> {
-        
-//         Ok(())
-//     });
-
-//     (0.5 * q.dot(q), q.clone())
-// }
-
-fn value_and_grad2(q : &Array1<f64>) -> (f64, Array1<f64>) {
-    (0.5 * q.dot(q), q.clone())
+fn value_and_grad(py: Python, py_value_and_grad: &PyObject, q : &Array1<f64>) -> (f64, Array1<f64>) {
+    let res = py_value_and_grad.call1(py, (q.to_pyarray(py),)).unwrap().extract(py);
+    let (u, grad) : (f64, Vec<f64>) = match res {
+        Ok(v) => v,
+        Err(_) => panic!("Error evaluating gradient (calling value_and_grad from Rust)")
+    };
+    (u, Array1::from_vec(grad))
 }
 
 fn log_sum_exp(x : &Vec<f64>) -> f64 {
@@ -68,17 +59,6 @@ fn do_it<'py>(
     let kwargs = [("size", max_treedepth)].into_py_dict(py);
     let choice_draws : Vec<f64> = py_rng.call_method(py, "random", (), Some(kwargs)).unwrap().extract(py)?;
     let pick_draws : Vec<f64> = py_rng.call_method(py, "random", (), Some(kwargs)).unwrap().extract(py)?;
-
-
-    fn value_and_grad(py: Python, py_value_and_grad: &PyObject, q : &Array1<f64>) -> (f64, Array1<f64>) {
-        let kwargs = [("q0", q.to_pyarray(py))].into_py_dict(py);
-        let res = py_value_and_grad.call(py, (), Some(kwargs)).unwrap().extract(py);
-        let (u, grad_intermediate) : (f64, Vec<f64>) = match res {
-            Ok(v) => v,
-            Err(e) => (0.0, Vec::new())
-        };
-        (u, Array1::from_vec(grad_intermediate))
-    }
 
     // Allocate return values
     let mut q_ret = Array1::zeros(size);
@@ -135,9 +115,6 @@ fn do_it<'py>(
         // i_old will be the sample chosen (the sample from T(z' | told) in section
         //  A.3.1 of https://arxiv.org/abs/1701.02434)
         let mut i_old = i_first;
-        // We need to know whether we terminated the trajectory cause of a uturn or we
-        //  hit the max trajectory length
-        let mut uturn_detected = false;
         // For trees of increasing treedepth
         
         let mut checks = Vec::new();
@@ -270,6 +247,8 @@ fn do_it<'py>(
 
             total_leapfrogs_taken += leapfrogs_taken;
 
+            // We need to know whether we terminated the trajectory cause of a uturn or we
+            //  hit the max trajectory length
             // Merging the two trees requires one more uturn check from the overall left to right states
             let uturn_detected = uturn_detected_new_tree || uturn(&qs.row(i_right), &qs.row(i_left), &ps.row(i_right), &ps.row(i_left));
 
@@ -352,9 +331,6 @@ fn do_it<'py>(
 
         // Get the final sample
         q_ret.assign(&qs.row(i_old));
-    
-        // 0.0565, 0.313
-        //println!("{}", qs.row(i_old));
     });
 
     Ok(vec![
@@ -365,7 +341,7 @@ fn do_it<'py>(
 }
 
 #[pymodule]
-fn one_step(py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn one_draw(_: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(do_it, m)?)?;
     Ok(())
 }
