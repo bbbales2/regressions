@@ -78,7 +78,7 @@ class Model:
         model_string: str = None,
         parsed_lines: List[ops.Expr] = None,
         compile_path: str = None,
-        overwrite : bool = False
+        overwrite: bool = False,
     ):
         """
         Create a model from a dataframe (`data_df`) and a model (specified as a string, `model_string`).
@@ -122,9 +122,9 @@ class Model:
 
             if os.path.exists(compile_path) and not overwrite:
                 raise FileExistsError(f"Compile path {compile_path} already exists and will not be overwritten")
-            
+
             model_source_file = compile_path
-        
+
         with open(model_source_file, "w") as f:
             f.write(model_source_string)
 
