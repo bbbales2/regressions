@@ -15,7 +15,7 @@ rho ~ normal(-1.0, 1.0);
 # We're not putting transforms on lhs of ~ yet so I changed this bit
 # Since transform is linear no need to worry about jacobians and whatnot
 phi = 2.0 * phi - 1.0;
-phi_raw<lower=0.0, upper=1.0> ~ beta(8.0, 2.0);
+phi_raw<lower=0.0, upper=1.0> ~ normal(0.0, 1.0);# This should be beta(8.0, 2.0); but don't support it yet
 
 sigma<lower=0.0> ~ exponential(10.0);
 mu ~ normal(0.0, 1.0);
