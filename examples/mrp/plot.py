@@ -57,7 +57,7 @@ plot = (
     plotnine.ggplot(states_weighted_p_summary_df)
     + plotnine.geom_pointrange(plotnine.aes("reorder(state, repvote)", "median", ymin="q10", ymax="q90"))
     + plotnine.ylim(0.0, 1.0)
-    + plotnine.ylab("support")
+    + plotnine.ylab("Allow employers to decline coverage\nof abortions (support/oppose)")
 )
 
 plot.save("states.png", width=12, height=4, dpi=200)

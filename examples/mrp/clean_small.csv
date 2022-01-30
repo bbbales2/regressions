@@ -1,4 +1,4 @@
-abortion,state,eth,male,age,educ,repvote,region
+allow_decline_coverage,state,eth,male,age,educ,repvote,region
 1,WI,White,-0.5,60-69,4-Year College,0.50407989,North Central
 1,NJ,White,-0.5,60-69,HS,0.427158099,Northeast
 0,FL,White,-0.5,40-49,HS,0.506188355,South
