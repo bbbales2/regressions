@@ -116,7 +116,9 @@ class Model:
             # Write model source to file and compile and import it
             model_source_file = os.path.join(working_dir.name, "model_source.py")
         else:
-            os.makedirs(os.path.dirname(compile_path), exist_ok = True)
+            working_dir = os.path.dirname(compile_path)
+            if working_dir is not "":
+               os.makedirs(working_dir, exist_ok = True)
 
             if os.path.exists(compile_path) and not overwrite:
                 raise FileExistsError(f"Compile path {compile_path} already exists and will not be overwritten")
