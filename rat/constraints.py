@@ -11,7 +11,7 @@ def upper(y, upper):
 
 
 def finite(y, upper, lower):
-    inv_logit_y = jax.scipy.expit(y)
+    inv_logit_y = jax.scipy.special.expit(y)
     return (
         lower + (upper - lower) * inv_logit_y,
         jax.numpy.sum((upper - lower) * inv_logit_y * (1 - inv_logit_y)),

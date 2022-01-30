@@ -131,7 +131,7 @@ class Potential:
             # There's a race condition here that hopefully doesn't lead to errors. If a non-running thread doesn't
             # get to wait before the running thread sets and clears the event, it will wait for the next round to run
             with self.context_lock:
-                gradients_computed = self.gradient_computed_condition.wait(timeout=0.001)
+                gradients_computed = self.gradient_computed_condition.wait(timeout=0.01)
 
             if gradients_computed:
                 with self.context_lock:

@@ -168,13 +168,16 @@ fn do_it<'py>(
                 // subtree, we need to do all the checks as the previous subtree, plus one
                 // additional end-to-end check
                 let div_length = max_leapfrog_steps >> 1;
+                // Add the start of left to start of right check
+                checks.push((0, div_length));
                 // Copy and shift the previous checks
-                checks.extend(
-                    checks.clone().iter().map(|&(x, y)| {
-                        (x + div_length, y + div_length)
-                    })
-                );
-                // And the additional end to end check
+                for i in 0..checks.len() - 1 {
+                    let (x, y) = checks[i];
+                    checks.push((x + div_length, y + div_length));
+                }
+                // Add the end of left to end of right check
+                checks.push((div_length - 1, 2 * div_length - 1));
+                // And the additional start of left to end of right check
                 checks.push((0, 2 * div_length - 1));
             }
 

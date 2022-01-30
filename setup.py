@@ -18,7 +18,7 @@ setuptools.setup(
         "License :: OSI Approved :: GPLv3 License",
         "Operating System :: OS Independent",
     ],
-    rust_extensions=[RustExtension("rat.one_draw", binding=Binding.PyO3)],
+    rust_extensions=[RustExtension("rat.one_draw", binding=Binding.PyO3, debug = False)],
     scripts=["bin/rat"],
     packages=setuptools.find_packages(),
     python_requires=">=3.10",
