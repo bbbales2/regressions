@@ -318,10 +318,10 @@ def warmup(
         # windows that sequentially double in size and in total take less than
         # or equal to stage_2_size draws. In math terms that is something like:
         # window_size + 2 * window_size + 4 * window_size + ... <= stage_2_size
-        window_size = math.floor(stage_2_size / (2 ** stage_2_window_count - 1))
+        window_size = math.floor(stage_2_size / (2**stage_2_window_count - 1))
 
         for i in range(stage_2_window_count - 1):
-            stage_2_windows.append(window_size * 2 ** i)
+            stage_2_windows.append(window_size * 2**i)
 
         # The last window is whatever is left
         stage_2_windows.append(stage_2_size - sum(stage_2_windows))
