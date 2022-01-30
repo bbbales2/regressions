@@ -17,7 +17,7 @@ from . import one_draw
 
 class Potential:
     """
-    Potential is a tool for synchronizing gradient calculations between many threads
+    Potential is a tool for handling gradient calculations on many threads
     """
 
     value_and_grad_negative_log_density: Callable[[numpy.array], Tuple[float, numpy.array]]
