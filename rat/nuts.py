@@ -23,26 +23,11 @@ class Potential:
     value_and_grad_negative_log_density: Callable[[numpy.array], Tuple[float, numpy.array]]
     """Gradient of negative log density"""
 
-    active_threads: Set[int]
-    """Set of threads this potential parallizes over"""
+    potential_results: numpy.array
+    """Pre-allocated array of potential energies"""
 
-    waiting_threads: Set[int]
-    """Set of threads that are actively waiting to run"""
-
-    context_lock: threading.Lock
-    """Use this lock to modify variables shared between threads"""
-
-    gradient_computed_event: threading.Event
-    """This event signals that the gradient has been computed"""
-
-    arguments: Dict[int, numpy.array]
-    """Dictionary of thread id to argument"""
-
-    results: Dict[int, Tuple[float, numpy.array]]
-    """Dictionary of thread id to results"""
-
-    metrics: Dict[int, Tuple[int, float]]
-    """Performance metrics"""
+    gradient_results: numpy.array
+    """Pre-allocated array of gradients"""
 
     maximum_threads: int
     """Maximum number of client threads"""
@@ -62,23 +47,13 @@ class Potential:
         maximum_threads and size are used to pre-allocate memory, so they must be
         specified.
         """
-        self.value_and_grad_negative_log_density = jax.jit(jax.vmap(jax.value_and_grad(negative_log_density)))
-        self.active_threads = numpy.zeros(maximum_threads, dtype=bool)
-        self.waiting_threads = numpy.zeros(maximum_threads, dtype=bool)
-        self.context_lock = threading.Lock()
-        self.gradient_computed_condition = threading.Condition(self.context_lock)
+        self.value_and_grad_negative_log_density = jax.jit(jax.value_and_grad(negative_log_density))
 
-        self.arguments = numpy.zeros((maximum_threads, size), dtype=numpy.float32)
         self.potential_results = numpy.zeros(maximum_threads, dtype=numpy.float32)
         self.gradient_results = numpy.zeros((maximum_threads, size), dtype=numpy.float32)
 
-        self.metrics = defaultdict(lambda: [0, 0.0])
         self.maximum_threads = maximum_threads
         self.local_identity = {}
-
-    def _single_value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
-        device_U, device_gradient = self.value_and_grad_negative_log_density(q0)
-        return float(device_U), numpy.array(device_gradient)
 
     def _get_ident(self):
         threading_identity = threading.get_ident()
@@ -95,84 +70,15 @@ class Potential:
 
             return new_local_identity
 
-    def _value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
+    def value_and_grad(self, q0: numpy.array) -> Tuple[float, numpy.array]:
         active_thread = self._get_ident()
 
-        if not self.active_threads[active_thread]:
-            raise Exception("Called gradient without activating thread")
+        device_U, device_gradients = self.value_and_grad_negative_log_density(q0)
 
-        self.arguments[active_thread, :] = q0
-
-        while True:
-            with self.context_lock:
-                self.waiting_threads[active_thread] = True
-
-                number_waiting_threads = self.waiting_threads.sum()
-
-                if (self.active_threads.sum() - number_waiting_threads) == 0:
-                    start = time.time()
-
-                    device_U, device_gradients = self.value_and_grad_negative_log_density(self.arguments[self.waiting_threads, :])
-
-                    self.potential_results[self.waiting_threads] = device_U
-                    self.gradient_results[self.waiting_threads, :] = device_gradients
-
-                    self.gradient_computed_condition.notify_all()
-
-                    metrics = self.metrics[number_waiting_threads]
-
-                    metrics[0] += number_waiting_threads
-                    metrics[1] = 0.1 * (time.time() - start) / number_waiting_threads + 0.9 * metrics[1]
-
-                    self.waiting_threads[active_thread] = False
-
-                    break
-
-            # There's a race condition here that hopefully doesn't lead to errors. If a non-running thread doesn't
-            # get to wait before the running thread sets and clears the event, it will wait for the next round to run
-            with self.context_lock:
-                gradients_computed = self.gradient_computed_condition.wait(timeout=0.01)
-
-            if gradients_computed:
-                with self.context_lock:
-                    self.waiting_threads[active_thread] = False
-                break
+        self.potential_results[active_thread] = device_U
+        self.gradient_results[active_thread, :] = device_gradients
 
         return self.potential_results[active_thread], self.gradient_results[active_thread, :]
-
-    def __enter__(self):
-        active_thread = self._get_ident()
-        with self.context_lock:
-            self.active_threads[active_thread] = True
-
-        return self._value_and_grad
-
-    def __exit__(self):
-        active_thread = self._get_ident()
-        with self.context_lock:
-            self.active_threads[active_thread] = False
-
-    @contextmanager
-    def activate_thread(self) -> Callable[[numpy.array], Tuple[float, numpy.array]]:
-        """
-        Use this function as a context manager, i.e.,
-
-        ```python
-        with potential.activate_thread as value_and_grad:
-            U, grad = value_and_grad(q)
-        ```
-
-        The object returned by the context manager (value_and_grad) provides values and
-        gradients of the function passed into Potential.__init__. Gradients amongst
-        difference threads will be batched together for efficiency.
-
-        It is an error to try to compute gradients with a Potential without using this
-        context manager.
-        """
-        try:
-            yield self.__enter__()
-        finally:
-            self.__exit__()
 
 
 @dataclass
@@ -235,8 +141,7 @@ def one_draw_potential(
     Return a tuple containing containing next draw, the acceptance probability statistic, and how many leapfrog
     steps were used to compute the draw
     """
-    with potential.activate_thread() as value_and_grad:
-        return one_draw.do_it(value_and_grad, rng, current_draw, diagonal_inverse_metric, stepsize, max_treedepth)
+    return one_draw.do_it(potential.value_and_grad, rng, current_draw, diagonal_inverse_metric, stepsize, max_treedepth)
 
 
 def warmup(
