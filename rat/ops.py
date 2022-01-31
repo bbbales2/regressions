@@ -108,7 +108,7 @@ class Subscript(Expr):
         return f"subscripts['{self.variable.code()}']"
 
     def __post_init__(self):
-        self.out_type = types.SubscriptType
+        self.out_type = types.SubscriptSetType
 
     def fold(self):
         return self
@@ -120,6 +120,11 @@ class Subscript(Expr):
 @dataclass
 class SubscriptOp(Expr):
     """
+    The subscript operator can be seen as the following:
+    If we use it as `param[sub1, sub2]` we are accessing an index set spanned by the subscript sets
+    sub1 and sub2.
+    We can also use subscript indexes: `param[sub1, 1]`. This means retrieve the index set created by subscript
+    set sub1 and the 1st element of the subscript set sub2.
     SubscriptOp = operator[] (Subscript, ..., Subscript)
     (Subscript, ..., Subscript) -> Subscript
     """
@@ -127,21 +132,35 @@ class SubscriptOp(Expr):
     subscripts: List[Expr]
 
     def __post_init__(self):
-        signatures = {(types.SubscriptType,) * len(self.subscripts): types.SubscriptType}
+
+        signatures = {
+            (types.TypeOr(types.SubscriptSetType, types.IntegerType),) * len(self.subscripts): types.SubscriptSetType
+        }
         self.out_type = types.get_output_type(signatures, tuple([x.out_type for x in self.subscripts]))
 
-    def fold(self) -> Subscript:
+    def fold(self):
         """
-        Combines multiple subscripts into a single subscript
+        Combines multiple subscripts into a single subscript.
+        Returns type SubscriptOp
         """
-        names: List[str] = []
-        shifts: List[Union[Expr, None]] = []
-        for subscript in self.subscripts:
-            subscript = subscript.fold()
-            shifts.extend(subscript.shifts)
-            names.extend(subscript.names)
+        # names: List[str] = []
+        # shifts: List[Union[Expr, None]] = []
+        # for subscript in self.subscripts:
+        #     subscript = subscript.fold()
+        #     if isinstance(subscript, Subscript):
+        #         shifts.extend(subscript.shifts)
+        #         names.extend(subscript.names)
+        #     elif isinstance(subscript, IntegerConstant):
+        #         shifts.append(None)
+        #         names.append(subscript.value)
+        #
+        # return Subscript(names=tuple(names), shifts=tuple(shifts), line_index=self.line_index, column_index=self.column_index)
 
-        return Subscript(names=tuple(names), shifts=tuple(shifts), line_index=self.line_index, column_index=self.column_index)
+        folded_subscripts = []
+        for subscript in self.subscripts:
+            folded_subscripts.append(subscript.fold())
+
+        return SubscriptOp(line_index=self.line_index, column_index=self.column_index, subscripts=folded_subscripts)
 
     def __str__(self):
         return f"SubscriptOp({','.join([x.__str__() for x in self.subscripts])})"
@@ -157,7 +176,7 @@ class Shift(Expr):
     shift_expr: Expr
 
     def __post_init__(self):
-        signatures = {(types.SubscriptType, types.IntegerType): types.SubscriptType}
+        signatures = {(types.SubscriptSetType, types.IntegerType): types.SubscriptSetType}
         self.out_type = types.get_output_type(signatures, (self.subscript.out_type, self.shift_expr.out_type))
 
     def fold(self) -> Subscript:
@@ -412,7 +431,7 @@ class Exponential(Distr):
         return Exponential(variate=self.variate, scale=self.scale, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
-        return f"Exponential({self.variate.code()}, {self.scale.code()})"
+        return f"Exponential({self.variate.__str__()}, {self.scale.__str__()})"
 
 
 @dataclass
@@ -569,7 +588,7 @@ class Div(Expr):
             return Div(left=self.left, right=self.right, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
-        return f"Div({self.left.__str__(), self.right.__str__()})"
+        return f"Div({self.left.__str__()}, {self.right.__str__()})"
 
 
 @dataclass

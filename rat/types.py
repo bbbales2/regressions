@@ -1,8 +1,12 @@
 """
 This module defines the various types an operator returns.
-RealType: real number set
-IntegerType: integer set
-SubscriptType: Literal identifying subscript column name. They are distinct from strings.
+RealType: real number set, primitive type
+IntegerType: integer set, primitive type
+NumericType: real and integer
+SubscriptSetType: a set of values which construct a subscript. Passed through dataframe columns. Referred as a subscript
+set.
+SubscriptIndexType: For ordered subscript sets, "SubscriptIndex" denotes the index of a subscript value
+within the SubscriptSet
 """
 from typing import Dict, Tuple, Type
 
@@ -23,8 +27,19 @@ class IntegerType(NumericType):
     name = "Integer"
 
 
-class SubscriptType(BaseType):
-    name = "Subscript"
+class SubscriptSetType(BaseType):
+    name = "SubscriptSet"
+
+
+class TypeOr:
+    def __init__(self, *args):
+        self.types = args
+
+    def __subclasscheck__(self, subclass):
+        for _type in self.types:
+            if issubclass(subclass, _type):
+                return True
+        return False
 
 
 class TypeCheckError(Exception):
