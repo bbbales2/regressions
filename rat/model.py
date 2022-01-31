@@ -28,7 +28,6 @@ class Model:
     size: int
     device_data: Dict[str, jax.numpy.array]
     device_subscripts: Dict[str, jax.numpy.array]
-    working_dir: tempfile.TemporaryDirectory
     compiled_model: types.ModuleType
 
     def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad=True):
@@ -78,9 +77,14 @@ class Model:
         data_df: pandas.DataFrame,
         model_string: str = None,
         parsed_lines: List[ops.Expr] = None,
+        compile_path: str = None,
+        overwrite: bool = False,
     ):
         """
-        Create a model from a dataframe (`data_df`) and a model (specified as a string, `model_string`)
+        Create a model from a dataframe (`data_df`) and a model (specified as a string, `model_string`).
+
+        If compile_path is not None, then write the compiled model to the given path (will only overwrite
+        existing files if the overwrite flag is true)
 
         The parsed_lines argument is for creating a model from an intermediate representation -- likely
         deprecated soon.
@@ -106,10 +110,21 @@ class Model:
             model_source_string,
         ) = compiler.Compiler(data_df, parsed_lines, model_string).compile()
 
-        self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")
+        if compile_path is None:
+            working_dir = tempfile.TemporaryDirectory(prefix="rat.")
 
-        # Write model source to file and compile and import it
-        model_source_file = os.path.join(self.working_dir.name, "model_source.py")
+            # Write model source to file and compile and import it
+            model_source_file = os.path.join(working_dir.name, "model_source.py")
+        else:
+            working_dir = os.path.dirname(compile_path)
+            if working_dir is not "":
+               os.makedirs(working_dir, exist_ok = True)
+
+            if os.path.exists(compile_path) and not overwrite:
+                raise FileExistsError(f"Compile path {compile_path} already exists and will not be overwritten")
+
+            model_source_file = compile_path
+
         with open(model_source_file, "w") as f:
             f.write(model_source_string)
 

@@ -4,7 +4,7 @@ import pandas
 
 mrp_folder = os.path.dirname(__file__)
 
-cces_df = pandas.read_csv(os.path.join(mrp_folder, "cces18_common_vv.csv"))
+cces_df = pandas.read_parquet(os.path.join(mrp_folder, "cces18_common_vv.parquet"))
 fips_df = pandas.read_csv(os.path.join(mrp_folder, "fips.csv"))
 state_df = pandas.read_csv(os.path.join(mrp_folder, "statelevel_predictors.csv"))
 
@@ -27,7 +27,7 @@ eth = cces_df["race"].map(eth_map)
 
 ## Age -- cut into factor
 age = pandas.cut(
-    2018 - cces_df["birthyr"].astype(int),
+    2018 - cces_df["birthyr"].astype(pandas.Int64Dtype()),
     bins=[0, 29, 39, 49, 59, 69, 120],
     labels=["18-29", "30-39", "40-49", "50-59", "60-69", "70+"],
     ordered=True,
@@ -35,7 +35,7 @@ age = pandas.cut(
 
 ## Education -- factor
 educ_map = {1: "No HS", 2: "HS", 3: "Some college", 4: "Some college", 5: "4-Year College", 6: "Post-grad"}
-educ = cces_df["educ"].astype(int).map(educ_map)
+educ = cces_df["educ"].astype(pandas.Int64Dtype()).map(educ_map)
 
 clean_df = (
     pandas.DataFrame({"abortion": abortion, "fips": fips, "eth": eth, "male": male, "age": age, "educ": educ})
