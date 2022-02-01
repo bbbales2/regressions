@@ -23,7 +23,7 @@ def test_cli_optimize():
     model_filename = os.path.join(test_dir, "eight_schools.rat")
     data_filename = os.path.join(test_dir, "eight_schools.csv")
 
-    cmd_defaults = f"{rat_path} {model_filename} {data_filename} {{output_folder}} --method=optimize --chains=1"
+    cmd_defaults = f"{rat_path} {model_filename} {data_filename} {{output_folder}} --compile_path={{output_folder}}/model.py --method=optimize --chains=1"
     cmd_specific = cmd_defaults + f" --init=0.1 --retries=5 --tolerance=1e-1 --overwrite"
 
     for cmd in [cmd_defaults, cmd_specific]:
@@ -33,6 +33,7 @@ def test_cli_optimize():
             subprocess.run(cmd.format(output_folder=output_folder), shell=True, check=True)
 
             load(output_folder)
+            assert os.path.exists(os.path.join(output_folder, "model.py"))
 
 
 def test_cli_sample():
