@@ -255,28 +255,6 @@ class Parser:
         self.data_names = data_names
         self.model_string = model_string
 
-    def check_bracket_stack(self):
-        bracket_stack: List[Token] = []
-        for tok in self.tokens:
-            if isinstance(tok, Special) and tok.value in ("(", "{", "["):
-                bracket_stack.append(tok)
-            elif isinstance(tok, Special) and tok.value in (")", "}", "]"):
-                if len(bracket_stack) == 0:
-                    raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
-                top = bracket_stack.pop()
-                if (
-                    (top.value == "(" and tok.value == ")")
-                    or (top.value == "{" and tok.value == "}")
-                    or (top.value == "[" and tok.value == "]")
-                ):
-                    pass
-                else:
-                    raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
-
-        if len(bracket_stack) > 0:
-            tok = bracket_stack[0]
-            raise ParseError("Found unmatching brackets!!", self.model_string, tok.line_index, tok.column_index)
-
     def peek(self, k=0) -> Type[Token]:
         """
         k-token lookahead. Returns `scanner.NullToken` if there are no tokens in the token stack.
@@ -614,7 +592,6 @@ class Parser:
         resolved into an `ops.Assignment` or an `ops.Distr` object.
         :return:
         """
-        self.check_bracket_stack()
         token = self.peek()
         if Distributions.check(token):
             raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)

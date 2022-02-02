@@ -7,7 +7,7 @@ s[t] = exp((mu + h[t]) / 2.0);
 h[t] = match t {
     first = v[t] / sqrt(1 - phi * phi);
     other = phi * h[shift(t, 1)] + v[t];
-}
+};
 
 v[t] = sigma * v_raw[t];
 
