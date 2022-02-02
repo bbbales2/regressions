@@ -4,8 +4,10 @@ y ~ normal(mu_ret + rho * v[t] * s[t], s[t]);
 s[t] = exp((mu + h[t]) / 2.0);
 
 # Here's our recursion!
-h[t] = phi * h[shift(t, 1)] + v[t];
-h[1] = v[1] / sqrt(1 - phi * phi);
+h[t] = match t {
+    first = v[t] / sqrt(1 - phi * phi);
+    other = phi * h[shift(t, 1)] + v[t];
+}
 
 v[t] = sigma * v_raw[t];
 
