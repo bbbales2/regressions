@@ -134,7 +134,7 @@ class SubscriptOp(Expr):
     def __post_init__(self):
 
         signatures = {
-            (types.TypeOr(types.SubscriptSetType, types.IntegerType),) * len(self.subscripts): types.SubscriptSetType
+            (types.SubscriptSetType,) * len(self.subscripts): types.SubscriptSetType
         }
         self.out_type = types.get_output_type(signatures, tuple([x.out_type for x in self.subscripts]))
 
@@ -143,24 +143,18 @@ class SubscriptOp(Expr):
         Combines multiple subscripts into a single subscript.
         Returns type SubscriptOp
         """
-        # names: List[str] = []
-        # shifts: List[Union[Expr, None]] = []
-        # for subscript in self.subscripts:
-        #     subscript = subscript.fold()
-        #     if isinstance(subscript, Subscript):
-        #         shifts.extend(subscript.shifts)
-        #         names.extend(subscript.names)
-        #     elif isinstance(subscript, IntegerConstant):
-        #         shifts.append(None)
-        #         names.append(subscript.value)
-        #
-        # return Subscript(names=tuple(names), shifts=tuple(shifts), line_index=self.line_index, column_index=self.column_index)
-
-        folded_subscripts = []
+        names: List[str] = []
+        shifts: List[Union[Expr, None]] = []
         for subscript in self.subscripts:
-            folded_subscripts.append(subscript.fold())
+            subscript = subscript.fold()
+            if isinstance(subscript, Subscript):
+                shifts.extend(subscript.shifts)
+                names.extend(subscript.names)
+            elif isinstance(subscript, IntegerConstant):
+                shifts.append(None)
+                names.append(subscript.value)
 
-        return SubscriptOp(line_index=self.line_index, column_index=self.column_index, subscripts=folded_subscripts)
+        return Subscript(names=tuple(names), shifts=tuple(shifts), line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"SubscriptOp({','.join([x.__str__() for x in self.subscripts])})"
