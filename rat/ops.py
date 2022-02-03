@@ -294,6 +294,19 @@ class Param(Expr):
 
 
 @dataclass
+class MatchedStatement(Expr):
+    initial_declarations: List[Expr]
+    recurrence_equation: Expr
+    bounded_variable: Expr
+
+    def __iter__(self):
+        return iter([x for x in self.initial_declarations] + [self.recurrence_equation])
+
+    def __str__(self):
+        return f"MatchedStatement(initial={self.initial_declarations}, recurrence={self.recurrence_equation}, bounded_var={self.bounded_variable})"
+
+
+@dataclass
 class Distr(Expr):
     variate: Expr
 

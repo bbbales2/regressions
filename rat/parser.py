@@ -7,6 +7,7 @@ from .scanner import (
     IntLiteral,
     Special,
     NullToken,
+    Terminate,
 )
 from .ops import *
 from .types import TypeCheckError
@@ -524,7 +525,7 @@ class Parser:
         while True:
             if isinstance(token, Special) and token.value in (";", ",", ">", ")", "]"):
                 break
-            elif isinstance(token, NullToken):
+            elif isinstance(token, NullToken)  or isinstance(token, Terminate):
                 break
             elif isinstance(token, Special) and token.value == "(":  # '(' expression ')'
                 self.remove()  # (
@@ -598,7 +599,6 @@ class Parser:
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.parse_nud(is_lhs=True)
-        # if isinstance(lhs, Param) or isinstance(lhs, Data):
         if isinstance(lhs, Expr):
             op = self.peek()
             if AssignmentOps.check(op):

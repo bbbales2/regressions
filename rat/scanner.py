@@ -206,7 +206,9 @@ class Scanner:
         if self.register == " " or not self.register:
             token = NullToken()
         elif self.register == ";":
+            token = Terminate(self.register, self.line_index, self.column_index)
             self.register = ""
+            self.current_tokens.append(token)
             if self.current_tokens and len(self.bracket_stack) == 0:
                 self.scanned_lines.append(self.current_tokens)
                 self.current_tokens = []
