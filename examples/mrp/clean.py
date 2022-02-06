@@ -11,8 +11,8 @@ state_df = pandas.read_csv(os.path.join(mrp_folder, "statelevel_predictors.csv")
 # This is a python version of the preprocessing done for the MRP case studies
 # here: https://bookdown.org/jl5522/MRP-case-studies/downloading-and-processing-data.html
 
-## Abortion -- dichotomous (0 - Oppose / 1 - Support)
-abortion = (cces_df["CC18_321d"] - 2).abs().astype(pandas.Int64Dtype())
+## Allow employers to decline coverage of abortions -- dichotomous (0 - Oppose / 1 - Support)
+allow_decline_coverage = (cces_df["CC18_321d"] - 2).abs().astype(pandas.Int64Dtype())
 
 ## State -- factor
 fips = cces_df["inputstate"]
@@ -38,7 +38,7 @@ educ_map = {1: "No HS", 2: "HS", 3: "Some college", 4: "Some college", 5: "4-Yea
 educ = cces_df["educ"].astype(pandas.Int64Dtype()).map(educ_map)
 
 clean_df = (
-    pandas.DataFrame({"abortion": abortion, "fips": fips, "eth": eth, "male": male, "age": age, "educ": educ})
+    pandas.DataFrame({"allow_decline_coverage": allow_decline_coverage, "fips": fips, "eth": eth, "male": male, "age": age, "educ": educ})
     .merge(fips_df, on="fips", how="left")
     .merge(state_df, on="state", how="left")
     .dropna()

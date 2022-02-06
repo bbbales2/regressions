@@ -1,4 +1,5 @@
-abortion ~ bernoulli_logit(
+# Question was: Allow employers to decline coverage of abortions in insurance plans (Support / Oppose)
+allow_decline_coverage ~ bernoulli_logit(
     b_repvote * repvote +
     b_male * male +
     a_state[state, region] +

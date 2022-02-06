@@ -1,7 +1,4 @@
 import arviz
-import blackjax
-import blackjax.nuts
-import blackjax.inference
 import functools
 import glob
 import numpy

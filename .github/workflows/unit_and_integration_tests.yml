@@ -1,4 +1,4 @@
-name: Integration tests
+name: Unit and Integration tests
 
 on: [push]
 
@@ -18,7 +18,10 @@ jobs:
     - name: Install package
       run: |
         pip install .
+        pip install pytest
+    - name: Run unit tests
+      run: |
+        pytest tests/unit 
     - name: Run integration tests
       run: |
-        pip install pytest
         pytest tests/integration
