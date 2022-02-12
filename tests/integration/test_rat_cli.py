@@ -31,7 +31,7 @@ def test_cli_optimize():
         with tempfile.TemporaryDirectory() as output_folder:
             output_folder = os.path.join(output_folder, "output")
 
-            result = subprocess.run(cmd.format(output_folder=output_folder), shell=True, capture_output = True)
+            result = subprocess.run(cmd.format(output_folder=output_folder), shell=True, capture_output=True)
 
             try:
                 result.check_returncode()
@@ -54,7 +54,7 @@ def test_cli_sample():
         with tempfile.TemporaryDirectory() as output_folder:
             output_folder = os.path.join(output_folder, "output")
 
-            subprocess.run(cmd.format(output_folder=output_folder), shell=True, check=True, capture_output = True)
+            subprocess.run(cmd.format(output_folder=output_folder), shell=True, check=True, capture_output=True)
 
             load(output_folder)
 

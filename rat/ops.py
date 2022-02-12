@@ -63,10 +63,12 @@ class Subscript(Expr):
     def __str__(self):
         return f"Index(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
+
 @dataclass
 class PrimeableExpr(Expr):
     name: str
     prime: bool = False
+
 
 @dataclass
 class Data(PrimeableExpr):
@@ -438,18 +440,20 @@ class PrefixLogicalNegation(Expr):
     def __str__(self):
         return f"PrefixLogicalNegation({self.subexpr.__str__()})"
 
+
 @dataclass
 class Prime(Expr):
     subexpr: Expr
 
     def __iter__(self):
         return iter([self.subexpr])
-    
+
     def code(self):
         return f"{self.subexpr.code()}"
-    
+
     def __str__(self):
         return f"Prime({self.subexpr.__str__()})"
+
 
 @dataclass
 class Assignment(Expr):

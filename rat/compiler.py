@@ -137,7 +137,7 @@ class Compiler:
 
         return [elem[0] for elem in sorted(expr_tree_list, key=lambda x: get_index(x[1], x[0]))]
 
-    def _materialize_dataframe(self, variable : Union[ops.Data, ops.Param], rename = False):
+    def _materialize_dataframe(self, variable: Union[ops.Data, ops.Param], rename=False):
         """
         For a given variable, compute and validate the dataframe
         """
@@ -147,16 +147,16 @@ class Compiler:
                 # If the primary variable is data, the reference dataframe is the data dataframe
                 df = self.data_df
             # TODO: This isn't implemented but might make sense
-            #case ops.Subscript():
+            # case ops.Subscript():
             # If the primary variable is a subscript, the reference dataframe is the data dataframe
             #    df = self.data_df
             case ops.Param():
-                    # For parameters
-                    # 1. A subscripted primary parameter variable must have a dataframe
-                    # 2. If there is no subscript, then:
-                    #    A. If a dataframe exists, then column names must be uniquely defined
-                    #    B. If no dataframe exists, the parameter is a scalar
-                    # Since the lines are evaluated in a topological order, the rows of the primary dataframe are known at this point.
+                # For parameters
+                # 1. A subscripted primary parameter variable must have a dataframe
+                # 2. If there is no subscript, then:
+                #    A. If a dataframe exists, then column names must be uniquely defined
+                #    B. If no dataframe exists, the parameter is a scalar
+                # Since the lines are evaluated in a topological order, the rows of the primary dataframe are known at this point.
                 if key in self.parameter_base_df:
                     df = self.parameter_base_df[key].copy()
 
@@ -174,7 +174,9 @@ class Compiler:
                     else:
                         for n, in_use_subscripts in enumerate(self.parameter_subscript_names[key]):
                             if len(in_use_subscripts) > 1:
-                                msg = f"Subscript(s) of {key} must be renamed, the name for subscript {n} is ambiguous ({in_use_subscripts})"
+                                msg = (
+                                    f"Subscript(s) of {key} must be renamed, the name for subscript {n} is ambiguous ({in_use_subscripts})"
+                                )
                 else:
                     df = None
             case _:
@@ -200,11 +202,11 @@ class Compiler:
         for top_expr in rev_ordered_expr_trees:
             # We compute the primary variable in a line of code with the rules:
             # 1. There can only be one primary variable
-            # 2. If a variable is marked as primary, then it is the primary variable. 
+            # 2. If a variable is marked as primary, then it is the primary variable.
             # 3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
             # 4. If there are no variables with dataframes, the leftmost one is the primary one
             # 5. It is an error if no primary variable can be identified
-            primary_variable : ops.PrimeableExpr = None
+            primary_variable: ops.PrimeableExpr = None
             # Rule 2
             for primeable_variable in ops.search_tree(top_expr, ops.PrimeableExpr):
                 if primeable_variable.prime:
@@ -236,12 +238,12 @@ class Compiler:
                 msg = f"No primary variable found"
                 raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
 
-            # Mark the primary variable if it wasn't already            
+            # Mark the primary variable if it wasn't already
             primary_variable.prime = True
             primary_key = primary_variable.get_key()
 
             # Identify the primary dataframe if there is one and resolve naming issues
-            primary_df = self._materialize_dataframe(primary_variable, rename = True)
+            primary_df = self._materialize_dataframe(primary_variable, rename=True)
 
             # Find every other parameter in the line and attempt to construct data
             # frames for the ones with subscripts
@@ -320,7 +322,7 @@ class Compiler:
         for top_expr in ordered_expr_trees:
             logging.debug("@" * 5)
 
-            # At this point there should only be one primary variable per line            
+            # At this point there should only be one primary variable per line
             for primary_op in ops.search_tree(top_expr, ops.PrimeableExpr):
                 if primary_op.prime:
                     break
@@ -388,10 +390,10 @@ class Compiler:
                 # 1. Make sure that this data use can be joined to the primary dataframe
                 # 2. Create a data variable for this op to point to
                 data_key = data.get_key()
-                
+
                 # TODO: This will only solve #2 while there is only one input dataframe
                 assert isinstance(primary_op, ops.Data)
-                
+
                 self.data_variables[data_key] = variables.Data(data_key, self.data_df[data_key])
                 data.variable = self.data_variables[data_key]
 
@@ -428,11 +430,11 @@ class Compiler:
 
                     # extract the subscripts from the base df and link them into variable.SubscriptUse
                     variable_subscript_use = variables.SubscriptUse(
-                        names = subexpr.subscript.get_key(),
-                        df = primary_df.loc[:, subexpr.subscript.get_key()],
-                        subscript = self.variable_subscripts[subexpr_key],
-                        unique_id = next(unique_subscript_use_itentifier),
-                        shifts = subexpr.subscript.shifts,
+                        names=subexpr.subscript.get_key(),
+                        df=primary_df.loc[:, subexpr.subscript.get_key()],
+                        subscript=self.variable_subscripts[subexpr_key],
+                        unique_id=next(unique_subscript_use_itentifier),
+                        shifts=subexpr.subscript.shifts,
                     )
 
                     # link the created variable.SubscriptUse into ops.Param

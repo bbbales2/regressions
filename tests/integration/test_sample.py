@@ -53,22 +53,22 @@ def test_full():
 
     parsed_lines = [
         ops.Normal(
-            ops.Data("score_diff", prime = True),
+            ops.Data("score_diff", prime=True),
             ops.Diff(
-                ops.Param("skills", subscript = ops.Subscript(("home_team", "year"))),
-                ops.Param("skills", subscript = ops.Subscript(("away_team", "year"))),
+                ops.Param("skills", subscript=ops.Subscript(("home_team", "year"))),
+                ops.Param("skills", subscript=ops.Subscript(("away_team", "year"))),
             ),
             ops.Param("sigma"),
         ),
         ops.Normal(
-            ops.Param("skills", prime = True, subscript = ops.Subscript(("team", "year"))),
-            ops.Param("skills_mu", subscript = ops.Subscript(("year",))),
+            ops.Param("skills", prime=True, subscript=ops.Subscript(("team", "year"))),
+            ops.Param("skills_mu", subscript=ops.Subscript(("year",))),
             ops.Param("tau"),
         ),
         ops.Normal(
             ops.Param(
                 "skills_mu",
-                subscript = ops.Subscript(("year",)),
+                subscript=ops.Subscript(("year",)),
             ),
             ops.RealConstant(0.0),
             ops.RealConstant(1.0),
