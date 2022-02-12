@@ -63,10 +63,13 @@ class Subscript(Expr):
     def __str__(self):
         return f"Index(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
+@dataclass
+class PrimeableExpr(Expr):
+    name: str
+    prime: bool = False
 
 @dataclass
-class Data(Expr):
-    name: str
+class Data(PrimeableExpr):
     subscript: Subscript = None
     variable: variables.Data = None
 
@@ -82,15 +85,14 @@ class Data(Expr):
 
     def __str__(self):
         if self.subscript is None:
-            return f"Data({self.name})"
+            return f"Data({self.name}, {self.prime})"
         else:
-            return f"Data({self.name}, {self.subscript})"
+            return f"Data({self.name}, {self.prime}, {self.subscript})"
         # return f"Placeholder({self.name}, {self.subscript.__str__()}) = {{{self.value.__str__()}}}"
 
 
 @dataclass
-class Param(Expr):
-    name: str
+class Param(PrimeableExpr):
     subscript: Subscript = None
     lower: Expr = RealConstant(float("-inf"))
     upper: Expr = RealConstant(float("inf"))
@@ -116,7 +118,7 @@ class Param(Expr):
             return f"parameters['{variable_code}']"
 
     def __str__(self):
-        return f"Param({self.name}, {self.subscript.__str__()}, lower={self.lower}, upper={self.upper})"
+        return f"Param({self.name}, {self.prime}, {self.subscript.__str__()}, lower={self.lower}, upper={self.upper})"
 
 
 @dataclass
@@ -126,7 +128,6 @@ class Distr(Expr):
 
 @dataclass
 class Normal(Distr):
-    variate: Expr
     mean: Expr
     std: Expr
 
@@ -142,7 +143,6 @@ class Normal(Distr):
 
 @dataclass
 class BernoulliLogit(Distr):
-    variate: Expr
     logit_p: Expr
 
     def __iter__(self):
@@ -157,7 +157,6 @@ class BernoulliLogit(Distr):
 
 @dataclass
 class LogNormal(Distr):
-    variate: Expr
     mean: Expr
     std: Expr
 
@@ -173,7 +172,6 @@ class LogNormal(Distr):
 
 @dataclass
 class Cauchy(Distr):
-    variate: Expr
     location: Expr
     scale: Expr
 
@@ -189,7 +187,6 @@ class Cauchy(Distr):
 
 @dataclass
 class Exponential(Distr):
-    variate: Expr
     scale: Expr
 
     def __iter__(self):
@@ -441,6 +438,18 @@ class PrefixLogicalNegation(Expr):
     def __str__(self):
         return f"PrefixLogicalNegation({self.subexpr.__str__()})"
 
+@dataclass
+class Prime(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+    
+    def code(self):
+        return f"{self.subexpr.code()}"
+    
+    def __str__(self):
+        return f"Prime({self.subexpr.__str__()})"
 
 @dataclass
 class Assignment(Expr):

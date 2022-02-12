@@ -117,6 +117,7 @@ operator_strings = [
     "<",
     ">",
     "=",
+    "'"
 ]
 
 delimeters = [
