@@ -275,9 +275,9 @@ class Parser:
     def expect_token(
         self,
         token_types: Union[Type[Token], List[Type[Token]]],
-        token_value : Union[None, str, List[str]] =None,
-        remove : bool = False,
-        lookahead : int = 0,
+        token_value: Union[None, str, List[str]] = None,
+        remove: bool = False,
+        lookahead: int = 0,
     ):
         """
         Checks if the next token in the token stack is of designated type and value. If not, raise an Exception.
@@ -508,7 +508,7 @@ class Parser:
                     names=tuple(expression.name for expression in expressions),
                     shifts=shift_amount,
                 )
-            
+
             next_token = self.peek()
             if isinstance(next_token, Operator) and next_token.value == "'":
                 self.remove()
