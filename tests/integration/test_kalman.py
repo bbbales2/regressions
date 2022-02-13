@@ -1,3 +1,4 @@
+import logging
 import os
 import pathlib
 import pandas
@@ -5,6 +6,7 @@ import pytest
 import time
 
 from rat import ops
+from rat.compiler import CompileError
 from rat.model import Model
 
 test_dir = pathlib.Path(__file__).parent
@@ -14,8 +16,8 @@ def test_optimize_kalman():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman.csv"))
 
     model_string = """
-    y ~ normal(mu[i], 0.1);
-    mu[i] ~ normal(mu[shift(i, 1)], 0.3);
+    y' ~ normal(mu[i], 0.1);
+    mu[i]' ~ normal(mu[shift(i, 1)], 0.3);
     """
 
     # parsed_lines = [
@@ -53,8 +55,8 @@ def test_optimize_kalman_2():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
 
     model_string = """
-    score_diff ~ normal(skills[team1, year] - skills[team2, year], sigma);
-    skills[team, year] ~ normal(skills[team, shift(year, 1)], 0.5);
+    score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
+    skills[team, year]' ~ normal(skills[team, shift(year, 1)], 0.5);
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
@@ -88,6 +90,17 @@ def test_optimize_kalman_2():
     assert sigma_df["sigma"][0] == pytest.approx(3.51620000, rel=1e-2)
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
+def test_optimize_kalman_2_error():
+    data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
+
+    model_string = """
+    score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
+    skills' ~ normal(skills[team, shift(year, 1)], 0.5);
+    sigma<lower = 0.0> ~ normal(0, 1.0);
+    """
+
+    with pytest.raises(CompileError, match = "must be renamed"):
+        model = Model(data_df, model_string=model_string)
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)

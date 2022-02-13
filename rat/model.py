@@ -111,14 +111,14 @@ class Model:
         ) = compiler.Compiler(data_df, parsed_lines, model_string).compile()
 
         if compile_path is None:
-            working_dir = tempfile.TemporaryDirectory(prefix="rat.")
+            self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")
 
             # Write model source to file and compile and import it
-            model_source_file = os.path.join(working_dir.name, "model_source.py")
+            model_source_file = os.path.join(self.working_dir.name, "model_source.py")
         else:
-            working_dir = os.path.dirname(compile_path)
-            if working_dir is not "":
-                os.makedirs(working_dir, exist_ok=True)
+            self.working_dir = os.path.dirname(compile_path)
+            if self.working_dir is not "":
+                os.makedirs(self.working_dir, exist_ok=True)
 
             if os.path.exists(compile_path) and not overwrite:
                 raise FileExistsError(f"Compile path {compile_path} already exists and will not be overwritten")

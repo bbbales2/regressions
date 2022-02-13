@@ -67,10 +67,10 @@ class Subscript(Expr):
 class PrimeableExpr(Expr):
     name: str
     prime: bool = False
+    subscript: Subscript = None
 
 @dataclass
 class Data(PrimeableExpr):
-    subscript: Subscript = None
     variable: variables.Data = None
 
     def get_key(self):
@@ -93,10 +93,9 @@ class Data(PrimeableExpr):
 
 @dataclass
 class Param(PrimeableExpr):
-    subscript: Subscript = None
-    lower: Expr = RealConstant(float("-inf"))
-    upper: Expr = RealConstant(float("inf"))
     variable: variables.Param = None
+    lower: Expr = None# RealConstant(float("-inf"))
+    upper: Expr = None# RealConstant(float("inf"))
 
     def __iter__(self):
         if self.subscript is not None:

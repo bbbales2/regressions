@@ -18,7 +18,7 @@ def eight_schools_model():
     model_string = """
     y' ~ normal(theta[school], sigma);
     theta' = mu + z[school] * tau;
-    z[school] ~ normal(0, 1);
+    z ~ normal(0, 1);
     mu ~ normal(0, 5);
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
