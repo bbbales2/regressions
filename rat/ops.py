@@ -96,8 +96,8 @@ class Data(PrimeableExpr):
 @dataclass
 class Param(PrimeableExpr):
     variable: variables.Param = None
-    lower: Expr = None# RealConstant(float("-inf"))
-    upper: Expr = None# RealConstant(float("inf"))
+    lower: Expr = None  # RealConstant(float("-inf"))
+    upper: Expr = None  # RealConstant(float("inf"))
 
     def __iter__(self):
         if self.subscript is not None:

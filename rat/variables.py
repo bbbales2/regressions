@@ -136,7 +136,7 @@ class Param:
     def set_constraints(self, lower, upper):
         if lower is None and upper is None:
             return
-        
+
         if lower is None:
             lower = self.lower
 

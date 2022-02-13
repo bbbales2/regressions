@@ -90,6 +90,7 @@ def test_optimize_kalman_2():
     assert sigma_df["sigma"][0] == pytest.approx(3.51620000, rel=1e-2)
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
+
 def test_optimize_kalman_2_error():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
 
@@ -99,8 +100,9 @@ def test_optimize_kalman_2_error():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    with pytest.raises(CompileError, match = "must be renamed"):
+    with pytest.raises(CompileError, match="must be renamed"):
         model = Model(data_df, model_string=model_string)
+
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)

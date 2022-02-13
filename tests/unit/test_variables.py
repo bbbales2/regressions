@@ -10,6 +10,7 @@ def index():
     unprocessed_df = pandas.DataFrame(zip(group1, group2), columns=("group1", "group2"))
     return variables.Subscript(unprocessed_df, [{"group1"}, {"group2"}])
 
+
 def test_incorporate_shifts(index):
     index.incorporate_shifts((1, 1))
     assert index.df["group1"].to_list()[:-1] == [1, 1, 1, 2, 2]

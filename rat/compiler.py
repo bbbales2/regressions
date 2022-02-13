@@ -47,7 +47,7 @@ class Compiler:
 
         # these dataframes that go into variables.Subscript. Each row is a unique combination of indexes
         self.parameter_base_df: Dict[str, pandas.DataFrame] = {}
-    
+
         # these dataframes that go into variables.Subscript
         self.data_base_df: Dict[str, pandas.DataFrame] = {}
 
@@ -161,15 +161,15 @@ class Compiler:
             for primeable_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
                 if isinstance(primeable_symbol, ops.Data) or primeable_symbol.subscript is not None:
                     has_dataframe.add(primeable_symbol.get_key())
-            
+
         for top_expr in rev_ordered_expr_trees:
             # We compute the primary variable reference in a line of code with the rules:
             # 1. There can only be one primary variable reference (priming two references to the same variable is still an error)
-            # 2. If a variable is marked as primary, then it is the primary variable. 
+            # 2. If a variable is marked as primary, then it is the primary variable.
             # 3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
             # 4. If there are no variables with dataframes, the leftmost one is the primary one
             # 5. It is an error if no primary variable can be identified
-            primary_symbol : ops.PrimeableExpr = None
+            primary_symbol: ops.PrimeableExpr = None
             # Rule 2
             for primeable_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
                 if primeable_symbol.prime:
@@ -207,28 +207,28 @@ class Compiler:
                 msg = f"No primary variable found on line (this means there are no candidate variables)"
                 raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
 
-            # Mark the primary symbol if it wasn't already            
+            # Mark the primary symbol if it wasn't already
             primary_symbol.prime = True
             primary_key = primary_symbol.get_key()
 
             # Identify the primary dataframe if there is one and resolve naming issues
-            
+
             primary_key = primary_symbol.get_key()
             match primary_symbol:
                 case ops.Data():
                     # If the primary primary_symbol is data, the reference dataframe is the data dataframe
                     primary_df = self.data_df
                 # TODO: This isn't implemented but might make sense
-                #case ops.Subscript():
+                # case ops.Subscript():
                 # If the primary primary_symbol is a subscript, the reference dataframe is the data dataframe
                 #    primary_df = self.data_df
                 case ops.Param():
-                        # For parameters
-                        # 1. A subscripted primary parameter primary_symbol must have a dataframe
-                        # 2. If there is no subscript, then:
-                        #    A. If a dataframe exists, then column names must be uniquely defined
-                        #    B. If no dataframe exists, the parameter is a scalar
-                        # Since the lines are evaluated in a topological order, the rows of the primary dataframe are known at this point.
+                    # For parameters
+                    # 1. A subscripted primary parameter primary_symbol must have a dataframe
+                    # 2. If there is no subscript, then:
+                    #    A. If a dataframe exists, then column names must be uniquely defined
+                    #    B. If no dataframe exists, the parameter is a scalar
+                    # Since the lines are evaluated in a topological order, the rows of the primary dataframe are known at this point.
                     if primary_key in self.parameter_base_df:
                         primary_df = self.parameter_base_df[primary_key].copy()
 
@@ -240,7 +240,9 @@ class Compiler:
                             except ValueError as e:
                                 # if usage subscript length and declared subscript length do not match, raise exception
                                 msg = f"Rename {primary_symbol.code()} not possible, {len(primary_df.columns)} required names but {len(primary_symbol.subscript.get_key())} given."
-                                raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index) from e
+                                raise CompileError(
+                                    msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index
+                                ) from e
 
                             self.parameter_base_df[primary_key].columns = primary_df.columns
                         else:
@@ -338,7 +340,7 @@ class Compiler:
                     if not isinstance(lhs, ops.Param):
                         msg = f"Left hand side for assignment statement must be a parameter instead of {lhs.__class__.__name__}"
                         raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
-                    
+
                     # create the variable if necessary
                     if lhs_key not in self.assigned_parameter_variables:
                         # if the underlying variable has a dataframe, there will be an entry in variable_subscripts
@@ -364,21 +366,18 @@ class Compiler:
                         # create the variable if necessary
                         if symbol_key not in self.data_variables:
                             self.data_variables[symbol_key] = variables.Data(
-                                name = symbol_key,
-                                series = self.data_base_df[symbol_key].loc[:, symbol_key],
-                                subscript = self.variable_subscripts[symbol_key]
+                                name=symbol_key,
+                                series=self.data_base_df[symbol_key].loc[:, symbol_key],
+                                subscript=self.variable_subscripts[symbol_key],
                             )
                     case ops.Param():
                         # create the variable if necessary
-                        if (
-                            symbol_key not in self.assigned_parameter_variables and
-                            symbol_key not in self.parameter_variables
-                        ):
+                        if symbol_key not in self.assigned_parameter_variables and symbol_key not in self.parameter_variables:
                             # if the underlying variable has a dataframe, there will be an entry in variable_subscripts
                             if symbol_key in self.variable_subscripts:
-                                variable = variables.Param(name = symbol_key, subscript = self.variable_subscripts[symbol_key])
+                                variable = variables.Param(name=symbol_key, subscript=self.variable_subscripts[symbol_key])
                             else:
-                                variable = variables.Param(name = symbol_key)
+                                variable = variables.Param(name=symbol_key)
 
                             self.parameter_variables[symbol_key] = variable
                     case _:
@@ -410,7 +409,7 @@ class Compiler:
                     except Exception as e:
                         msg = f"Constraints of {parameter_key} have already been set"
                         raise CompileError(msg, self.model_code_string, parameter_symbol.line_index, parameter_symbol.column_index)
-        
+
         # Link ops back to variables
         for top_expr in ordered_expr_trees:
             for symbol in ops.search_tree(top_expr, ops.Data, ops.Param):
@@ -441,7 +440,7 @@ class Compiler:
 
         # Build SubscriptUse variables for every time a variable is subscripted
         for top_expr in ordered_expr_trees:
-            # At this point there should only be one primary variable per line            
+            # At this point there should only be one primary variable per line
             for primary_op in ops.search_tree(top_expr, ops.PrimeableExpr):
                 if primary_op.prime:
                     break
@@ -461,7 +460,7 @@ class Compiler:
                 # resolve subscripts
                 if symbol.subscript is not None:
                     primary_df = self.variable_subscripts[primary_key].base_df
-                    
+
                     # incorporate shifts into variable.Subscript
                     self.variable_subscripts[symbol_key].incorporate_shifts(symbol.subscript.shifts)
 
@@ -469,11 +468,11 @@ class Compiler:
                     # TODO: I'm suspicious we need some sort of error checking on this giant statement -- like
                     # I'm not sure why we expect primary_df to have the symbol subscripts here
                     variable_subscript_use = variables.SubscriptUse(
-                        names = symbol.subscript.get_key(),
-                        df = primary_df.loc[:, symbol.subscript.get_key()],
-                        subscript = self.variable_subscripts[symbol_key],
-                        unique_id = next(unique_subscript_use_itentifier),
-                        shifts = symbol.subscript.shifts,
+                        names=symbol.subscript.get_key(),
+                        df=primary_df.loc[:, symbol.subscript.get_key()],
+                        subscript=self.variable_subscripts[symbol_key],
+                        unique_id=next(unique_subscript_use_itentifier),
+                        shifts=symbol.subscript.shifts,
                     )
 
                     try:
@@ -487,7 +486,7 @@ class Compiler:
                     self.subscript_use_variables[variable_subscript_use.code()] = variable_subscript_use
 
                     # quickly check to make sure subscripts don't exist for Data
-                    #for subexpr in ops.search_tree(top_expr, ops.Data):
+                    # for subexpr in ops.search_tree(top_expr, ops.Data):
                     #    subexpr_key = subexpr.get_key()
                     #    if subexpr.subscript:
                     #        raise CompileError(
@@ -619,9 +618,7 @@ class Compiler:
         for var_name, subscript_names in self.parameter_subscript_names.items():
             logging.debug(var_name)
             logging.debug(self.parameter_base_df[var_name])
-            self.variable_subscripts[var_name] = variables.Subscript(
-                self.parameter_base_df[var_name], subscript_names
-            )
+            self.variable_subscripts[var_name] = variables.Subscript(self.parameter_base_df[var_name], subscript_names)
         logging.debug("done printing parameter_base_df")
 
         # build variable.Subscript for each data
@@ -630,7 +627,7 @@ class Compiler:
             logging.debug(var_name)
             self.variable_subscripts[var_name] = variables.Subscript(base_df, [])
         logging.debug("done printing data_base_df")
-        
+
         logging.debug("now printing variable_subscripts")
         for key, val in self.variable_subscripts.items():
             logging.debug(key)
