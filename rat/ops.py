@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Tuple, Union, Type, List
+from typing import Tuple, Union, Type, List, Dict
 import jax
 
 
@@ -295,15 +295,29 @@ class Param(Expr):
 
 @dataclass
 class MatchedStatement(Expr):
-    initial_declarations: List[Expr]
+    lhs: Expr
+    initial_declarations: Dict[str, Expr]
     recurrence_equation: Expr
-    bounded_variable: Expr
+    bounded_variable_name: str
+    reverse_order: bool
 
     def __iter__(self):
         return iter([x for x in self.initial_declarations] + [self.recurrence_equation])
 
+    def __post_init__(self):
+        self.out_type = types.NumericType
+
+    def fold(self):
+        self.lhs = self.lhs.fold()
+        for key in self.initial_declarations.keys():
+            self.initial_declarations[key] = self.initial_declarations[key].fold()
+        self.recurrence_equation = self.recurrence_equation.fold()
+        return MatchedStatement(lhs=self.lhs, initial_declarations=self.initial_declarations,
+                                recurrence_equation=self.recurrence_equation, bounded_variable_name=self.bounded_variable_name,
+                                reverse_order=self.reverse_order, line_index=self.line_index, column_index=self.column_index)
+
     def __str__(self):
-        return f"MatchedStatement(initial={self.initial_declarations}, recurrence={self.recurrence_equation}, bounded_var={self.bounded_variable})"
+        return f"MatchedStatement(initial={self.initial_declarations}, recurrence={self.recurrence_equation}, bounded_var_name={self.bounded_variable_name})"
 
 
 @dataclass
@@ -685,6 +699,34 @@ class Assignment(Expr):
 
     def __str__(self):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
+
+
+
+@dataclass
+class Sqrt(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"jax.numpy.sqrt({self.subexpr.code()})"
+
+    def __post_init__(self):
+        signatures = {
+            (types.NumericType,): types.RealType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
+
+    def fold(self):
+        self.subexpr = self.subexpr.fold()
+        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
+            return RealConstant(value=jax.numpy.sqrt(self.subexpr.value))
+        else:
+            return Sqrt(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
+
+    def __str__(self):
+        return f"Sqrt({self.subexpr.__str__()})"
 
 
 @dataclass

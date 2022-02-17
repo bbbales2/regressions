@@ -62,7 +62,7 @@ def transform_parameters(data, subscripts, parameters):
 
     # Bring everything back together -- it may be faster to allocate h as zeros and then add in these other things, but
     # anyway this is something that should work
-    parameters['h'] = jax.numpy.concat([parameters['h[t]'], jax.numpy.array([parameters['h[0]'])]])
+    parameters['h'] = jax.numpy.concat([parameters['h[t]'], jax.numpy.array([parameters['h[0]']])])
 
     # s
     parameters['s'] = jax.numpy.exp(parameters['mu'] + parameters['h'][subscripts['t__7']] / 2.0)

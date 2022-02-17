@@ -593,6 +593,8 @@ class Parser:
         resolved into an `ops.Assignment` or an `ops.Distr` object.
         :return:
         """
+        return_statement = None
+
         token = self.peek()
         if Distributions.check(token):
             raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)
@@ -601,15 +603,68 @@ class Parser:
         lhs = self.parse_nud(is_lhs=True)
         if isinstance(lhs, Expr):
             op = self.peek()
-            if AssignmentOps.check(op):
+            if op.value == "=" and self.peek(k=1).value == "match":
+                # Matched assignment block
+                reverse_order = False
+                self.remove()  # assignment operator
+                self.remove()  # "match"
+                self.expect_token(Identifier)
+                bounded_variable = self.peek()
+                if bounded_variable.value == "rev":
+                    reverse_order = True
+                    self.remove()  # rev
+
+                    self.expect_token(Special, "(")
+                    self.remove()  # (
+                    self.expect_token(Identifier)  # variable name
+                    bounded_variable = self.peek()
+                    self.remove()  # variable
+                    self.expect_token(Special, ")")
+                    self.remove()  # )
+                else:
+                    self.remove()  # variable
+                self.expect_token(Special, "{")
+                self.remove()  # {
+                # we are now inside the match statement body
+                initial_declarations = {}
+                recurrence_equation = None
+                while True:
+                    next_token = self.peek()
+                    if next_token.value == "}":
+                        self.remove()  # }
+                        break
+                    if next_token.value == "first":
+                        self.remove()  # "first"
+                        self.expect_token(Operator, "=")
+                        self.remove()  # =
+                        rhs = self.expression()
+                        self.expect_token(Terminate)
+                        self.remove()  # ;
+                        initial_declarations["first"] = rhs
+                    elif next_token.value == "else":
+                        self.remove()  # "else"
+                        self.expect_token(Operator, "=")
+                        self.remove()  # =
+                        rhs = self.expression()
+                        self.expect_token(Terminate)
+                        self.remove()  # ;
+                        recurrence_equation = rhs
+                    else:
+                        raise ParseError(f"Found unknown keyword {next_token.value} within match statement",
+                                         self.model_string, next_token.line_index, next_token.column_index)
+
+                if not recurrence_equation:
+                    raise ParseError("Match statement missing else(recurrence equation) stataement!", self.model_string,
+                                     lhs.line_index, lhs.column_index)
+                return_statement = MatchedStatement(lhs=lhs, initial_declarations=initial_declarations,
+                                        recurrence_equation=recurrence_equation, bounded_variable_name=bounded_variable.value,
+                                        reverse_order=reverse_order, line_index=lhs.line_index, column_index=lhs.column_index)
+
+            elif AssignmentOps.check(op):
                 self.remove()  # assignment operator
                 rhs = self.expression()
                 try:
-                    stmt = AssignmentOps.generate(lhs, rhs, op)
-                    if fold:
-                        return stmt.fold()
-                    else:
-                        return stmt
+                    return_statement = AssignmentOps.generate(lhs, rhs, op)
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, op.line_index, op.column_index)
                 except ConstantFoldError as e:
@@ -629,11 +684,7 @@ class Parser:
                 self.expect_token(Special, ")")
                 self.remove()  # )
                 try:
-                    distr = Distributions.generate(lhs, expressions, distribution)
-                    if fold:
-                        return distr.fold()
-                    else:
-                        return distr
+                    return_statement = Distributions.generate(lhs, expressions, distribution)
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, distribution.line_index, distribution.column_index)
                 except ConstantFoldError as e:
@@ -647,4 +698,9 @@ class Parser:
                 else:
                     raise ParseError(f"Unknown operator '{op.value}' in statement", self.model_string, op.line_index, op.column_index)
 
+        if return_statement is not None:
+            if fold:
+                return return_statement.fold()
+            else:
+                return return_statement
         return Expr()
