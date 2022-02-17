@@ -525,7 +525,7 @@ class Parser:
         while True:
             if isinstance(token, Special) and token.value in (";", ",", ">", ")", "]"):
                 break
-            elif isinstance(token, NullToken)  or isinstance(token, Terminate):
+            elif isinstance(token, NullToken) or isinstance(token, Terminate):
                 break
             elif isinstance(token, Special) and token.value == "(":  # '(' expression ')'
                 self.remove()  # (
@@ -650,15 +650,26 @@ class Parser:
                         self.remove()  # ;
                         recurrence_equation = rhs
                     else:
-                        raise ParseError(f"Found unknown keyword {next_token.value} within match statement",
-                                         self.model_string, next_token.line_index, next_token.column_index)
+                        raise ParseError(
+                            f"Found unknown keyword {next_token.value} within match statement",
+                            self.model_string,
+                            next_token.line_index,
+                            next_token.column_index,
+                        )
 
                 if not recurrence_equation:
-                    raise ParseError("Match statement missing else(recurrence equation) stataement!", self.model_string,
-                                     lhs.line_index, lhs.column_index)
-                return_statement = MatchedStatement(lhs=lhs, initial_declarations=initial_declarations,
-                                        recurrence_equation=recurrence_equation, bounded_variable_name=bounded_variable.value,
-                                        reverse_order=reverse_order, line_index=lhs.line_index, column_index=lhs.column_index)
+                    raise ParseError(
+                        "Match statement missing else(recurrence equation) stataement!", self.model_string, lhs.line_index, lhs.column_index
+                    )
+                return_statement = MatchedStatement(
+                    lhs=lhs,
+                    initial_declarations=initial_declarations,
+                    recurrence_equation=recurrence_equation,
+                    bounded_variable_name=bounded_variable.value,
+                    reverse_order=reverse_order,
+                    line_index=lhs.line_index,
+                    column_index=lhs.column_index,
+                )
 
             elif AssignmentOps.check(op):
                 self.remove()  # assignment operator

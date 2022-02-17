@@ -195,6 +195,7 @@ class Scanner:
         """
         Resolve the current characters in the register int o a token
         """
+
         def casts_to_int(val):
             try:
                 int(val)

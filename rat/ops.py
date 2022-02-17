@@ -133,9 +133,7 @@ class SubscriptOp(Expr):
 
     def __post_init__(self):
 
-        signatures = {
-            (types.SubscriptSetType,) * len(self.subscripts): types.SubscriptSetType
-        }
+        signatures = {(types.SubscriptSetType,) * len(self.subscripts): types.SubscriptSetType}
         self.out_type = types.get_output_type(signatures, tuple([x.out_type for x in self.subscripts]))
 
     def fold(self):
@@ -312,9 +310,15 @@ class MatchedStatement(Expr):
         for key in self.initial_declarations.keys():
             self.initial_declarations[key] = self.initial_declarations[key].fold()
         self.recurrence_equation = self.recurrence_equation.fold()
-        return MatchedStatement(lhs=self.lhs, initial_declarations=self.initial_declarations,
-                                recurrence_equation=self.recurrence_equation, bounded_variable_name=self.bounded_variable_name,
-                                reverse_order=self.reverse_order, line_index=self.line_index, column_index=self.column_index)
+        return MatchedStatement(
+            lhs=self.lhs,
+            initial_declarations=self.initial_declarations,
+            recurrence_equation=self.recurrence_equation,
+            bounded_variable_name=self.bounded_variable_name,
+            reverse_order=self.reverse_order,
+            line_index=self.line_index,
+            column_index=self.column_index,
+        )
 
     def __str__(self):
         return f"MatchedStatement(initial={self.initial_declarations}, recurrence={self.recurrence_equation}, bounded_var_name={self.bounded_variable_name})"
@@ -573,9 +577,9 @@ class Pow(Expr):
         self.left = self.base.fold()
         self.right = self.exponent.fold()
         if isinstance(self.left, IntegerConstant) and isinstance(self.right, IntegerConstant):
-            return IntegerConstant(value=self.left.value ** self.right.value)
+            return IntegerConstant(value=self.left.value**self.right.value)
         elif isinstance(self.left, (RealConstant, IntegerConstant)) and isinstance(self.right, (RealConstant, IntegerConstant)):
-            return RealConstant(value=self.left.value ** self.right.value)
+            return RealConstant(value=self.left.value**self.right.value)
         else:
             return Pow(base=self.base, exponent=self.exponent, line_index=self.line_index, column_index=self.column_index)
 
@@ -699,7 +703,6 @@ class Assignment(Expr):
 
     def __str__(self):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
-
 
 
 @dataclass
