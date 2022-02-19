@@ -325,7 +325,6 @@ class MatchedStatement(Expr):
         return f"MatchedStatement(initial={self.initial_declarations}, recurrence={self.recurrence_equation}, bounded_var_name={self.bounded_variable_name})"
 
 
-
 @dataclass
 class Distr(Expr):
     variate: Expr

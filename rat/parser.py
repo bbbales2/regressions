@@ -350,7 +350,6 @@ class Parser:
 
         return expressions
 
-
     def parse_nud(self, is_lhs=False, is_subscript=False):
         token = self.peek()
         if isinstance(token, RealLiteral):  # if just a real number, return it
@@ -451,7 +450,6 @@ class Parser:
                 f"{token.value} can't be in the beginning of a construct!", self.model_string, token.line_index, token.column_index
             )
 
-
     def parse_param(self, is_lhs=False):
         self.expect_token(Identifier)
         token = self.peek()
@@ -530,7 +528,6 @@ class Parser:
             exp.upper = upper
 
         return exp
-
 
     def expression(self, min_precedence=0, is_lhs=False, is_subscript=False):
         """
