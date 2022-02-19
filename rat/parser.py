@@ -34,9 +34,20 @@ class PrefixOps:
         return False
 
     @staticmethod
-    def generate(expr: Expr, operator: Operator):
-        if operator.value == "-":
-            return PrefixNegation(subexpr=expr, line_index=operator.line_index, column_index=operator.column_index)
+    def generate(expr: Expr, tok: Operator):
+        match tok.value:
+            case "-":
+                return PrefixNegation(expr, line_index=tok.line_index, column_index=tok.column_index)
+
+
+class PostfixOps:
+    ops = ["'"]
+
+    @staticmethod
+    def check(tok: Token):
+        if isinstance(tok, Operator) and tok.value in PostfixOps.ops:
+            return True
+        return False
 
 
 class InfixOps:
@@ -270,9 +281,9 @@ class Parser:
     def expect_token(
         self,
         token_types: Union[Type[Token], List[Type[Token]]],
-        token_value=None,
-        remove=False,
-        lookahead=0,
+        token_value: Union[None, str, List[str]] = None,
+        remove: bool = False,
+        lookahead: int = 0,
     ):
         """
         Checks if the next token in the token stack is of designated type and value. If not, raise an Exception.
@@ -339,14 +350,15 @@ class Parser:
 
         return expressions
 
+
     def parse_nud(self, is_lhs=False, is_subscript=False):
         token = self.peek()
         if isinstance(token, RealLiteral):  # if just a real number, return it
-            exp = RealConstant(value=float(token.value))
+            exp = RealConstant(value=float(token.value), line_index=token.line_index, column_index=token.column_index)
             self.remove()  # real
             return exp
         elif isinstance(token, IntLiteral):  # if just an integer, return it
-            exp = IntegerConstant(value=int(token.value))
+            exp = IntegerConstant(value=int(token.value), line_index=token.line_index, column_index=token.column_index)
             self.remove()  # integer
             return exp
 
@@ -361,35 +373,36 @@ class Parser:
                 raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
             return exp
 
-        elif isinstance(token, Identifier):
-            if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
-                self.remove()  # functionName
+        elif UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
+            self.remove()  # functionName
 
-                self.expect_token(Special, "(")
-                self.remove()  # (
-                argument = self.expression(is_lhs=is_lhs, is_subscript=is_subscript)
+            self.expect_token(Special, "(")
+            self.remove()  # (
+            argument = self.expression(is_lhs=is_lhs, is_subscript=is_subscript)
 
-                self.expect_token(Special, ")")
-                self.remove()  # )
-                try:
-                    exp = UnaryFunctions.generate(argument, token)
-                except TypeCheckError as e:
-                    raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
-                return exp
+            self.expect_token(Special, ")")
+            self.remove()  # )
+            try:
+                exp = UnaryFunctions.generate(argument, token)
+            except TypeCheckError as e:
+                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+            return exp
 
-            elif BinaryFunctions.check(token):  # binaryFunction '(' expression, expression ')'
-                self.remove()  # function name
-                self.expect_token(Special, "(")
-                self.remove()  # (
-                arguments = self.expressions("(", is_subscript=is_subscript)
-                self.expect_token(Special, ")")
-                self.remove()  # )
-                try:
-                    exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
-                except TypeCheckError as e:
-                    raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+        elif BinaryFunctions.check(token):  # binaryFunction '(' expression, expression ')'
+            self.remove()  # function name
+            self.expect_token(Special, "(")
+            self.remove()  # (
+            arguments = self.expressions("(", is_subscript=is_subscript)
+            self.expect_token(Special, ")")
+            self.remove()  # )
+            try:
+                exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
+            except TypeCheckError as e:
+                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+            return exp
 
-            elif token.value in self.data_names:
+        elif isinstance(token, Identifier):  # parse data and param
+            if token.value in self.data_names:
                 if not is_subscript:
                     exp = Data(name=token.value, line_index=token.line_index, column_index=token.column_index)
                 else:
@@ -420,6 +433,11 @@ class Parser:
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, next_token.line_index, next_token.column_index)
 
+            next_token = self.peek()
+            if isinstance(next_token, Operator) and next_token.value == "'":
+                self.remove()
+                exp.prime = True
+
             return exp
 
         elif isinstance(token, Special) and token.value == "(":  # ( expression )
@@ -432,6 +450,7 @@ class Parser:
             raise ParseError(
                 f"{token.value} can't be in the beginning of a construct!", self.model_string, token.line_index, token.column_index
             )
+
 
     def parse_param(self, is_lhs=False):
         self.expect_token(Identifier)
@@ -512,6 +531,7 @@ class Parser:
 
         return exp
 
+
     def expression(self, min_precedence=0, is_lhs=False, is_subscript=False):
         """
         This function is used to evaluate an expression. Please refer to the BNF grammer to see what types of
@@ -520,9 +540,10 @@ class Parser:
         :return: An `ops.Expr` object.
         """
         left = self.parse_nud(is_lhs=is_lhs, is_subscript=is_subscript)
-        token = self.peek()
 
         while True:
+            token = self.peek()
+
             if isinstance(token, Special) and token.value in (";", ",", ">", ")", "]"):
                 break
             elif isinstance(token, NullToken) or isinstance(token, Terminate):
@@ -533,6 +554,13 @@ class Parser:
                 self.expect_token(Special, ")")  # )
                 self.remove()  # )
                 exp = next_expression  # expression
+
+            elif PostfixOps.check(token):  # expression infixOps expression
+                if PostfixOps.precedence[token.value] <= min_precedence:
+                    break
+                self.expect_token(Operator, PostfixOps.ops)
+                self.remove()  # op
+                exp = PostfixOps.generate(left, token)
 
             elif InfixOps.check(token):  # expression infixOps expression
                 if InfixOps.precedence[token.value] <= min_precedence:
@@ -582,7 +610,6 @@ class Parser:
             else:
                 raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
 
-            token = self.peek()
             left = exp
 
         return left

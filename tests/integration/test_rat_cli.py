@@ -14,6 +14,7 @@ from rat.fit import load
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 
 test_dir = pathlib.Path(__file__).parent
 rat_path = os.path.join(test_dir, "../../bin/rat")
@@ -23,16 +24,22 @@ def test_cli_optimize():
     model_filename = os.path.join(test_dir, "eight_schools.rat")
     data_filename = os.path.join(test_dir, "eight_schools.csv")
 
-    cmd_defaults = f"{rat_path} {model_filename} {data_filename} {{output_folder}} --compile_path={{output_folder}}/model.py --method=optimize --chains=1"
+    cmd_defaults = f"{sys.executable} {rat_path} {model_filename} {data_filename} {{output_folder}} --compile_path={{output_folder}}/model.py --method=optimize --chains=1"
     cmd_specific = cmd_defaults + f" --init=0.1 --retries=5 --tolerance=1e-1 --overwrite"
 
     for cmd in [cmd_defaults, cmd_specific]:
         with tempfile.TemporaryDirectory() as output_folder:
             output_folder = os.path.join(output_folder, "output")
 
-            subprocess.run(cmd.format(output_folder=output_folder), shell=True, check=True)
+            result = subprocess.run(cmd.format(output_folder=output_folder), shell=True, capture_output=True)
 
-            load(output_folder)
+            try:
+                result.check_returncode()
+            except subprocess.CalledProcessError as e:
+                print(f"stdout: {result.stdout}")
+                print(f"stderr: {result.stderr}")
+                raise e
+
             assert os.path.exists(os.path.join(output_folder, "model.py"))
 
 
@@ -40,14 +47,14 @@ def test_cli_sample():
     model_filename = os.path.join(test_dir, "eight_schools.rat")
     data_filename = os.path.join(test_dir, "eight_schools.csv")
 
-    cmd_defaults = f"{rat_path} {model_filename} {data_filename} {{output_folder}} --method=sample --chains=4"
-    cmd_specific = cmd_defaults + f" --init=0.1 --num_warmup=200 --num_draws=200 --target_acceptance_rate=0.85 --overwrite"
+    cmd_defaults = f"{sys.executable} {rat_path} {model_filename} {data_filename} {{output_folder}} --method=sample --chains=4"
+    cmd_specific = cmd_defaults + f" --init=0.1 --num_warmup=400 --num_draws=400 --target_acceptance_rate=0.85 --overwrite"
 
     for cmd in [cmd_defaults, cmd_specific]:
         with tempfile.TemporaryDirectory() as output_folder:
             output_folder = os.path.join(output_folder, "output")
 
-            subprocess.run(cmd.format(output_folder=output_folder), shell=True, check=True)
+            subprocess.run(cmd.format(output_folder=output_folder), shell=True, check=True, capture_output=True)
 
             load(output_folder)
 

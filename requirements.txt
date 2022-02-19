@@ -1,5 +1,4 @@
 arviz
-blackjax>=0.3.0
 jax
 jaxlib
 numpy

@@ -159,6 +159,25 @@ def test_parser_rhs_index_shift_multiple():
     assert statement.fold().__str__() == expected_folded.__str__()
 
 
+def test_parser_prime():
+    # note: two primes in one line is a semantic error (not a syntax error)
+    input_str = "tau<lower=0.0>' ~ normal(skills_mu[year]', skills_mu2);"
+    data_names = ["year"]
+    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement()
+    expected = Normal(
+        Param(
+            name="tau",
+            prime=True,
+            subscript=None,
+            lower=RealConstant(0.0),
+            upper=RealConstant(float("inf")),
+        ),
+        Param(name="skills_mu", prime=True, subscript=Subscript(names=("year",), shifts=(None,))),
+        Param(name="skills_mu2", prime=False),
+    )
+    assert statement.__str__() == expected.__str__()
+
+
 def test_parser_invalid_statement():
     with pytest.raises(Exception, match="normal distribution needs 2 parameters"):
         test_string = "tau<lower=0.0> ~ normal(skills_mu[year]);"

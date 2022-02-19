@@ -5,16 +5,10 @@ from rat import variables
 
 @pytest.fixture
 def index():
-    group1 = [2, 2, 1, 1, 1, 1]
-    group2 = [2, 1, 1, 2, 3, 3]
+    group1 = [1, 1, 1, 2, 2]
+    group2 = [1, 2, 3, 1, 2]
     unprocessed_df = pandas.DataFrame(zip(group1, group2), columns=("group1", "group2"))
     return variables.Subscript(unprocessed_df, [{"group1"}, {"group2"}])
-
-
-def test_index_constructor(index):
-    assert len(index.df) == 5
-    assert index.df["group1"].to_list() == [1, 1, 1, 2, 2]
-    assert index.df["group2"].to_list() == [1, 2, 3, 1, 2]
 
 
 def test_incorporate_shifts(index):

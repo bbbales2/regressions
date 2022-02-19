@@ -13,7 +13,7 @@ Some central Rat features are:
 
 Some central technical pieces are:
 
-1. Rat uses a No-U-Turn-Sampler (implementation from [blackjax](https://github.com/blackjax-devs/blackjax/tree/main/blackjax))
+1. Rat uses a No-U-Turn-Sampler (following implementation in [Betancourt](https://arxiv.org/pdf/1701.02434.pdf))
 2. Rat uses autodiff from [jax](https://github.com/google/jax)
 
 Rat works in a limited language space to keep the backend stuff simple
@@ -252,8 +252,7 @@ that are set in assignment statements (statements where the left and right hand
 side is separated by an `=`).
 
 One of the basic things transformed parameters let us do is implement a
-non-centered parameterization. Internally Rat uses the NUTS sampler in
-[blackjax](https://github.com/blackjax-devs/blackjax). It is useful to
+non-centered parameterization. Internally Rat uses a NUTS sampler. It is useful to
 reparameterize hierarchical models for NUTS to avoid
 [divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html).
 

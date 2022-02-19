@@ -1,3 +1,6 @@
+rat/*.so
+Cargo.lock
+target/
 *~
 *.egg-info
 .vscode/

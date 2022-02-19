@@ -192,13 +192,14 @@ class Shift(Expr):
 
 
 @dataclass
-class Data(Expr):
-    """
-    Augmented AST node
-    """
-
+class PrimeableExpr(Expr):
     name: str
-    subscript: Union[Subscript, SubscriptOp] = None
+    prime: bool = False
+    subscript: Subscript = None
+
+
+@dataclass
+class Data(PrimeableExpr):
     variable: variables.Data = None
 
     def get_key(self):
@@ -214,30 +215,24 @@ class Data(Expr):
     def fold(self):
         if self.subscript:
             self.subscript = self.subscript.fold()
-        return Data(name=self.name, subscript=self.subscript, line_index=self.line_index, column_index=self.column_index)
+        return Data(name=self.name, prime=self.prime, subscript=self.subscript, line_index=self.line_index, column_index=self.column_index)
 
     def __post_init__(self):
         self.out_type = types.NumericType
 
     def __str__(self):
         if self.subscript is None:
-            return f"Data({self.name})"
+            return f"Data({self.name}, {self.prime})"
         else:
-            return f"Data({self.name}, {self.subscript})"
+            return f"Data({self.name}, {self.prime}, {self.subscript})"
         # return f"Placeholder({self.name}, {self.subscript.__str__()}) = {{{self.value.__str__()}}}"
 
 
 @dataclass
-class Param(Expr):
-    """
-    Augumented AST
-    """
-
-    name: str
-    subscript: Subscript = None
-    lower: Expr = RealConstant(value=float("-inf"))
-    upper: Expr = RealConstant(value=float("inf"))
+class Param(PrimeableExpr):
     variable: variables.Param = None
+    lower: Expr = None  # RealConstant(float("-inf"))
+    upper: Expr = None  # RealConstant(float("inf"))
 
     def __iter__(self):
         if self.subscript is not None:
@@ -252,24 +247,30 @@ class Param(Expr):
         return self.name
 
     def fold(self):
-        self.lower = self.lower.fold()
-        self.upper = self.upper.fold()
+        if self.lower is not None:
+            self.lower = self.lower.fold()
+            if not isinstance(self.lower, (RealConstant, IntegerConstant)):
+                raise ConstantFoldError(
+                    f"Lower bound value must fold into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!",
+                    self.line_index,
+                    self.column_index,
+                )
+
+        if self.upper is not None:
+            self.upper = self.upper.fold()
+            if not isinstance(self.upper, (RealConstant, IntegerConstant)):
+                raise ConstantFoldError(
+                    f"Upper bound value must fold into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!",
+                    self.line_index,
+                    self.column_index,
+                )
+
         if self.subscript:
             self.subscript = self.subscript.fold()
-        if not isinstance(self.lower, (RealConstant, IntegerConstant)):
-            raise ConstantFoldError(
-                f"Lower bound value must fold into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!",
-                self.line_index,
-                self.column_index,
-            )
-        if not isinstance(self.upper, (RealConstant, IntegerConstant)):
-            raise ConstantFoldError(
-                f"Upper bound value must fold into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!",
-                self.line_index,
-                self.column_index,
-            )
+
         return Param(
             name=self.name,
+            prime=self.prime,
             subscript=self.subscript,
             lower=self.lower,
             upper=self.upper,
@@ -324,6 +325,7 @@ class MatchedStatement(Expr):
         return f"MatchedStatement(initial={self.initial_declarations}, recurrence={self.recurrence_equation}, bounded_var_name={self.bounded_variable_name})"
 
 
+
 @dataclass
 class Distr(Expr):
     variate: Expr
@@ -331,7 +333,6 @@ class Distr(Expr):
 
 @dataclass
 class Normal(Distr):
-    variate: Expr
     mean: Expr
     std: Expr
 
@@ -359,7 +360,6 @@ class Normal(Distr):
 
 @dataclass
 class BernoulliLogit(Distr):
-    variate: Expr
     logit_p: Expr
 
     def __iter__(self):
@@ -383,7 +383,6 @@ class BernoulliLogit(Distr):
 
 @dataclass
 class LogNormal(Distr):
-    variate: Expr
     mean: Expr
     std: Expr
 
@@ -409,7 +408,6 @@ class LogNormal(Distr):
 
 @dataclass
 class Cauchy(Distr):
-    variate: Expr
     location: Expr
     scale: Expr
 
@@ -437,7 +435,6 @@ class Cauchy(Distr):
 
 @dataclass
 class Exponential(Distr):
-    variate: Expr
     scale: Expr
 
     def __iter__(self):
@@ -703,6 +700,19 @@ class Assignment(Expr):
 
     def __str__(self):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
+
+
+class Prime(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        return iter([self.subexpr])
+
+    def code(self):
+        return f"{self.subexpr.code()}"
+
+    def __str__(self):
+        return f"Prime({self.subexpr.__str__()})"
 
 
 @dataclass

@@ -106,18 +106,7 @@ special_characters = [
     "}",
 ]  # symbols indicating change in semantics or control flow
 
-operator_strings = [
-    "=",
-    "+",
-    "-",
-    "*",
-    "/",
-    "^",
-    "%",
-    "<",
-    ">",
-    "=",
-]
+operator_strings = ["=", "+", "-", "*", "/", "^", "%", "<", ">", "=", "'"]
 
 delimeters = [
     " ",
