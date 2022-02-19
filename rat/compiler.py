@@ -170,7 +170,6 @@ class Compiler:
                 if isinstance(primeable_symbol, ops.Data) or primeable_symbol.subscript is not None:
                     has_dataframe.add(primeable_symbol.get_key())
 
-
         for top_expr in rev_ordered_expr_trees:
             # We compute the primary variable reference in a line of code with the rules:
             # 1. There can only be one primary variable reference (priming two references to the same variable is still an error)
