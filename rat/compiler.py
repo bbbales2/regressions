@@ -127,18 +127,26 @@ class Compiler:
         # create (Expr, lhs_var_name) pair, which is used to sort based on lhs_var_name
         expr_tree_list = [[x, x.lhs.get_key() if isinstance(x, ops.Assignment) else x.variate.get_key()] for x in self.expr_tree_list]
 
-        def get_index(name, expr):
+        # we move self-dependant lines(y = y + 1) to the lowest priority of lines that share the same LHS
+        # since recursions should occur after all values for subscipt indexes has been assigned
+        # we add 0.5 to the sorting number if self-dependant.
+        def get_index(expr, lhs_name):
             try:
-                return var_evalulation_order.index(name)
+                rhs = expr.rhs if isinstance(expr, ops.Assignment) else expr.variate
+                for param in ops.search_tree(rhs, ops.Param):
+                    if param.name == lhs_name:
+                        return var_evalulation_order.index(lhs_name) + 0.5
+
+                return var_evalulation_order.index(lhs_name)
             except ValueError as e:
                 raise CompileError(
-                    f"First pass error: key {name} not found while ordering expressions. Please check that all variables/parameters have been declared.",
+                    f"First pass error: key {lhs_name} not found while ordering expressions. Please check that all variables/parameters have been declared.",
                     self.model_code_string,
                     line_num=expr.line_index,
                     column_num=0,
                 ) from e
 
-        return [elem[0] for elem in sorted(expr_tree_list, key=lambda x: get_index(x[1], x[0]))]
+        return [elem[0] for elem in sorted(expr_tree_list, key=lambda x: get_index(x[0], x[1]))]
 
     def _build_base_df(self, rev_ordered_expr_trees: List[ops.Expr]):
         """
@@ -478,7 +486,7 @@ class Compiler:
                     try:
                         variable_subscript_use.to_numpy()
                     except Exception as e:
-                        msg = f"Could not uniquely join rows of dataframe of {symbol_key} into {primary_key} on {subscript_key}"
+                        msg = f"Could not uniquely join rows of dataframe of {symbol_key} into {primary_key} on {symbol_key}"
                         raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
                     # link the created variable.SubscriptUse into ops.Param

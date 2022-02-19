@@ -248,7 +248,7 @@ supports a `lower`, `upper` and a combination of the two constraints.
 Rat may infer that a variable is a parameter by its use, but this parameter
 doesn't necessarily need to be a parameter of the joint distribution sampled
 with MCMC. Transformed parameters are immutable functions of other parameters
-that are set in assignment statements (statements where the left and righthand
+that are set in assignment statements (statements where the left and right hand
 side is separated by an `=`).
 
 One of the basic things transformed parameters let us do is implement a
