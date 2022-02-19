@@ -193,7 +193,7 @@ def test_parser_typeerror_shift():
 
 
 def test_parser_unfolderror_constraint():
-    with pytest.raises(ParseError, match="Lower bound value must fold"):
+    with pytest.raises(ConstantFoldError, match="Lower bound value must fold"):
         test_string = "tau<lower=aaaa> ~ normal(skills_mu[shift(year, 1)], 1.0);"
         data_names = ["year", "skills_mu"]
         print(Parser(Scanner(test_string).scan()[0], data_names, test_string).statement())
