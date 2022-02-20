@@ -293,7 +293,7 @@ class Compiler:
                             if symbol_key == lhs_key:
                                 msg = f"Parameter {lhs.get_key()} is assigned on line {i} but used on line {j}. A variable cannot be used after it is assigned"
                                 raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
-        
+
         ordered_expr_trees = list(reversed(self.expr_tree_list))
 
         def unique_subscript_use_itentifier_generator():

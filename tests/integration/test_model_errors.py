@@ -52,7 +52,7 @@ def test_lines_in_wrong_order_for_primes():
     y' ~ bernoulli_logit(mu[group]);
     """
 
-    with pytest.raises(Exception, match = "The primed uses must come last"):
+    with pytest.raises(Exception, match="The primed uses must come last"):
         model = Model(data_df, model_string=model_string)
 
 
@@ -66,7 +66,7 @@ def test_lines_in_wrong_order_for_assignments():
     mu2 ~ normal(-0.5, 0.3);
     """
 
-    with pytest.raises(Exception, match = "A variable cannot be used after it is assigned"):
+    with pytest.raises(Exception, match="A variable cannot be used after it is assigned"):
         model = Model(data_df, model_string=model_string)
 
 
