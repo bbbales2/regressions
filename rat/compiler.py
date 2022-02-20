@@ -448,7 +448,7 @@ class Compiler:
                     try:
                         variable_subscript_use.to_numpy()
                     except Exception as e:
-                        msg = f"Could not uniquely join rows of dataframe of {symbol_key} into {primary_key} on {subscript_key}"
+                        msg = f"Could not uniquely join rows of dataframe of {symbol_key} into {primary_key} on {symbol_key}"
                         raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
                     # link the created variable.SubscriptUse into ops.Param

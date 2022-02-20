@@ -138,6 +138,10 @@ class Scanner:
         self.current_char: str = ""  # head character of model string
         self.register: str = ""  # The register stores the string that's currently being digested
 
+        self.bracket_stack: List[str] = []
+        # this list is to check whether brackets are closed correctly, and determine the scope of braces
+        # (, [, {
+
         self.index: int = 0  # This is the current model string subscript
 
         self.column_index: int = 0
@@ -160,6 +164,9 @@ class Scanner:
         return self.scanned_lines
 
     def consume(self, ignore_newline=True):
+        """
+        Get a token from the stream
+        """
         if self.index == self.code_length:
             self.current_char = ""
             return
@@ -174,6 +181,10 @@ class Scanner:
                 self.consume()
 
     def reduce_register(self):
+        """
+        Resolve the current characters in the register int o a token
+        """
+
         def casts_to_int(val):
             try:
                 int(val)
@@ -185,11 +196,14 @@ class Scanner:
         if self.register == " " or not self.register:
             token = NullToken()
         elif self.register == ";":
-            if self.current_tokens:
-                self.scanned_lines.append(self.current_tokens)
-            self.current_tokens = []
+            token = Terminate(self.register, self.line_index, self.column_index)
             self.register = ""
+            self.current_tokens.append(token)
+            if self.current_tokens and len(self.bracket_stack) == 0:
+                self.scanned_lines.append(self.current_tokens)
+                self.current_tokens = []
             return
+
         elif casts_to_int(self.register):
             token = IntLiteral(self.register, self.line_index, self.column_index - len(self.register))
         elif realnum.match(self.register):
@@ -214,6 +228,14 @@ class Scanner:
     # The following functions are scanner states
 
     def delimeter_state(self):
+        bracket_dict = {")": "(", "}": "{", "]": "["}
+        if self.current_char in bracket_dict.values():
+            self.bracket_stack.append(self.current_char)
+        elif self.current_char in bracket_dict.keys():
+            if len(self.bracket_stack) == 0:
+                self.raise_error(f"Found unmatching brackets {self.current_char}")
+            elif self.bracket_stack.pop() != bracket_dict[self.current_char]:
+                self.raise_error(f"Found unmatching brackets {self.current_char}")
         self.reduce_register()
         self.current_state = self.default_state
 

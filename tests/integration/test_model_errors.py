@@ -61,7 +61,7 @@ def test_lines_in_wrong_order_for_assignments():
 
     model_string = """
     y' ~ bernoulli_logit(mu[group]);
-    mu[group]' = mu2[group];
+    mu[group]' = 0.1 + mu2[group]; # If you remove the '0.1 +' this fails to parse
     mu ~ normal(-0.5, 0.3);
     mu2 ~ normal(-0.5, 0.3);
     """
