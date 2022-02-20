@@ -1,3 +1,4 @@
+import collections
 import itertools
 import logging
 import numpy
@@ -63,106 +64,15 @@ class Compiler:
         self.subscript_use_variables: Dict[str, variables.SubscriptUse] = {}
         self.variable_subscripts: Dict[str, variables.Subscript] = {}
 
-    def _generate_dependency_graph(self, reversed=False) -> Dict[str, Set[str]]:
-        """
-        Generate a dependency graph of all variables/data within self.expr_tree_list.
-        Parameter 'reversed', if True, will reverse the standard dependence order of LHS | RHS into RHS | LHS
-        """
-        dependency_graph: Dict[str, Set[str]] = {}  # this is the dependency graph
-        for line in self.expr_tree_list:  # iterate over every line
-            if isinstance(line, ops.Distr):
-                lhs = line.variate
-            elif isinstance(line, ops.Assignment):
-                lhs = line.lhs
-
-            lhs_op_key = lhs.get_key()
-            if lhs_op_key not in dependency_graph:
-                dependency_graph[lhs_op_key] = set()
-
-            for subexpr in ops.search_tree(line, ops.Param, ops.Data):
-                rhs_op_key = subexpr.get_key()
-                if rhs_op_key == lhs_op_key:
-                    continue
-
-                if rhs_op_key not in dependency_graph:
-                    dependency_graph[rhs_op_key] = set()
-
-                if reversed:
-                    dependency_graph[rhs_op_key].add(lhs_op_key)
-                else:
-                    dependency_graph[lhs_op_key].add(rhs_op_key)
-
-        return dependency_graph
-
-    def _order_expr_tree(self, dependency_graph: Dict[str, Set[str]]):
-        """
-        Given a dependence graph, reorder the expression trees in self.expr_tree_list in topological order.
-        """
-        var_evalulation_order: List[str] = []  # topologically sorted variable names
-        current_recursion_lhs = None
-
-        def recursive_order_search(current):
-            if current in var_evalulation_order:
-                return
-            for child in dependency_graph[current]:
-                recursive_order_search(child)
-            var_evalulation_order.append(current)
-
-        try:
-            for expr in self.expr_tree_list:
-                if isinstance(expr, ops.Distr):
-                    lhs = expr.variate
-                elif isinstance(expr, ops.Assignment):
-                    lhs = expr.lhs
-                current_recursion_lhs = lhs
-                recursive_order_search(lhs.get_key())
-        except RecursionError as e:
-            raise CompileError(
-                "Could not topologically order the expression tree. This is because your model is cyclic.",
-                self.model_code_string,
-                current_recursion_lhs.line_index,
-                current_recursion_lhs.column_index,
-            ) from e
-
-        # create (Expr, lhs_var_name) pair, which is used to sort based on lhs_var_name
-        expr_tree_list = [[x, x.lhs.get_key() if isinstance(x, ops.Assignment) else x.variate.get_key()] for x in self.expr_tree_list]
-
-        def get_index(name, expr):
-            try:
-                return var_evalulation_order.index(name)
-            except ValueError as e:
-                raise CompileError(
-                    f"First pass error: key {name} not found while ordering expressions. Please check that all variables/parameters have been declared.",
-                    self.model_code_string,
-                    line_num=expr.line_index,
-                    column_num=0,
-                ) from e
-
-        return [elem[0] for elem in sorted(expr_tree_list, key=lambda x: get_index(x[1], x[0]))]
-
-    def _build_base_df(self, rev_ordered_expr_trees: List[ops.Expr]):
-        """
-        First code pass. This function must receive the *reversed* dependence graph, or RHS | LHS where edges go from
-        RHS to LHS. This function will loop over the expression trees once, and write the parameter base dataframes into
-        the class attribute self. parameter_base_df.
-
-        The core two classes related to subscripts are `variables.Subscript` and `variables.SubscriptUse`. In short,
-        `Subscript` denotes the dataframe where the variable is used in LHS. It's used as the basis for resolving
-        subscripts on its RHS.
-        Meanwhile, `SubscriptUse` is what's given to Param in RHS. It's inferred from the LHS variable's `Subscript`,
-        which is indexed according to the RHS subscript.
-
-        1. generate base_df for every LHS variable
-        2. identify every subscript scheme for all subscripted variables
-        """
+    def _identify_primary_symbols(self):
         # figure out which symbols will have dataframes
         has_dataframe = set()
-        for top_expr in rev_ordered_expr_trees:
+        for top_expr in self.expr_tree_list:
             for primeable_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
                 if isinstance(primeable_symbol, ops.Data) or primeable_symbol.subscript is not None:
                     has_dataframe.add(primeable_symbol.get_key())
 
-        for top_expr in rev_ordered_expr_trees:
+        for top_expr in self.expr_tree_list:
             # We compute the primary variable reference in a line of code with the rules:
             # 1. There can only be one primary variable reference (priming two references to the same variable is still an error)
             # 2. If a variable is marked as primary, then it is the primary variable.
@@ -209,10 +119,60 @@ class Compiler:
 
             # Mark the primary symbol if it wasn't already
             primary_symbol.prime = True
+
+    def _get_primary_symbol_from_statement(self, top_expr):
+        """
+        Get the primary symbol in a statement. This assumes that the statement has
+        only one primary symbol
+        """
+        for primary_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
+            if primary_symbol.prime:
+                break
+        else:
+            msg = f"Internal compiler error. No primary variable found"
+            raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+        return primary_symbol
+
+    def _build_base_df(self):
+        """
+        First code pass. This function must receive the *reversed* dependence graph, or RHS | LHS where edges go from
+        RHS to LHS. This function will loop over the expression trees once, and write the parameter base dataframes into
+        the class attribute self. parameter_base_df.
+
+        The core two classes related to subscripts are `variables.Subscript` and `variables.SubscriptUse`. In short,
+        `Subscript` denotes the dataframe where the variable is used in LHS. It's used as the basis for resolving
+        subscripts on its RHS.
+        Meanwhile, `SubscriptUse` is what's given to Param in RHS. It's inferred from the LHS variable's `Subscript`,
+        which is indexed according to the RHS subscript.
+
+        1. generate base_df for every LHS variable
+        2. identify every subscript scheme for all subscripted variables
+        """
+
+        # Make sure that all secondary parameter uses precede primary uses (or throw an error)
+        N_lines = len(self.expr_tree_list)
+        for i, top_expr in enumerate(self.expr_tree_list):
+            primary_symbol = self._get_primary_symbol_from_statement(top_expr)
+
+            primary_key = primary_symbol.get_key()
+
+            # There aren't any restrictions on primary/secondary data
+            if isinstance(primary_symbol, ops.Data):
+                continue
+
+            for j in range(i + 1, N_lines):
+                for secondary_symbol in ops.search_tree(self.expr_tree_list[j], ops.Param):
+                    secondary_key = secondary_symbol.get_key()
+
+                    if primary_key == secondary_key and not secondary_symbol.prime:
+                        msg = f"Primary variable {primary_symbol.get_key()} used on line {i} but then referenced as non-prime on line {j}. The primed uses must come last"
+                        raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
+
+        for top_expr in self.expr_tree_list:
+            primary_symbol = self._get_primary_symbol_from_statement(top_expr)
             primary_key = primary_symbol.get_key()
 
             # Identify the primary dataframe if there is one and resolve naming issues
-
             primary_key = primary_symbol.get_key()
             match primary_symbol:
                 case ops.Data():
@@ -311,7 +271,7 @@ class Compiler:
 
                 self.data_base_df[data_key] = self.data_df
 
-    def _build_variables(self, ordered_expr_trees: List[ops.Expr]):
+    def _build_variables(self):
         """
         The goal in the second pass is
         1. Generate variable.Param, variable.AssignedParam, variable.Data for each respective variable/data
@@ -320,6 +280,21 @@ class Compiler:
 
         The expression trees must be sorted in canonical topological order(LHS | RHS) in order to run succesfully.
         """
+
+        # Parameters cannot be used after they are assigned
+        N_lines = len(self.expr_tree_list)
+        for i, top_expr in enumerate(self.expr_tree_list):
+            match top_expr:
+                case ops.Assignment(lhs):
+                    for j in range(i + 1, N_lines):
+                        lhs_key = lhs.get_key()
+                        for symbol in ops.search_tree(self.expr_tree_list[j], ops.Param):
+                            symbol_key = symbol.get_key()
+                            if symbol_key == lhs_key:
+                                msg = f"Parameter {lhs.get_key()} is assigned on line {i} but used on line {j}. A variable cannot be used after it is assigned"
+                                raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
+        
+        ordered_expr_trees = list(reversed(self.expr_tree_list))
 
         def unique_subscript_use_itentifier_generator():
             identifier = 0
@@ -441,12 +416,7 @@ class Compiler:
         # Build SubscriptUse variables for every time a variable is subscripted
         for top_expr in ordered_expr_trees:
             # At this point there should only be one primary variable per line
-            for primary_op in ops.search_tree(top_expr, ops.PrimeableExpr):
-                if primary_op.prime:
-                    break
-            else:
-                msg = f"Internal compiler error. No primary variable found"
-                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+            primary_op = self._get_primary_symbol_from_statement(top_expr)
 
             primary_key = primary_op.get_key()
 
@@ -501,7 +471,7 @@ class Compiler:
             logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
             logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
 
-    def _generate_python_source(self, ordered_expr_trees: List[ops.Expr]):
+    def _generate_python_source(self):
         """
         Return python source containing functions for constraining and transforming variables and
         evaluating all the log densities
@@ -566,6 +536,8 @@ class Compiler:
                 code += f"        {constrained_reference} = jax.numpy.pad({constrained_reference}, (0, {variable.padded_size() - size}))\n"
         code += "\n    return total, parameters\n"
 
+        ordered_expr_trees = list(reversed(self.expr_tree_list))
+
         # Transform parameters
         code += "\ndef transform_parameters(data, subscripts, parameters):"
         for top_expr in ordered_expr_trees:
@@ -597,21 +569,10 @@ class Compiler:
         if self.parameter_variables:
             raise Exception("Compiler.compile() may be invoked only once per instance. Create a new instance to recompile.")
 
-        # compiles the expression tree into function statements
-        dependency_graph: Dict[str, Set[str]] = self._generate_dependency_graph(reversed=True)
-        """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
-            If we think of it as rhs | lhs, the dependency graph is an *acyclic* graph that has directed edges going 
-            from rhs -> lhs. This is because subscripts on rhs can be resolved, given the dataframe of the lhs. However, for
-            assignments, the order is reversed(lhs -> rhs) since we need rhs to infer its subscripts"""
-
-        # traverse through all lines, assuming they are DAGs.
-        evaluation_order: List[ops.Expr] = self._order_expr_tree(dependency_graph)
-
-        logging.debug(f"reverse dependency graph: {dependency_graph}")
-        logging.debug(f"first pass line eval order: {[x.line_index for x in evaluation_order]}")
+        self._identify_primary_symbols()
 
         # build the parameter_base_df for each variable
-        self._build_base_df(evaluation_order)
+        self._build_base_df()
 
         # build variable.Subscript for each parameter
         logging.debug("now printing parameter_base_df")
@@ -637,23 +598,13 @@ class Compiler:
             logging.info("-----")
         logging.debug("done printing variable_subscripts")
 
-        # rebuild the dependency graph in normal order, that is lhs | rhs. We now convert the expression trees into
-        # Python code
-        dependency_graph = self._generate_dependency_graph()
-
-        # and reorder the expression trees accordingly
-        evaluation_order = self._order_expr_tree(dependency_graph)
-
-        logging.debug(f"reverse dependency graph: {dependency_graph}")
-        logging.debug(f"second pass line eval order: {[x.line_index for x in evaluation_order]}")
-
         # run seconds pass, which binds subscripts and does codegen
-        self._build_variables(evaluation_order)
+        self._build_variables()
 
         return (
             self.data_variables,
             self.parameter_variables,
             self.assigned_parameter_variables,
             self.subscript_use_variables,
-            self._generate_python_source(evaluation_order),
+            self._generate_python_source(),
         )
