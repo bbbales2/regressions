@@ -689,6 +689,7 @@ class Assignment(Expr):
         signatures = {
             (types.IntegerType,): types.IntegerType,
             (types.RealType,): types.RealType,
+            (types.NumericType, ): types.NumericType,
         }
         self.out_type = types.get_output_type(signatures, (self.rhs.out_type,))
 
