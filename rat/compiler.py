@@ -67,7 +67,7 @@ class Compiler:
         self.assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
         self.subscript_use_variables: Dict[str, variables.SubscriptUse] = {}
         self.variable_subscripts: Dict[str, variables.Subscript] = {}
-    
+
     def _get_unique_identifier(self) -> str:
         """
         Return an as-yet un-returned string. This is useful for generating unique identifiers
@@ -232,7 +232,7 @@ class Compiler:
             #
             # Variables are only created if they are used and this will match the semantics of the
             # match statements
-            dfs_and_params : List[Tuple[pandas.DataFrame, List[ops.Param]]] = []
+            dfs_and_params: List[Tuple[pandas.DataFrame, List[ops.Param]]] = []
             match top_expr:
                 # case ops.MatchedStatement():
                 #     sorted_primary_df = primary_df.sort_values(top_expr.bounded_variable_name)
@@ -294,7 +294,9 @@ class Compiler:
                         self.parameter_subscript_names[param_key] = [set() for _ in range((len(param.subscript.get_key())))]
                         for n, subscript in enumerate(param.subscript.get_key()):
                             self.parameter_subscript_names[param_key][n].add(subscript)
-                        self.parameter_base_df[param_key] = use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
+                        self.parameter_base_df[param_key] = (
+                            use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
+                        )
 
             # TODO: This check will need to get fancier when there are multiple dataframes
             # Find every Data in the line and make sure that they all have the necessary subscripts
@@ -407,7 +409,7 @@ class Compiler:
 
                         if assigned_key == symbol_key:
                             symbol.assigned_by_scan = True
-            
+
         # Handle constraints
         for top_expr in ordered_expr_trees:
             for parameter_symbol in ops.search_tree(top_expr, ops.Param):
@@ -608,13 +610,15 @@ class Compiler:
                             # Save an indicator if the left hand side is used on the right hand side
                             if symbol_key == lhs_key:
                                 lhs_used_in_rhs = True
-                            
+
                                 # Figure out the carry size needed
                                 shifts = symbol.subscript.shifts
 
                                 number_subscripts_shifted = sum(shift is not None for shift in shifts)
                                 if number_subscripts_shifted != 1 or shifts[0] is None:
-                                    raise Exception("Internal compiler error (shouldn't alert here): When shifting an assigned variable, can only have one shifted subscript and it must be the first")
+                                    raise Exception(
+                                        "Internal compiler error (shouldn't alert here): When shifting an assigned variable, can only have one shifted subscript and it must be the first"
+                                    )
 
                                 carry_size = max(carry_size, shifts[0])
 
@@ -622,7 +626,9 @@ class Compiler:
                         # We need to scan in this case
 
                         if carry_size == 0:
-                            raise Exception("Internal compiler error (shouldn't alert here): Carry size should be greater than zero when scan used")
+                            raise Exception(
+                                "Internal compiler error (shouldn't alert here): Carry size should be greater than zero when scan used"
+                            )
 
                         scan_function_name = f"scan_function_{self._get_unique_identifier()}"
 

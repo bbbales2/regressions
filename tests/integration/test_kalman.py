@@ -39,6 +39,7 @@ def test_optimize_time_series():
 
     assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
+
 def test_optimize_time_series_non_center():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman.csv"))
 

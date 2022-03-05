@@ -458,7 +458,7 @@ class Parser:
                     "Match statement missing else(recurrence equation) statement!",
                     self.model_string,
                     next_token.line_index,
-                    next_token.column_index
+                    next_token.column_index,
                 )
             exp = Match(
                 first=first,
@@ -698,7 +698,7 @@ class Parser:
         lhs = self.parse_nud(is_lhs=True)
         if isinstance(lhs, Expr):
             op = self.peek()
-            
+
             if AssignmentOps.check(op):
                 self.remove()  # assignment operator
                 rhs = self.expression()

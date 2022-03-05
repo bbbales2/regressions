@@ -177,6 +177,7 @@ def test_parser_prime():
     )
     assert statement.__str__() == expected.__str__()
 
+
 def test_parser_match_parses():
     input_str = """
 x[n] = match n {
@@ -186,6 +187,7 @@ x[n] = match n {
 """
     data_names = ["n"]
     statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement()
+
 
 def test_parser_invalid_statement():
     with pytest.raises(Exception, match="normal distribution needs 2 parameters"):

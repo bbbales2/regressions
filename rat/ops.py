@@ -38,7 +38,7 @@ class Expr:
         """
         pass
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         pass
 
     def __str__(self):
@@ -53,7 +53,7 @@ class RealConstant(Expr):
 
     value: float
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         if self.value == float("inf"):
             return "float('inf')"
         elif self.value == float("-inf"):
@@ -78,7 +78,7 @@ class IntegerConstant(Expr):
 
     value: int
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"{self.value}"
 
     def __post_init__(self):
@@ -104,7 +104,7 @@ class Subscript(Expr):
     def get_key(self):
         return self.names
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         if scalar:
             return f"subscripts['{self.variable.code()}'][index]"
         else:
@@ -208,7 +208,7 @@ class Data(PrimeableExpr):
     def get_key(self):
         return self.name
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         variable_code = self.variable.code()
         if self.subscript is not None:
             return f"data['{variable_code}'][{self.subscript.code(scalar)}]"
@@ -236,7 +236,7 @@ class Param(PrimeableExpr):
     variable: variables.Param = None
     lower: Expr = None  # RealConstant(float("-inf"))
     upper: Expr = None  # RealConstant(float("inf"))
-    assigned_by_scan : bool = False
+    assigned_by_scan: bool = False
 
     def __iter__(self):
         if self.subscript is not None:
@@ -286,13 +286,13 @@ class Param(PrimeableExpr):
     def __post_init__(self):
         self.out_type = types.NumericType
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         variable_code = self.variable.code()
         if self.subscript:
             if self.assigned_by_scan:
                 if scalar == False:
                     raise Exception("Internal Error: Cannot do a vector evaluation of an assigned variable")
-                
+
                 return f"carry[index - {self.subscript.code(scalar)} - 1]"
             else:
                 return f"parameters['{variable_code}'][{self.subscript.code(scalar)}]"
@@ -313,10 +313,9 @@ class Match(Expr):
     def __iter__(self):
         return iter([self.first, self.recurrence_equation])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         # Compute the carry length
 
-        
         # (
         #     def recursion(carry, n):
         #         x1, x2,... = carry
@@ -329,13 +328,13 @@ class Match(Expr):
         #     recursion
         # ,)
 
-        #def recursion_h(carry, v):
+        # def recursion_h(carry, v):
         #    # The carry here is a length 1 tuple containing the last value of h
         #    h = parameters["phi"] * carry[0] + v
         #    # The left hand side of the return is the carry (we'll need to save the last value of h for next iteration) and
         #    # the right hand side is what gets written in the output array
         #    return (h,), h
-        #_, parameters["h[t]"] = jax.lax.scan(recursion_h, (parameters["h[0]"],), parameters["v"][subscripts["t__5"]])
+        # _, parameters["h[t]"] = jax.lax.scan(recursion_h, (parameters["h[0]"],), parameters["v"][subscripts["t__5"]])
 
         return ""
 
@@ -371,7 +370,7 @@ class Normal(Distr):
     def __iter__(self):
         return iter([self.variate, self.mean, self.std])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.scipy.stats.norm.logpdf({self.variate.code(scalar)}, {self.mean.code(scalar)}, {self.std.code(scalar)})"
 
     def __post_init__(self):
@@ -397,7 +396,7 @@ class BernoulliLogit(Distr):
     def __iter__(self):
         return iter([self.variate, self.logit_p])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"rat.math.bernoulli_logit({self.variate.code(scalar)}, {self.logit_p.code(scalar)})"
 
     def __post_init__(self):
@@ -421,7 +420,7 @@ class LogNormal(Distr):
     def __iter__(self):
         return iter([self.variate, self.mean, self.std])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"rat.math.log_normal({self.variate.code(scalar)}, {self.mean.code(scalar)}, {self.std.code(scalar)})"
 
     def __post_init__(self):
@@ -446,7 +445,7 @@ class Cauchy(Distr):
     def __iter__(self):
         return iter([self.variate, self.location, self.scale])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.scipy.stats.cauchy.logpdf({self.variate.code(scalar)}, {self.location.code(scalar)}, {self.scale.code(scalar)})"
 
     def __post_init__(self):
@@ -472,7 +471,7 @@ class Exponential(Distr):
     def __iter__(self):
         return iter([self.variate, self.scale])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.scipy.stats.expon.logpdf({self.variate.code(scalar)}, loc=0, scale={self.scale.code(scalar)})"
 
     def __post_init__(self):
@@ -496,7 +495,7 @@ class Diff(Expr):
     def __iter__(self):
         return iter([self.left, self.right])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"({self.left.code(scalar)} - {self.right.code(scalar)})"
 
     def __post_init__(self):
@@ -528,7 +527,7 @@ class Sum(Expr):
     def __iter__(self):
         return iter([self.left, self.right])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"{self.left.code(scalar)} + {self.right.code(scalar)}"
 
     def __post_init__(self):
@@ -560,7 +559,7 @@ class Mul(Expr):
     def __iter__(self):
         return iter([self.left, self.right])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"{self.left.code(scalar)} * {self.right.code(scalar)}"
 
     def __post_init__(self):
@@ -592,7 +591,7 @@ class Pow(Expr):
     def __iter__(self):
         return iter([self.base, self.exponent])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"{self.base.code(scalar)} ** {self.exponent.code(scalar)}"
 
     def __post_init__(self):
@@ -624,7 +623,7 @@ class Div(Expr):
     def __iter__(self):
         return iter([self.left, self.right])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"{self.left.code(scalar)} / {self.right.code(scalar)}"
 
     def __post_init__(self):
@@ -653,7 +652,7 @@ class Mod(Expr):
     def __iter__(self):
         return iter([self.left, self.right])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"{self.left.code(scalar)} % {self.right.code(scalar)}"
 
     def __post_init__(self):
@@ -684,7 +683,7 @@ class PrefixNegation(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"-{self.subexpr.code(scalar)}"
 
     def __post_init__(self):
@@ -715,7 +714,7 @@ class Assignment(Expr):
     def __iter__(self):
         return iter([self.lhs, self.rhs])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"{self.lhs.code(scalar)} = {self.rhs.code(scalar)}"
 
     def __post_init__(self):
@@ -741,7 +740,7 @@ class Prime(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"{self.subexpr.code(scalar)}"
 
     def __str__(self):
@@ -755,7 +754,7 @@ class Sqrt(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.sqrt({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -782,7 +781,7 @@ class Log(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.log({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -809,7 +808,7 @@ class Exp(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.exp({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -836,7 +835,7 @@ class Abs(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.abs({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -864,7 +863,7 @@ class Floor(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.floor({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -891,7 +890,7 @@ class Ceil(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.ceil({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -918,7 +917,7 @@ class Round(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.round({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -945,7 +944,7 @@ class Sin(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.sin({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -972,7 +971,7 @@ class Cos(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.cos({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -999,7 +998,7 @@ class Tan(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.tan({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -1026,7 +1025,7 @@ class Arcsin(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.arcsin({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -1053,7 +1052,7 @@ class Arccos(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.arccos({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -1080,7 +1079,7 @@ class Arctan(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.numpy.arctan({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -1107,7 +1106,7 @@ class Logit(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.scipy.special.logit({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -1134,7 +1133,7 @@ class InverseLogit(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         return f"jax.scipy.special.expit({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
@@ -1166,7 +1165,7 @@ class Placeholder(Expr):
         else:
             return iter([])
 
-    def code(self, scalar = False):
+    def code(self, scalar=False):
         if self.index is not None:
             return f"{self.name}[{self.index.code(scalar)}]"
         else:
