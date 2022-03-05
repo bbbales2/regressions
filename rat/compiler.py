@@ -24,6 +24,9 @@ class Compiler:
     data_df: pandas.DataFrame
     expr_tree_list: List[ops.Expr]
     model_code_string: str
+    # There are a couple places internally here where it is handy to have a unique
+    # identifier. We can use increasing integers to do this
+    _unique_identifier: int
 
     def __init__(self, data_df: pandas.DataFrame, expr_tree_list: List[ops.Expr], model_code_string: str = ""):
         """
@@ -45,6 +48,7 @@ class Compiler:
         self.data_df = data_df
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
+        self._unique_identifier = 0
 
         # these dataframes that go into variables.Subscript. Each row is a unique combination of indexes
         self.parameter_base_df: Dict[str, pandas.DataFrame] = {}
@@ -63,6 +67,14 @@ class Compiler:
         self.assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
         self.subscript_use_variables: Dict[str, variables.SubscriptUse] = {}
         self.variable_subscripts: Dict[str, variables.Subscript] = {}
+    
+    def _get_unique_identifier(self) -> str:
+        """
+        Return an as-yet un-returned string. This is useful for generating unique identifiers
+        for variables
+        """
+        self._unique_identifier += 1
+        return repr(self._unique_identifier)
 
     def _identify_primary_symbols(self):
         # figure out which symbols will have dataframes
@@ -170,10 +182,9 @@ class Compiler:
 
         for top_expr in self.expr_tree_list:
             primary_symbol = self._get_primary_symbol_from_statement(top_expr)
-            primary_key = primary_symbol.get_key()
-
             # Identify the primary dataframe if there is one and resolve naming issues
             primary_key = primary_symbol.get_key()
+
             match primary_symbol:
                 case ops.Data():
                     # If the primary primary_symbol is data, the reference dataframe is the data dataframe
@@ -216,53 +227,74 @@ class Compiler:
                     msg = f"Expected a parameter or data primary_symbol but got type {primary_symbol.__class__.__name__}"
                     raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
 
-            # Find every other parameter in the line and attempt to construct data
-            # frames for the ones with subscripts
-            for param in ops.search_tree(top_expr, ops.Param):
-                param_key = param.get_key()
+            # For each line, we take the dataframe of the primary variable and append as necessary
+            # rows to the dataframes of all the secondary variables
+            #
+            # Variables are only created if they are used and this will match the semantics of the
+            # match statements
+            dfs_and_params : List[Tuple[pandas.DataFrame, List[ops.Param]]] = []
+            match top_expr:
+                # case ops.MatchedStatement():
+                #     sorted_primary_df = primary_df.sort_values(top_expr.bounded_variable_name)
+                #     first_expr = top_expr.initial_declarations["first"]
+                #     recurrence_expr = top_expr.recurrence_equation
+                #     lhs_params = list(ops.search_tree(top_expr.lhs, ops.Param))
+                #     first_expr_params = list(ops.search_tree(first_expr, ops.Param))
+                #     recurrence_expr_params = list(ops.search_tree(recurrence_expr, ops.Param))
+                #     dfs_and_params.append((sorted_primary_df.iloc[:1], lhs_params + first_expr_params))
+                #     dfs_and_params.append((sorted_primary_df.iloc[1:], lhs_params + recurrence_expr_params))
+                case _:
+                    expr_params = list(ops.search_tree(top_expr, ops.Param))
+                    dfs_and_params.append((primary_df, expr_params))
 
-                # no need to check the primary symbol
-                if param_key == primary_key:
-                    continue
+            for subset_primary_df, params in dfs_and_params:
+                # Find every other parameter in the line and attempt to construct data
+                # frames for the ones with subscripts
+                for param in params:
+                    param_key = param.get_key()
 
-                # if the symbol is not subscripted, nothing more needs to be done
-                if not param.subscript:
-                    continue
+                    # no need to check the primary symbol
+                    if param_key == primary_key:
+                        continue
 
-                # get the subscripted columns from primary df
-                try:
-                    use_df = primary_df.loc[:, param.subscript.get_key()]
-                except KeyError as e:
-                    # this means a subscript referenced does not exist in the primary dataframe
-                    msg = f"Couldn't index RHS variable {param_key}'s declared subscript{param.subscript.get_key()} from LHS base df, which has subscripts {tuple(primary_df.columns)}."
-                    raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
-                except AttributeError as e:
-                    # this means LHS has no base dataframe but a subscript was attempted from RHS
-                    msg = f"Variable {param_key} attempted to subscript using {param.subscript.get_key()}, but primary variable {primary_key} has no subscripts!"
-                    raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
+                    # if the symbol is not subscripted, nothing more needs to be done
+                    if not param.subscript:
+                        continue
 
-                if param_key in self.parameter_base_df:
-                    # if we already have a base_df registered, try merging them
+                    # get the subscripted columns from primary df
                     try:
-                        use_df.columns = tuple(self.parameter_base_df[param_key])
-                    except ValueError as e:
-                        msg = f"Subscript length mismatch: variable on RHS side {param_key} has declared subscript of length {len(param_key)}, but has been used with a subscript of length {len(self.parameter_base_df[param_key])}"
+                        use_df = subset_primary_df.loc[:, param.subscript.get_key()]
+                    except KeyError as e:
+                        # this means a subscript referenced does not exist in the primary dataframe
+                        msg = f"Couldn't index RHS variable {param_key}'s declared subscript{param.subscript.get_key()} from LHS base df, which has subscripts {tuple(primary_df.columns)}."
+                        raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
+                    except AttributeError as e:
+                        # this means LHS has no base dataframe but a subscript was attempted from RHS
+                        msg = f"Variable {param_key} attempted to subscript using {param.subscript.get_key()}, but primary variable {primary_key} has no subscripts!"
                         raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
 
-                    self.parameter_base_df[param_key] = (
-                        pandas.concat([self.parameter_base_df[param_key], use_df]).drop_duplicates().reset_index(drop=True)
-                    )
+                    if param_key in self.parameter_base_df:
+                        # if we already have a base_df registered, try merging them
+                        try:
+                            use_df.columns = tuple(self.parameter_base_df[param_key])
+                        except ValueError as e:
+                            msg = f"Subscript length mismatch: variable on RHS side {param_key} has declared subscript of length {len(param_key)}, but has been used with a subscript of length {len(self.parameter_base_df[param_key])}"
+                            raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
 
-                    # keep track of subscript names for each position
-                    for n, subscript in enumerate(param.subscript.get_key()):
-                        self.parameter_subscript_names[param_key][n].add(subscript)
+                        self.parameter_base_df[param_key] = (
+                            pandas.concat([self.parameter_base_df[param_key], use_df]).drop_duplicates().reset_index(drop=True)
+                        )
 
-                else:  # or generate base df for RHS variable if it doesn't exist
-                    # this list of sets keep track of the aliases of each subscript position
-                    self.parameter_subscript_names[param_key] = [set() for _ in range((len(param.subscript.get_key())))]
-                    for n, subscript in enumerate(param.subscript.get_key()):
-                        self.parameter_subscript_names[param_key][n].add(subscript)
-                    self.parameter_base_df[param_key] = use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
+                        # keep track of subscript names for each position
+                        for n, subscript in enumerate(param.subscript.get_key()):
+                            self.parameter_subscript_names[param_key][n].add(subscript)
+
+                    else:  # or generate base df for RHS variable if it doesn't exist
+                        # this list of sets keep track of the aliases of each subscript position
+                        self.parameter_subscript_names[param_key] = [set() for _ in range((len(param.subscript.get_key())))]
+                        for n, subscript in enumerate(param.subscript.get_key()):
+                            self.parameter_subscript_names[param_key][n].add(subscript)
+                        self.parameter_base_df[param_key] = use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
 
             # TODO: This check will need to get fancier when there are multiple dataframes
             # Find every Data in the line and make sure that they all have the necessary subscripts
@@ -307,7 +339,7 @@ class Compiler:
 
         # Create variable objects
         for top_expr in ordered_expr_trees:
-            # if top_expr is an assignment, pull out the left hand side and treat that specially
+            # if top_expr is an assignment or a match statement, pull out the left hand side and treat that specially
             match top_expr:
                 case ops.Assignment(lhs, remainder):
                     lhs_key = lhs.get_key()
@@ -333,6 +365,7 @@ class Compiler:
                     pass
 
             # remainder at this point is the part of top_expr that is not the left hand side of an assignment
+            # or a match statement
             for symbol in ops.search_tree(remainder, ops.Data, ops.Param):
                 symbol_key = symbol.get_key()
 
@@ -359,6 +392,22 @@ class Compiler:
                         msg = f"Internal compiler error"
                         raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
 
+        # If a variable is assigned on a given line, mark uses so that the code
+        # generation for the scan can handle this case correctly
+        for top_expr in ordered_expr_trees:
+            match top_expr:
+                case ops.Assignment(lhs, rhs):
+                    # Assume already that the left hand side is a Param
+                    assigned_key = lhs.get_key()
+
+                    # The left hand side is written by the assignment but will be updated
+                    # after the scan is complete and should not be marked
+                    for symbol in ops.search_tree(rhs, ops.Param):
+                        symbol_key = symbol.get_key()
+
+                        if assigned_key == symbol_key:
+                            symbol.assigned_by_scan = True
+            
         # Handle constraints
         for top_expr in ordered_expr_trees:
             for parameter_symbol in ops.search_tree(top_expr, ops.Param):
@@ -441,7 +490,7 @@ class Compiler:
                         names=symbol.subscript.get_key(),
                         df=primary_df.loc[:, symbol.subscript.get_key()],
                         subscript=self.variable_subscripts[symbol_key],
-                        unique_id=next(unique_subscript_use_itentifier),
+                        unique_id=self._get_unique_identifier(),
                         shifts=symbol.subscript.shifts,
                     )
 
@@ -541,10 +590,50 @@ class Compiler:
         # Transform parameters
         code += "\ndef transform_parameters(data, subscripts, parameters):"
         for top_expr in ordered_expr_trees:
-            if isinstance(top_expr, ops.Assignment):
-                lhs_key = top_expr.lhs.get_key()
-                code += f"\n    # {lhs_key}\n"
-                code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
+            match top_expr:
+                case ops.Assignment(lhs, rhs):
+                    # Assume left hand side is a parameter
+                    lhs_key = top_expr.lhs.get_key()
+                    code += f"\n    # {lhs_key}\n"
+
+                    lhs_size = lhs.variable.size()
+                    lhs_is_scalar = lhs_size == None
+                    lhs_used_in_rhs = False
+                    if not lhs_is_scalar:
+                        carry_size = 0
+                        # Because left hand side is parameter, we only need to search for parameters on the right hand side
+                        for symbol in ops.search_tree(rhs, ops.Param):
+                            symbol_key = symbol.get_key()
+
+                            # Save an indicator if the left hand side is used on the right hand side
+                            if symbol_key == lhs_key:
+                                lhs_used_in_rhs = True
+                            
+                                # Figure out the carry size needed
+                                shifts = symbol.subscript.shifts
+
+                                number_subscripts_shifted = sum(shift is not None for shift in shifts)
+                                if number_subscripts_shifted != 1 or shifts[0] is None:
+                                    raise Exception("Internal compiler error (shouldn't alert here): When shifting an assigned variable, can only have one shifted subscript and it must be the first")
+
+                                carry_size = max(carry_size, shifts[0])
+
+                    if lhs_used_in_rhs:
+                        # We need to scan in this case
+
+                        if carry_size == 0:
+                            raise Exception("Internal compiler error (shouldn't alert here): Carry size should be greater than zero when scan used")
+
+                        scan_function_name = f"scan_function_{self._get_unique_identifier()}"
+
+                        code += f"    def {scan_function_name}(carry, index):\n"
+                        code += f"        next_value = {top_expr.rhs.code(scalar = True)}\n"
+                        code += "        next_value_as_array = jax.numpy.array([next_value])\n"
+                        code += "        return jax.numpy.concatenate([next_value_as_array, carry[1:]]), next_value\n"
+
+                        code += f"\n    _, parameters['{lhs_key}'] = jax.lax.scan({scan_function_name}, jax.numpy.zeros({carry_size}), jax.numpy.arange({lhs_size}))\n"
+                    else:
+                        code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
         code += "\n    return parameters\n"
 
         # Generate code for evaluating densities

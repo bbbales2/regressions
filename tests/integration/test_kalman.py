@@ -12,7 +12,7 @@ from rat.model import Model
 test_dir = pathlib.Path(__file__).parent
 
 
-def test_optimize_kalman():
+def test_optimize_time_series():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman.csv"))
 
     model_string = """
@@ -20,16 +20,33 @@ def test_optimize_kalman():
     mu[i]' ~ normal(mu[shift(i, 1)], 0.3);
     """
 
-    # parsed_lines = [
-    #    ops.Normal(
-    #        ops.Data("y"), ops.Param("mu", ops.Subscript(("i",))), ops.RealConstant(0.1)
-    #    ),
-    #    ops.Normal(
-    #        ops.Param("mu", ops.Subscript(("i",))),
-    #        ops.Param("mu", ops.Subscript(("i",), shifts=(1,))),
-    #        ops.RealConstant(0.3),
-    #    ),
-    # ]
+    model = Model(data_df, model_string=model_string)
+    fit = model.optimize(init=0.1)
+    mu_df = fit.draws("mu")
+
+    mu_ref = [
+        -0.4372130,
+        -0.2322210,
+        -0.1530660,
+        -0.6052980,
+        -0.8591810,
+        -0.6521860,
+        -0.4640860,
+        -0.0444671,
+        -0.1890310,
+        0.0243282,
+    ]
+
+    assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
+
+def test_optimize_time_series_non_center():
+    data_df = pandas.read_csv(os.path.join(test_dir, "kalman.csv"))
+
+    model_string = """
+    y' ~ normal(mu[i], 0.1);
+    mu[i]' = mu[shift(i, 1)] + epsilon[i];
+    epsilon[i] ~ normal(0, 0.3);
+    """
 
     model = Model(data_df, model_string=model_string)
     fit = model.optimize(init=0.1)
