@@ -1,6 +1,7 @@
 import warnings
 from dataclasses import dataclass
 import jax.numpy as jnp
+import numpy
 import pandas
 import logging
 from typing import List, Dict, Tuple, Union, Set
@@ -103,6 +104,27 @@ class Subscript:
         return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
             "__index"
         ].to_numpy(dtype=int)
+    
+    def get_first_in_group_indicators(self, shifts):
+        # TODO: I'm not sure why this is self.base_df and not df
+        columns = self.base_df.columns
+
+        shift_columns = []
+        shift_values = []
+        grouping_columns = []
+        for column, shift in zip(columns, shifts):
+            if shift is None:
+                grouping_columns.append(column)
+            else:
+                shift_columns.append(column)
+                shift_values.append(shift)
+
+        if len(grouping_columns) == 0:
+            duplicated = self.base_df.duplicated()
+        else:
+            duplicated = self.base_df.duplicated(subset = grouping_columns)
+
+        return (~duplicated).to_numpy()
 
     def log_summary(self, log_level=logging.INFO):
         for index_num in range(len(self.subscripted_sets)):
@@ -199,6 +221,9 @@ class SubscriptUse:
         shifted_df = self.subscript.compute_shifted_df(self.df, self.shifts)
         indices = self.subscript.get_numpy_indices(shifted_df)
         return jnp.array(indices, dtype=int)
+
+    def get_first_in_group_indicators(self):
+        return self.subscript.get_first_in_group_indicators(self.shifts)
 
     def code(self):
         if all(shift is None for shift in self.shifts):

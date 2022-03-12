@@ -293,7 +293,17 @@ class Param(PrimeableExpr):
                 if scalar == False:
                     raise Exception("Internal Error: Cannot do a vector evaluation of an assigned variable")
 
-                return f"carry[index - {self.subscript.code(scalar)} - 1]"
+                integer_shifts = [shift for shift in self.subscript.shifts if shift is not None]
+
+                if len(integer_shifts) != 1:
+                    raise Exception("Internal compiler error: at this point there should be exactly one shift")
+
+                shift = integer_shifts[0]
+
+                if shift <= 0:
+                    raise Exception("Internal compiler error: shifts have to be positive")
+
+                return f"carry[{shift} - 1]"
             else:
                 return f"parameters['{variable_code}'][{self.subscript.code(scalar)}]"
         else:

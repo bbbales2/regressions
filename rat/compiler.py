@@ -67,6 +67,7 @@ class Compiler:
         self.assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
         self.subscript_use_variables: Dict[str, variables.SubscriptUse] = {}
         self.variable_subscripts: Dict[str, variables.Subscript] = {}
+        self.first_in_group_indicators: Dict[str, numpy.ndarray] = {}
 
     def _get_unique_identifier(self) -> str:
         """
@@ -282,7 +283,7 @@ class Compiler:
                             raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
 
                         self.parameter_base_df[param_key] = (
-                            pandas.concat([self.parameter_base_df[param_key], use_df]).drop_duplicates().reset_index(drop=True)
+                            pandas.concat([self.parameter_base_df[param_key], use_df]).drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
                         )
 
                         # keep track of subscript names for each position
@@ -394,22 +395,6 @@ class Compiler:
                         msg = f"Internal compiler error"
                         raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
 
-        # If a variable is assigned on a given line, mark uses so that the code
-        # generation for the scan can handle this case correctly
-        for top_expr in ordered_expr_trees:
-            match top_expr:
-                case ops.Assignment(lhs, rhs):
-                    # Assume already that the left hand side is a Param
-                    assigned_key = lhs.get_key()
-
-                    # The left hand side is written by the assignment but will be updated
-                    # after the scan is complete and should not be marked
-                    for symbol in ops.search_tree(rhs, ops.Param):
-                        symbol_key = symbol.get_key()
-
-                        if assigned_key == symbol_key:
-                            symbol.assigned_by_scan = True
-
         # Handle constraints
         for top_expr in ordered_expr_trees:
             for parameter_symbol in ops.search_tree(top_expr, ops.Param):
@@ -517,6 +502,29 @@ class Compiler:
                     #            subexpr.column_index,
                     #        )
 
+        # If a variable is assigned on a given line, mark uses so that the code
+        # generation for the scan can handle this case correctly
+        for top_expr in ordered_expr_trees:
+            match top_expr:
+                case ops.Assignment(lhs, rhs):
+                    # Assume already that the left hand side is a Param
+                    assigned_key = lhs.get_key()
+
+                    # The left hand side is written by the assignment but will be updated
+                    # after the scan is complete and should not be marked
+                    for symbol in ops.search_tree(rhs, ops.Param):
+                        symbol_key = symbol.get_key()
+
+                        if assigned_key == symbol_key:
+                            symbol.assigned_by_scan = True
+
+                            if symbol.subscript is None or all(shift is None for shift in symbol.subscript.shifts):
+                                msg = f"Recursively assigning {symbol_key} requires a shifted subscript on the right hand side reference"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            # Generate the first in group indicators used to mask the scan carries
+                            self.first_in_group_indicators[assigned_key] = symbol.subscript.variable.get_first_in_group_indicators()
+
             # self.line_functions.append(line_function)
             logging.debug(f"data: {list(self.data_variables.keys())}")
             logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
@@ -590,7 +598,7 @@ class Compiler:
         ordered_expr_trees = list(reversed(self.expr_tree_list))
 
         # Transform parameters
-        code += "\ndef transform_parameters(data, subscripts, parameters):"
+        code += "\ndef transform_parameters(data, subscripts, first_in_group_indicators, parameters):"
         for top_expr in ordered_expr_trees:
             match top_expr:
                 case ops.Assignment(lhs, rhs):
@@ -601,6 +609,7 @@ class Compiler:
                     lhs_size = lhs.variable.size()
                     lhs_is_scalar = lhs_size == None
                     lhs_used_in_rhs = False
+                    need_first_in_group_indicator = False
                     if not lhs_is_scalar:
                         carry_size = 0
                         # Because left hand side is parameter, we only need to search for parameters on the right hand side
@@ -615,12 +624,16 @@ class Compiler:
                                 shifts = symbol.subscript.shifts
 
                                 number_subscripts_shifted = sum(shift is not None for shift in shifts)
-                                if number_subscripts_shifted != 1 or shifts[0] is None:
+                                if number_subscripts_shifted != 1 or shifts[-1] is None:
                                     raise Exception(
-                                        "Internal compiler error (shouldn't alert here): When shifting an assigned variable, can only have one shifted subscript and it must be the first"
+                                        "Internal compiler error (shouldn't alert here): When shifting an assigned variable, can only have one shifted subscript and it must be the last"
                                     )
 
-                                carry_size = max(carry_size, shifts[0])
+                                carry_size = max(carry_size, shifts[-1])
+
+                                # There will be groupings if there is more than one shift
+                                if len(shifts) > 1:
+                                    need_first_in_group_indicator = True
 
                     if lhs_used_in_rhs:
                         # We need to scan in this case
@@ -633,6 +646,8 @@ class Compiler:
                         scan_function_name = f"scan_function_{self._get_unique_identifier()}"
 
                         code += f"    def {scan_function_name}(carry, index):\n"
+                        if need_first_in_group_indicator:
+                            code += f"        carry = jax.numpy.where(first_in_group_indicators['{lhs_key}'][index], jax.numpy.zeros(carry.shape), carry)\n"
                         code += f"        next_value = {top_expr.rhs.code(scalar = True)}\n"
                         code += "        next_value_as_array = jax.numpy.array([next_value])\n"
                         code += "        return jax.numpy.concatenate([next_value_as_array, carry[1:]]), next_value\n"
@@ -659,6 +674,7 @@ class Compiler:
         Dict[str, variables.Param],
         Dict[str, variables.AssignedParam],
         Dict[str, variables.SubscriptUse],
+        Dict[str, numpy.ndarray],
         str,
     ]:
         if self.parameter_variables:
@@ -701,5 +717,6 @@ class Compiler:
             self.parameter_variables,
             self.assigned_parameter_variables,
             self.subscript_use_variables,
+            self.first_in_group_indicators,
             self._generate_python_source(),
         )

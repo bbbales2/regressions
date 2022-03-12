@@ -28,11 +28,12 @@ class Model:
     size: int
     device_data: Dict[str, jax.numpy.array]
     device_subscripts: Dict[str, jax.numpy.array]
+    device_first_in_group_indicators: Dict[str, jax.numpy.array]
     compiled_model: types.ModuleType
 
     def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad=True):
         jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
-        return jacobian_adjustment, self.compiled_model.transform_parameters(self.device_data, self.device_subscripts, parameters)
+        return jacobian_adjustment, self.compiled_model.transform_parameters(self.device_data, self.device_subscripts, self.device_first_in_group_indicators, parameters)
 
     def _log_density(self, include_jacobian, unconstrained_parameter_vector):
         # Evaluate model log density given model, data, subscripts and unconstrained parameters
@@ -107,6 +108,7 @@ class Model:
             self.parameter_variables,
             self.assigned_parameter_variables,
             subscript_use_variables,
+            first_in_group_indicators,
             model_source_string,
         ) = compiler.Compiler(data_df, parsed_lines, model_string).compile()
 
@@ -142,6 +144,11 @@ class Model:
         self.device_subscripts = {}
         for name, subscript_use in subscript_use_variables.items():
             self.device_subscripts[name] = jax.device_put(subscript_use.to_numpy())
+
+        # Copy first in group indicators to jax device
+        self.device_first_in_group_indicators = {}
+        for name, first_in_group_indicator in first_in_group_indicators.items():
+            self.device_first_in_group_indicators[name] = jax.device_put(first_in_group_indicator)
 
         self.log_density_jax = jax.jit(functools.partial(self._log_density, True))
         self.log_density_jax_no_jac = jax.jit(functools.partial(self._log_density, False))
