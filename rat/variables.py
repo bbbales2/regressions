@@ -104,7 +104,7 @@ class Subscript:
         return (df.merge(self.df, on=list(self.base_df.columns), how="left", validate="many_to_one",))[
             "__index"
         ].to_numpy(dtype=int)
-    
+
     def get_first_in_group_indicators(self, shifts):
         # TODO: I'm not sure why this is self.base_df and not df
         columns = self.base_df.columns
@@ -122,7 +122,7 @@ class Subscript:
         if len(grouping_columns) == 0:
             duplicated = self.base_df.duplicated()
         else:
-            duplicated = self.base_df.duplicated(subset = grouping_columns)
+            duplicated = self.base_df.duplicated(subset=grouping_columns)
 
         return (~duplicated).to_numpy()
 

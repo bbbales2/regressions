@@ -108,6 +108,7 @@ def test_optimize_kalman_2():
     assert sigma_df["sigma"][0] == pytest.approx(3.51620000, rel=1e-2)
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
+
 def test_optimize_time_series_2_non_center():
     data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
 

@@ -283,7 +283,10 @@ class Compiler:
                             raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
 
                         self.parameter_base_df[param_key] = (
-                            pandas.concat([self.parameter_base_df[param_key], use_df]).drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
+                            pandas.concat([self.parameter_base_df[param_key], use_df])
+                            .drop_duplicates()
+                            .sort_values(list(use_df.columns))
+                            .reset_index(drop=True)
                         )
 
                         # keep track of subscript names for each position

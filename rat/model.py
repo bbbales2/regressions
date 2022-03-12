@@ -33,7 +33,9 @@ class Model:
 
     def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad=True):
         jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
-        return jacobian_adjustment, self.compiled_model.transform_parameters(self.device_data, self.device_subscripts, self.device_first_in_group_indicators, parameters)
+        return jacobian_adjustment, self.compiled_model.transform_parameters(
+            self.device_data, self.device_subscripts, self.device_first_in_group_indicators, parameters
+        )
 
     def _log_density(self, include_jacobian, unconstrained_parameter_vector):
         # Evaluate model log density given model, data, subscripts and unconstrained parameters
