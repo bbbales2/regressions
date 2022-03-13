@@ -120,7 +120,7 @@ def test_optimize_time_series_2_non_center():
     """
 
     model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=0.1, tolerance=1e-1)
+    fit = model.optimize(init=0.1, chains=1)
     skills_df = fit.draws("skills")
     sigma_df = fit.draws("sigma")
 
