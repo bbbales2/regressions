@@ -13,7 +13,7 @@ test_dir = pathlib.Path(__file__).parent
 
 
 def test_optimize_time_series():
-    data_df = pandas.read_csv(os.path.join(test_dir, "kalman.csv"))
+    data_df = pandas.read_csv(os.path.join(test_dir, "time_series.csv"))
 
     model_string = """
     y' ~ normal(mu[i], 0.1);
@@ -41,7 +41,7 @@ def test_optimize_time_series():
 
 
 def test_optimize_time_series_non_center():
-    data_df = pandas.read_csv(os.path.join(test_dir, "kalman.csv"))
+    data_df = pandas.read_csv(os.path.join(test_dir, "time_series.csv"))
 
     model_string = """
     y' ~ normal(mu[i], 0.1);
@@ -69,8 +69,8 @@ def test_optimize_time_series_non_center():
     assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
 
-def test_optimize_kalman_2():
-    data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
+def test_optimize_time_series_2():
+    data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
     model_string = """
     score_diff' ~ normal(skills[year, team1] - skills[year, team2], sigma);
@@ -110,7 +110,7 @@ def test_optimize_kalman_2():
 
 
 def test_optimize_time_series_2_non_center():
-    data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
+    data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
     model_string = """
     score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
@@ -150,8 +150,8 @@ def test_optimize_time_series_2_non_center():
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
 
-def test_optimize_kalman_2_error():
-    data_df = pandas.read_csv(os.path.join(test_dir, "kalman_2.csv"))
+def test_optimize_time_series_2_error():
+    data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
     model_string = """
     score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
