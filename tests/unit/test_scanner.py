@@ -121,8 +121,7 @@ def test_scanner_valid_multiline_1():
     parsed = Scanner(input_str)
     lines = parsed.scan()
     assert len(lines) == 1
-    assert len(lines[0]) == 8
-    print()
+    assert len(lines[0]) == 9
     for line in lines:
         for token in line:
             print(token.value.ljust(20), token.token_type)
