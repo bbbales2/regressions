@@ -277,9 +277,7 @@ class Compiler:
                     self.parameter_subscript_names[param_key] = [set() for _ in range((len(param.subscript.get_key())))]
                     for n, subscript in enumerate(param.subscript.get_key()):
                         self.parameter_subscript_names[param_key][n].add(subscript)
-                    self.parameter_base_df[param_key] = (
-                        use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
-                    )
+                    self.parameter_base_df[param_key] = use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
 
             # TODO: This check will need to get fancier when there are multiple dataframes
             # Find every Data in the line and make sure that they all have the necessary subscripts
