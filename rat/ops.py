@@ -319,6 +319,60 @@ class Param(PrimeableExpr):
 
 
 @dataclass
+class Match(Expr):
+    first: Expr
+    otherwise: Expr
+    bounded_variable_name: str
+    reverse_order: bool
+
+    def __iter__(self):
+        return iter([self.first, self.recurrence_equation])
+
+    def code(self, scalar=False):
+        # Compute the carry length
+
+        # (
+        #     def recursion(carry, n):
+        #         x1, x2,... = carry
+        #         if n == 0:
+        #             x = first_expr
+        #         else:
+        #             x = else_expr
+        #         return (x, x1, x2, ...), x
+
+        #     recursion
+        # ,)
+
+        # def recursion_h(carry, v):
+        #    # The carry here is a length 1 tuple containing the last value of h
+        #    h = parameters["phi"] * carry[0] + v
+        #    # The left hand side of the return is the carry (we'll need to save the last value of h for next iteration) and
+        #    # the right hand side is what gets written in the output array
+        #    return (h,), h
+        # _, parameters["h[t]"] = jax.lax.scan(recursion_h, (parameters["h[0]"],), parameters["v"][subscripts["t__5"]])
+
+        return ""
+
+    def __post_init__(self):
+        self.out_type = types.NumericType
+
+    def fold(self):
+        self.first = self.first.fold()
+        self.otherwise = self.otherwise.fold()
+        return Match(
+            first=self.first,
+            otherwise=self.otherwise,
+            bounded_variable_name=self.bounded_variable_name,
+            reverse_order=self.reverse_order,
+            line_index=self.line_index,
+            column_index=self.column_index,
+        )
+
+    def __str__(self):
+        return f"Match(first={self.first}, otherwise={self.otherwise}, bounded_var_name={self.bounded_variable_name})"
+
+
+@dataclass
 class Distr(Expr):
     variate: Expr
 

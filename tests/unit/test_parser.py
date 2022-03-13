@@ -178,6 +178,17 @@ def test_parser_prime():
     assert statement.__str__() == expected.__str__()
 
 
+def test_parser_match_parses():
+    input_str = """
+x[n] = match n {
+    first = 0;
+    else = x[shift(n, 1)];
+};
+"""
+    data_names = ["n"]
+    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement()
+
+
 def test_parser_invalid_statement():
     with pytest.raises(Exception, match="normal distribution needs 2 parameters"):
         test_string = "tau<lower=0.0> ~ normal(skills_mu[year]);"
