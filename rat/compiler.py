@@ -334,15 +334,6 @@ class Compiler:
 
         ordered_expr_trees = list(reversed(self.expr_tree_list))
 
-        def unique_subscript_use_itentifier_generator():
-            identifier = 0
-
-            while True:
-                yield repr(identifier)
-                identifier += 1
-
-        unique_subscript_use_itentifier = unique_subscript_use_itentifier_generator()
-
         # Create variable objects
         for top_expr in ordered_expr_trees:
             # if top_expr is an assignment or a match statement, pull out the left hand side and treat that specially
@@ -505,9 +496,15 @@ class Compiler:
                     #            subexpr.column_index,
                     #        )
 
+            # self.line_functions.append(line_function)
+            logging.debug(f"data: {list(self.data_variables.keys())}")
+            logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
+            logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
+
+    def _prepare_for_scans(self):
         # If a variable is assigned on a given line, mark uses so that the code
         # generation for the scan can handle this case correctly
-        for top_expr in ordered_expr_trees:
+        for top_expr in self.expr_tree_list:
             match top_expr:
                 case ops.Assignment(lhs, rhs):
                     # Assume already that the left hand side is a Param
@@ -525,13 +522,22 @@ class Compiler:
                                 msg = f"Recursively assigning {symbol_key} requires a shifted subscript on the right hand side reference"
                                 raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
+                            shifts = symbol.subscript.shifts
+
+                            if sum(shift is not None for shift in shifts) != 1:
+                                msg = "Exactly one (no more, no less) subscripts can be shifted in a recursively assigned variable"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            if shifts[-1] is None:
+                                msg = "Only the right-most subscript of a recursively assigned variable can shifted"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            if any(shift <= 0 for shift in shifts if shift is not None):
+                                msg = "All shifts in a recursively assigned variable must be greater than zero (equal to zero is not supported)"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)                                    
+
                             # Generate the first in group indicators used to mask the scan carries
                             self.first_in_group_indicators[assigned_key] = symbol.subscript.variable.get_first_in_group_indicators()
-
-            # self.line_functions.append(line_function)
-            logging.debug(f"data: {list(self.data_variables.keys())}")
-            logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
-            logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
 
     def _generate_python_source(self):
         """
@@ -626,12 +632,6 @@ class Compiler:
                                 # Figure out the carry size needed
                                 shifts = symbol.subscript.shifts
 
-                                number_subscripts_shifted = sum(shift is not None for shift in shifts)
-                                if number_subscripts_shifted != 1 or shifts[-1] is None:
-                                    raise Exception(
-                                        "Internal compiler error (shouldn't alert here): When shifting an assigned variable, can only have one shifted subscript and it must be the last"
-                                    )
-
                                 carry_size = max(carry_size, shifts[-1])
 
                                 # There will be groupings if there is more than one shift
@@ -640,22 +640,20 @@ class Compiler:
 
                     if lhs_used_in_rhs:
                         # We need to scan in this case
-
-                        if carry_size == 0:
-                            raise Exception(
-                                "Internal compiler error (shouldn't alert here): Carry size should be greater than zero when scan used"
-                            )
-
                         scan_function_name = f"scan_function_{self._get_unique_identifier()}"
+                        zero_tuple_string = f"({','.join(['0.0'] * carry_size)})"
+                        carry_strings = [f"carry{n}" for n in range(carry_size)]
+                        carry_tuple_string = f"({','.join(carry_strings)})"
+                        next_carry_tuple_string = f"({','.join(['next_value'] + carry_strings[:-1])})"
 
                         code += f"    def {scan_function_name}(carry, index):\n"
                         if need_first_in_group_indicator:
-                            code += f"        carry = jax.numpy.where(first_in_group_indicators['{lhs_key}'][index], jax.numpy.zeros(carry.shape), carry)\n"
+                            code += f"        carry = jax.lax.cond(first_in_group_indicators['{lhs_key}'][index], lambda : {zero_tuple_string}, lambda : carry)\n"
+                        code += f"        {carry_tuple_string} = carry\n"
                         code += f"        next_value = {top_expr.rhs.code(scalar = True)}\n"
-                        code += "        next_value_as_array = jax.numpy.array([next_value])\n"
-                        code += "        return jax.numpy.concatenate([next_value_as_array, carry[1:]]), next_value\n"
+                        code += f"        return {next_carry_tuple_string}, next_value\n"
 
-                        code += f"\n    _, parameters['{lhs_key}'] = jax.lax.scan({scan_function_name}, jax.numpy.zeros({carry_size}), jax.numpy.arange({lhs_size}))\n"
+                        code += f"\n    _, parameters['{lhs_key}'] = jax.lax.scan({scan_function_name}, {zero_tuple_string}, jax.numpy.arange({lhs_size}))\n"
                     else:
                         code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
         code += "\n    return parameters\n"
@@ -714,6 +712,11 @@ class Compiler:
 
         # run seconds pass, which binds subscripts and does codegen
         self._build_variables()
+
+        # search for and prepare for assignments that must be handled
+        # with scans (these are ones where the left hand side symbol
+        # appears on the right hand side)
+        self._prepare_for_scans()
 
         return (
             self.data_variables,

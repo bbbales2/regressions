@@ -1,4 +1,6 @@
+from codeop import Compile
 from dataclasses import dataclass, field
+from distutils.errors import CompileError
 from typing import Tuple, Union, Type, List, Dict
 import jax
 
@@ -291,19 +293,22 @@ class Param(PrimeableExpr):
         if self.subscript:
             if self.assigned_by_scan:
                 if scalar == False:
-                    raise Exception("Internal Error: Cannot do a vector evaluation of an assigned variable")
+                    msg = "Internal error: Cannot do a vector evaluation of a recursively assigned variable"
+                    raise CompileError(msg, self.line_index, self.column_index)
 
                 integer_shifts = [shift for shift in self.subscript.shifts if shift is not None]
 
                 if len(integer_shifts) != 1:
-                    raise Exception("Internal compiler error: at this point there should be exactly one shift")
+                    msg = "Internal error: There should be exactly one shift"
+                    raise CompileError(msg, self.line_index, self.column_index)
 
                 shift = integer_shifts[0]
 
                 if shift <= 0:
-                    raise Exception("Internal compiler error: shifts have to be positive")
+                    msg = "Internal error: Shifts must be positive"
+                    raise CompileError(msg, self.line_index, self.column_index)
 
-                return f"carry[{shift} - 1]"
+                return f"carry{shift - 1}"
             else:
                 return f"parameters['{variable_code}'][{self.subscript.code(scalar)}]"
         else:
