@@ -11,4 +11,4 @@ for(i in 2:N) {
 y = rnorm(N, mu, sigma)
 
 df = tibble(y = y, i = 1:N)
-write_csv(df, "test_data_generation/kalman.csv")
+write_csv(df, "test_data_generation/time_series.csv")

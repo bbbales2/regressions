@@ -33,4 +33,4 @@ for(j in 1:N_years) {
 }
 
 df = tibble(score_diff = score_diffs, year = years, team1 = team1s, team2 = team2s)
-write_csv(df, "test_data_generation/kalman_2.csv")
+write_csv(df, "test_data_generation/time_series_2.csv")
