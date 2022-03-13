@@ -228,79 +228,58 @@ class Compiler:
                     msg = f"Expected a parameter or data primary_symbol but got type {primary_symbol.__class__.__name__}"
                     raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
 
-            # For each line, we take the dataframe of the primary variable and append as necessary
-            # rows to the dataframes of all the secondary variables
-            #
-            # Variables are only created if they are used and this will match the semantics of the
-            # match statements
-            dfs_and_params: List[Tuple[pandas.DataFrame, List[ops.Param]]] = []
-            match top_expr:
-                # case ops.MatchedStatement():
-                #     sorted_primary_df = primary_df.sort_values(top_expr.bounded_variable_name)
-                #     first_expr = top_expr.initial_declarations["first"]
-                #     recurrence_expr = top_expr.recurrence_equation
-                #     lhs_params = list(ops.search_tree(top_expr.lhs, ops.Param))
-                #     first_expr_params = list(ops.search_tree(first_expr, ops.Param))
-                #     recurrence_expr_params = list(ops.search_tree(recurrence_expr, ops.Param))
-                #     dfs_and_params.append((sorted_primary_df.iloc[:1], lhs_params + first_expr_params))
-                #     dfs_and_params.append((sorted_primary_df.iloc[1:], lhs_params + recurrence_expr_params))
-                case _:
-                    expr_params = list(ops.search_tree(top_expr, ops.Param))
-                    dfs_and_params.append((primary_df, expr_params))
+            # Find every other parameter in the line and attempt to construct data
+            # frames for the ones with subscripts
+            for param in ops.search_tree(top_expr, ops.Param):
+                param_key = param.get_key()
 
-            for subset_primary_df, params in dfs_and_params:
-                # Find every other parameter in the line and attempt to construct data
-                # frames for the ones with subscripts
-                for param in params:
-                    param_key = param.get_key()
+                # no need to check the primary symbol
+                if param_key == primary_key:
+                    continue
 
-                    # no need to check the primary symbol
-                    if param_key == primary_key:
-                        continue
+                # if the symbol is not subscripted, nothing more needs to be done
+                if not param.subscript:
+                    continue
 
-                    # if the symbol is not subscripted, nothing more needs to be done
-                    if not param.subscript:
-                        continue
+                # get the subscripted columns from primary df
+                try:
+                    use_df = primary_df.loc[:, param.subscript.get_key()]
+                except KeyError as e:
+                    # this means a subscript referenced does not exist in the primary dataframe
+                    msg = f"Couldn't index RHS variable {param_key}'s declared subscript{param.subscript.get_key()} from LHS base df, which has subscripts {tuple(primary_df.columns)}."
+                    raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
+                except AttributeError as e:
+                    # this means LHS has no base dataframe but a subscript was attempted from RHS
+                    msg = f"Variable {param_key} attempted to subscript using {param.subscript.get_key()}, but primary variable {primary_key} has no subscripts!"
+                    raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
 
-                    # get the subscripted columns from primary df
+                if param_key in self.parameter_base_df:
+                    # if we already have a base_df registered, try merging them
                     try:
-                        use_df = subset_primary_df.loc[:, param.subscript.get_key()]
-                    except KeyError as e:
-                        # this means a subscript referenced does not exist in the primary dataframe
-                        msg = f"Couldn't index RHS variable {param_key}'s declared subscript{param.subscript.get_key()} from LHS base df, which has subscripts {tuple(primary_df.columns)}."
-                        raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
-                    except AttributeError as e:
-                        # this means LHS has no base dataframe but a subscript was attempted from RHS
-                        msg = f"Variable {param_key} attempted to subscript using {param.subscript.get_key()}, but primary variable {primary_key} has no subscripts!"
+                        use_df.columns = tuple(self.parameter_base_df[param_key])
+                    except ValueError as e:
+                        msg = f"Subscript length mismatch: variable on RHS side {param_key} has declared subscript of length {len(param_key)}, but has been used with a subscript of length {len(self.parameter_base_df[param_key])}"
                         raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
 
-                    if param_key in self.parameter_base_df:
-                        # if we already have a base_df registered, try merging them
-                        try:
-                            use_df.columns = tuple(self.parameter_base_df[param_key])
-                        except ValueError as e:
-                            msg = f"Subscript length mismatch: variable on RHS side {param_key} has declared subscript of length {len(param_key)}, but has been used with a subscript of length {len(self.parameter_base_df[param_key])}"
-                            raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
+                    self.parameter_base_df[param_key] = (
+                        pandas.concat([self.parameter_base_df[param_key], use_df])
+                        .drop_duplicates()
+                        .sort_values(list(use_df.columns))
+                        .reset_index(drop=True)
+                    )
 
-                        self.parameter_base_df[param_key] = (
-                            pandas.concat([self.parameter_base_df[param_key], use_df])
-                            .drop_duplicates()
-                            .sort_values(list(use_df.columns))
-                            .reset_index(drop=True)
-                        )
+                    # keep track of subscript names for each position
+                    for n, subscript in enumerate(param.subscript.get_key()):
+                        self.parameter_subscript_names[param_key][n].add(subscript)
 
-                        # keep track of subscript names for each position
-                        for n, subscript in enumerate(param.subscript.get_key()):
-                            self.parameter_subscript_names[param_key][n].add(subscript)
-
-                    else:  # or generate base df for RHS variable if it doesn't exist
-                        # this list of sets keep track of the aliases of each subscript position
-                        self.parameter_subscript_names[param_key] = [set() for _ in range((len(param.subscript.get_key())))]
-                        for n, subscript in enumerate(param.subscript.get_key()):
-                            self.parameter_subscript_names[param_key][n].add(subscript)
-                        self.parameter_base_df[param_key] = (
-                            use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
-                        )
+                else:  # or generate base df for RHS variable if it doesn't exist
+                    # this list of sets keep track of the aliases of each subscript position
+                    self.parameter_subscript_names[param_key] = [set() for _ in range((len(param.subscript.get_key())))]
+                    for n, subscript in enumerate(param.subscript.get_key()):
+                        self.parameter_subscript_names[param_key][n].add(subscript)
+                    self.parameter_base_df[param_key] = (
+                        use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
+                    )
 
             # TODO: This check will need to get fancier when there are multiple dataframes
             # Find every Data in the line and make sure that they all have the necessary subscripts
@@ -362,7 +341,6 @@ class Compiler:
                     pass
 
             # remainder at this point is the part of top_expr that is not the left hand side of an assignment
-            # or a match statement
             for symbol in ops.search_tree(remainder, ops.Data, ops.Param):
                 symbol_key = symbol.get_key()
 
