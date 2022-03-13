@@ -9,8 +9,14 @@ defense[player, date]' = defense_rw[player, date] + defense0[player];
 offense0[player] ~ normal(0.0, tau0_offense);
 defense0[player] ~ normal(0.0, tau0_defense);
 
-offense_rw[player, date]' ~ normal(offense_rw[player, shift(date, 1)], tau_offense);
-defense_rw[player, date]' ~ normal(defense_rw[player, shift(date, 1)], tau_defense);
+#offense_rw[player, date]' ~ normal(offense_rw[player, shift(date, 1)], tau_offense);
+#defense_rw[player, date]' ~ normal(defense_rw[player, shift(date, 1)], tau_defense);
+
+offense_rw[player, date]' = offense_rw[player, shift(date, 1)] + offense_rw_z[player, date] * tau_offense;
+defense_rw[player, date]' = defense_rw[player, shift(date, 1)] + defense_rw_z[player, date] * tau_defense;
+
+offense_rw_z ~ normal(0.0, 1.0);
+defense_rw_z ~ normal(0.0, 1.0);
 
 tau_offense<lower = 0.0> ~ log_normal(0.0, 0.5);
 tau_defense<lower = 0.0> ~ log_normal(0.0, 0.5);
