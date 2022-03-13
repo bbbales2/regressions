@@ -534,7 +534,7 @@ class Compiler:
 
                             if any(shift <= 0 for shift in shifts if shift is not None):
                                 msg = "All shifts in a recursively assigned variable must be greater than zero (equal to zero is not supported)"
-                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)                                    
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
                             # Generate the first in group indicators used to mask the scan carries
                             self.first_in_group_indicators[assigned_key] = symbol.subscript.variable.get_first_in_group_indicators()
