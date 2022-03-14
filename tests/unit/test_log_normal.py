@@ -7,11 +7,11 @@ from rat.math import log_normal
 
 
 def test_log_normal_parser():
-    model_string = "y ~ log_normal(mu, sigma);"
+    model_string = "y ~ log_normal(mu, sigma');"
 
     parsed = Parser(Scanner(model_string).scan()[0], ["y", "mu", "sigma"], model_string).statement()
 
-    assert str(parsed) == "LogNormal(Data(y), Data(mu), Data(sigma))"
+    assert str(parsed) == "LogNormal(Data(y, False), Data(mu, False), Data(sigma, True))"
 
 
 def test_log_normal_values():

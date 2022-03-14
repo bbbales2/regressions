@@ -1,6 +1,7 @@
 import warnings
 from dataclasses import dataclass
 import jax.numpy as jnp
+import numpy
 import pandas
 import logging
 from typing import List, Dict, Tuple, Union, Set
@@ -23,7 +24,7 @@ class Subscript:
     # example: skills[column_1, year], skills[column_2, year] results to:
     # (("column_1", "column_2"), ("year",))
 
-    def __init__(self, unprocessed_df: pandas.DataFrame, subscripted_sets):
+    def __init__(self, base_df: pandas.DataFrame, subscripted_sets):
         # Rows of unprocessed_df are considered to be indexes into
         # another variable.
         #
@@ -31,12 +32,7 @@ class Subscript:
         # dimension.
         #
         # subscripted_sets are a tuple denoting the subscripts in which the variable is subscripted on rhs.
-        columns = unprocessed_df.columns
-
-        base_df = unprocessed_df.drop_duplicates().sort_values(list(columns)).reset_index(drop=True)
-        # for column, dtype in zip(base_df.columns, base_df.dtypes):
-        #     if pandas.api.types.is_integer_dtype(dtype):
-        #         base_df[column] = base_df[column].astype(pandas.Int64Dtype())
+        columns = base_df.columns
 
         self.base_df = base_df
         self.df = self.base_df
@@ -54,9 +50,11 @@ class Subscript:
         self.rebuild_df()
 
     def compute_shifted_df(self, df, shifts):
+        # TODO: I don't think this should be a member function of Subscript
         if all(shift is None for shift in shifts):
             return df
 
+        # TODO: I'm not sure why this is self.base_df and not df
         columns = self.base_df.columns
 
         shift_columns = []
@@ -107,6 +105,27 @@ class Subscript:
             "__index"
         ].to_numpy(dtype=int)
 
+    def get_first_in_group_indicators(self, shifts):
+        # TODO: I'm not sure why this is self.base_df and not df
+        columns = self.base_df.columns
+
+        shift_columns = []
+        shift_values = []
+        grouping_columns = []
+        for column, shift in zip(columns, shifts):
+            if shift is None:
+                grouping_columns.append(column)
+            else:
+                shift_columns.append(column)
+                shift_values.append(shift)
+
+        if len(grouping_columns) == 0:
+            duplicated = self.base_df.duplicated()
+        else:
+            duplicated = self.base_df.duplicated(subset=grouping_columns)
+
+        return (~duplicated).to_numpy()
+
     def log_summary(self, log_level=logging.INFO):
         for index_num in range(len(self.subscripted_sets)):
             logging.log(
@@ -114,29 +133,12 @@ class Subscript:
                 f"Subscript {index_num} - defined as union of the following columns({','.join(self.subscripted_sets[index_num])}), with column name '{self.df.columns[index_num]}'",
             )
 
-    def check_and_return_subscripts(self, subscript_key: Tuple[str]) -> Tuple[str]:
-        """
-        This function checks a given subscript key is valid in case the Subscript has different aliases.
-        For example, if we have a parameter 'score' that was subscripted as 'score[home_team, year]' and
-        'score[away_team, year]', but was used as 'score[tem, year]', it gets hard to manage what the column names
-        should be. This function tries to resolve them by first checking that index_key is valid, i.e. was declared,
-        and returns the default singular column names.
-        :param subscript_key: A tuple of strings, which is retrieved by `ops.Subscript.get_key`
-        :return: A tuple of strings, which is composed of the columns names of self.df
-        """
-        return_list: List[str] = []
-        for col_index, columnwise_subscript_set in enumerate(self.subscripted_sets):
-            for subscript in subscript_key:
-                if subscript in columnwise_subscript_set or self.df.columns[col_index] == subscript:
-                    return_list.append(self.df.columns[col_index])
-
-        return tuple(return_list)
-
 
 @dataclass
 class Data:
     name: str
     series: pandas.Series
+    subscript: Subscript = None
 
     def to_numpy(self):
         return jnp.array(self.series)
@@ -151,10 +153,24 @@ class Param:
     subscript: Subscript = None
     lower: float = float("-inf")
     upper: float = float("inf")
+    constraints_set: bool = False
 
     def set_constraints(self, lower, upper):
-        self.lower = lower
-        self.upper = upper
+        if lower is None and upper is None:
+            return
+
+        if lower is None:
+            lower = self.lower
+
+        if upper is None:
+            upper = self.upper
+
+        if self.lower != lower or self.upper != upper:
+            if self.constraints_set:
+                raise Exception("Constraints already set")
+            self.lower = lower
+            self.upper = upper
+            self.constraints_set = True
 
     def scalar(self):
         if self.subscript:
@@ -205,6 +221,9 @@ class SubscriptUse:
         shifted_df = self.subscript.compute_shifted_df(self.df, self.shifts)
         indices = self.subscript.get_numpy_indices(shifted_df)
         return jnp.array(indices, dtype=int)
+
+    def get_first_in_group_indicators(self):
+        return self.subscript.get_first_in_group_indicators(self.shifts)
 
     def code(self):
         if all(shift is None for shift in self.shifts):

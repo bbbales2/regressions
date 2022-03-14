@@ -28,11 +28,14 @@ class Model:
     size: int
     device_data: Dict[str, jax.numpy.array]
     device_subscripts: Dict[str, jax.numpy.array]
+    device_first_in_group_indicators: Dict[str, jax.numpy.array]
     compiled_model: types.ModuleType
 
     def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad=True):
         jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
-        return jacobian_adjustment, self.compiled_model.transform_parameters(self.device_data, self.device_subscripts, parameters)
+        return jacobian_adjustment, self.compiled_model.transform_parameters(
+            self.device_data, self.device_subscripts, self.device_first_in_group_indicators, parameters
+        )
 
     def _log_density(self, include_jacobian, unconstrained_parameter_vector):
         # Evaluate model log density given model, data, subscripts and unconstrained parameters
@@ -107,18 +110,19 @@ class Model:
             self.parameter_variables,
             self.assigned_parameter_variables,
             subscript_use_variables,
+            first_in_group_indicators,
             model_source_string,
         ) = compiler.Compiler(data_df, parsed_lines, model_string).compile()
 
         if compile_path is None:
-            working_dir = tempfile.TemporaryDirectory(prefix="rat.")
+            self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")
 
             # Write model source to file and compile and import it
-            model_source_file = os.path.join(working_dir.name, "model_source.py")
+            model_source_file = os.path.join(self.working_dir.name, "model_source.py")
         else:
-            working_dir = os.path.dirname(compile_path)
-            if working_dir is not "":
-                os.makedirs(working_dir, exist_ok=True)
+            self.working_dir = os.path.dirname(compile_path)
+            if self.working_dir is not "":
+                os.makedirs(self.working_dir, exist_ok=True)
 
             if os.path.exists(compile_path) and not overwrite:
                 raise FileExistsError(f"Compile path {compile_path} already exists and will not be overwritten")
@@ -142,6 +146,11 @@ class Model:
         self.device_subscripts = {}
         for name, subscript_use in subscript_use_variables.items():
             self.device_subscripts[name] = jax.device_put(subscript_use.to_numpy())
+
+        # Copy first in group indicators to jax device
+        self.device_first_in_group_indicators = {}
+        for name, first_in_group_indicator in first_in_group_indicators.items():
+            self.device_first_in_group_indicators[name] = jax.device_put(first_in_group_indicator)
 
         self.log_density_jax = jax.jit(functools.partial(self._log_density, True))
         self.log_density_jax_no_jac = jax.jit(functools.partial(self._log_density, False))

@@ -1,3 +1,4 @@
+import collections
 import itertools
 import logging
 import numpy
@@ -23,6 +24,9 @@ class Compiler:
     data_df: pandas.DataFrame
     expr_tree_list: List[ops.Expr]
     model_code_string: str
+    # There are a couple places internally here where it is handy to have a unique
+    # identifier. We can use increasing integers to do this
+    _unique_identifier: int
 
     def __init__(self, data_df: pandas.DataFrame, expr_tree_list: List[ops.Expr], model_code_string: str = ""):
         """
@@ -44,9 +48,13 @@ class Compiler:
         self.data_df = data_df
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
+        self._unique_identifier = 0
 
-        # this is the dataframe that goes into variables.Subscript. Each row is a unique combination of indexes
+        # these dataframes that go into variables.Subscript. Each row is a unique combination of indexes
         self.parameter_base_df: Dict[str, pandas.DataFrame] = {}
+
+        # these dataframes that go into variables.Subscript
+        self.data_base_df: Dict[str, pandas.DataFrame] = {}
 
         # this is the dictionary that keeps track of what names the parameter subscripts were defined as
         self.parameter_subscript_names: Dict[str, List[Set[str]]] = {}
@@ -59,85 +67,86 @@ class Compiler:
         self.assigned_parameter_variables: Dict[str, variables.AssignedParam] = {}
         self.subscript_use_variables: Dict[str, variables.SubscriptUse] = {}
         self.variable_subscripts: Dict[str, variables.Subscript] = {}
+        self.first_in_group_indicators: Dict[str, numpy.ndarray] = {}
 
-    def _generate_dependency_graph(self, reversed=False) -> Dict[str, Set[str]]:
+    def _get_unique_identifier(self) -> str:
         """
-        Generate a dependency graph of all variables/data within self.expr_tree_list.
-        Parameter 'reversed', if True, will reverse the standard dependence order of LHS | RHS into RHS | LHS
+        Return an as-yet un-returned string. This is useful for generating unique identifiers
+        for variables
         """
-        dependency_graph: Dict[str, Set[str]] = {}  # this is the dependency graph
-        for line in self.expr_tree_list:  # iterate over every line
-            if isinstance(line, ops.Distr):
-                lhs = line.variate
-            elif isinstance(line, ops.Assignment):
-                lhs = line.lhs
+        self._unique_identifier += 1
+        return repr(self._unique_identifier)
 
-            lhs_op_key = lhs.get_key()
-            if lhs_op_key not in dependency_graph:
-                dependency_graph[lhs_op_key] = set()
+    def _identify_primary_symbols(self):
+        # figure out which symbols will have dataframes
+        has_dataframe = set()
+        for top_expr in self.expr_tree_list:
+            for primeable_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
+                if isinstance(primeable_symbol, ops.Data) or primeable_symbol.subscript is not None:
+                    has_dataframe.add(primeable_symbol.get_key())
 
-            for subexpr in ops.search_tree(line, ops.Param, ops.Data):
-                rhs_op_key = subexpr.get_key()
-                if rhs_op_key == lhs_op_key:
-                    continue
+        for top_expr in self.expr_tree_list:
+            # We compute the primary variable reference in a line of code with the rules:
+            # 1. There can only be one primary variable reference (priming two references to the same variable is still an error)
+            # 2. If a variable is marked as primary, then it is the primary variable.
+            # 3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
+            # 4. If there are no variables with dataframes, the leftmost one is the primary one
+            # 5. It is an error if no primary variable can be identified
+            primary_symbol: ops.PrimeableExpr = None
+            # Rule 2
+            for primeable_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
+                if primeable_symbol.prime:
+                    if primary_symbol is None:
+                        primary_symbol = primeable_symbol
+                    else:
+                        msg = f"Found two marked primary variables {primary_symbol.get_key()} and {primeable_symbol.get_key()}. There should only be one"
+                        raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
 
-                if rhs_op_key not in dependency_graph:
-                    dependency_graph[rhs_op_key] = set()
+            # Rule 3
+            if primary_symbol is None:
+                for primeable_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
+                    primeable_key = primeable_symbol.get_key()
 
-                if reversed:
-                    dependency_graph[rhs_op_key].add(lhs_op_key)
-                else:
-                    dependency_graph[lhs_op_key].add(rhs_op_key)
+                    if primeable_key in has_dataframe:
+                        if primary_symbol is None:
+                            primary_symbol = primeable_symbol
+                        else:
+                            primary_key = primary_symbol.get_key()
+                            if primary_key != primeable_key:
+                                msg = f"No marked primary variable and at least {primary_key} and {primeable_key} are candidates. A primary variable should be marked manually"
+                                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+                            else:
+                                msg = f"No marked primary variable but found multiple references to {primary_key}. One reference should be marked manually"
+                                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
 
-        return dependency_graph
+            # Rule 4
+            if primary_symbol is None:
+                for primeable_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
+                    primary_symbol = primeable_symbol
+                    break
 
-    def _order_expr_tree(self, dependency_graph: Dict[str, Set[str]]):
+            # Rule 5
+            if primary_symbol is None:
+                msg = f"No primary variable found on line (this means there are no candidate variables)"
+                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+
+            # Mark the primary symbol if it wasn't already
+            primary_symbol.prime = True
+
+    def _get_primary_symbol_from_statement(self, top_expr):
         """
-        Given a dependence graph, reorder the expression trees in self.expr_tree_list in topological order.
+        Get the primary symbol in a statement. This assumes that the statement has
+        only one primary symbol
         """
-        var_evalulation_order: List[str] = []  # topologically sorted variable names
-        current_recursion_lhs = None
+        for primary_symbol in ops.search_tree(top_expr, ops.PrimeableExpr):
+            if primary_symbol.prime:
+                break
+        else:
+            msg = f"Internal compiler error. No primary variable found"
+            raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+        return primary_symbol
 
-        def recursive_order_search(current):
-            if current in var_evalulation_order:
-                return
-            for child in dependency_graph[current]:
-                recursive_order_search(child)
-            var_evalulation_order.append(current)
-
-        try:
-            for expr in self.expr_tree_list:
-                if isinstance(expr, ops.Distr):
-                    lhs = expr.variate
-                elif isinstance(expr, ops.Assignment):
-                    lhs = expr.lhs
-                current_recursion_lhs = lhs
-                recursive_order_search(lhs.get_key())
-        except RecursionError as e:
-            raise CompileError(
-                "Could not topologically order the expression tree. This is because your model is cyclic.",
-                self.model_code_string,
-                current_recursion_lhs.line_index,
-                current_recursion_lhs.column_index,
-            ) from e
-
-        # create (Expr, lhs_var_name) pair, which is used to sort based on lhs_var_name
-        expr_tree_list = [[x, x.lhs.get_key() if isinstance(x, ops.Assignment) else x.variate.get_key()] for x in self.expr_tree_list]
-
-        def get_index(name, expr):
-            try:
-                return var_evalulation_order.index(name)
-            except ValueError as e:
-                raise CompileError(
-                    f"First pass error: key {name} not found while ordering expressions. Please check that all variables/parameters have been declared.",
-                    self.model_code_string,
-                    line_num=expr.line_index,
-                    column_num=0,
-                ) from e
-
-        return [elem[0] for elem in sorted(expr_tree_list, key=lambda x: get_index(x[1], x[0]))]
-
-    def _build_base_df(self, rev_ordered_expr_trees: List[ops.Expr]):
+    def _build_base_df(self):
         """
         First code pass. This function must receive the *reversed* dependence graph, or RHS | LHS where edges go from
         RHS to LHS. This function will loop over the expression trees once, and write the parameter base dataframes into
@@ -152,134 +161,132 @@ class Compiler:
         1. generate base_df for every LHS variable
         2. identify every subscript scheme for all subscripted variables
         """
-        # On the first pass, we generate the base reference dataframe for each variable. This goes into
-        # variable.Subscript.base_df
 
-        for top_expr in rev_ordered_expr_trees:
-            if isinstance(top_expr, ops.Distr):
-                lhs: ops.Expr = top_expr.variate
-            elif isinstance(top_expr, ops.Assignment):
-                lhs: ops.Expr = top_expr.lhs
+        # Make sure that all secondary parameter uses precede primary uses (or throw an error)
+        N_lines = len(self.expr_tree_list)
+        for i, top_expr in enumerate(self.expr_tree_list):
+            primary_symbol = self._get_primary_symbol_from_statement(top_expr)
 
-                # check if lhs type is ops.Param (can't assign to data)
-                if not isinstance(lhs, ops.Param):
-                    raise CompileError(
-                        "LHS of assign statement must be a variable and not data!", self.model_code_string, lhs.line_index, lhs.column_index
-                    )
+            primary_key = primary_symbol.get_key()
 
-            else:
-                # This should never be reached given a well-formed expression tree
-                raise CompileError(
-                    f"Top-level expressions may only be an assignment or sample statement, but got type {top_expr.__class__.__name__}",
-                    self.model_code_string,
-                    top_expr.line_index,
-                    top_expr.column_index,
-                )
+            # There aren't any restrictions on primary/secondary data
+            if isinstance(primary_symbol, ops.Data):
+                continue
 
-            lhs_key = lhs.get_key()
+            for j in range(i + 1, N_lines):
+                for secondary_symbol in ops.search_tree(self.expr_tree_list[j], ops.Param):
+                    secondary_key = secondary_symbol.get_key()
 
-            # we now construct the LHS reference dataframe. This is the dataframe that the LHS variable possesses.
-            # For example, consider `slope[age, country] ~ normal(mu[country], 1);`
-            # The subscript "country" on the RHS is looked up from the LHS dataframe's "country" column.
-            # As you can see, for every line that contains subscripted variables, the LHS's subscripts must be known
-            # in order to resolve the correct subscript values on the RHS. lhs_base_df is the reference base
-            # dataframe that the RHS subscripts are resolved on that line.
-            if isinstance(lhs, ops.Data):
-                # If the LHS type is data, the reference dataframe is the data dataframe
-                lhs_base_df = self.data_df
+                    if primary_key == secondary_key and not secondary_symbol.prime:
+                        msg = f"Primary variable {primary_symbol.get_key()} used on line {i} but then referenced as non-prime on line {j}. The primed uses must come last"
+                        raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
 
-            elif isinstance(lhs, ops.Param):
-                # Otherwise, we take the reference dataframe of the LHS variable.
-                # Since the lines are evaluated in a topological order, the LHS would have been known at this point.
-                if lhs.subscript:
-                    # subscripts for variables come from the LHS of the line that the variable was used
-                    if lhs.get_key() in self.parameter_base_df:
-                        lhs_base_df = self.parameter_base_df[lhs.get_key()].copy()
-                        # rename the column names(subscript names) of the base_df
-                        # to be compatible on the current line
-                        try:
-                            lhs_base_df.columns = tuple(lhs.subscript.get_key())
-                        except ValueError as e:
-                            # if usage subscript length and declared subscript length do not match, raise exception
-                            raise CompileError(
-                                f"Variable {lhs.get_key()}, has declared {len(lhs.subscript.get_key())}LHS subscript, but was used in RHS as {len(lhs_base_df.columns)} subscripts.",
-                                self.model_code_string,
-                                lhs.line_index,
-                                lhs.column_index,
-                            ) from e
+        for top_expr in self.expr_tree_list:
+            primary_symbol = self._get_primary_symbol_from_statement(top_expr)
+            # Identify the primary dataframe if there is one and resolve naming issues
+            primary_key = primary_symbol.get_key()
+
+            match primary_symbol:
+                case ops.Data():
+                    # If the primary primary_symbol is data, the reference dataframe is the data dataframe
+                    primary_df = self.data_df
+                # TODO: This isn't implemented but might make sense
+                # case ops.Subscript():
+                # If the primary primary_symbol is a subscript, the reference dataframe is the data dataframe
+                #    primary_df = self.data_df
+                case ops.Param():
+                    # For parameters
+                    # 1. A subscripted primary parameter primary_symbol must have a dataframe
+                    # 2. If there is no subscript, then:
+                    #    A. If a dataframe exists, then column names must be uniquely defined
+                    #    B. If no dataframe exists, the parameter is a scalar
+                    # Since the lines are evaluated in a topological order, the rows of the primary dataframe are known at this point.
+                    if primary_key in self.parameter_base_df:
+                        primary_df = self.parameter_base_df[primary_key].copy()
+
+                        # If the primary primary_symbol is subscripted, should be a dataframe
+                        if primary_symbol.subscript:
+                            # Handle subscript renaming
+                            try:
+                                primary_df.columns = tuple(primary_symbol.subscript.get_key())
+                            except ValueError as e:
+                                # if usage subscript length and declared subscript length do not match, raise exception
+                                msg = f"Rename {primary_symbol.code()} not possible, {len(primary_df.columns)} required names but {len(primary_symbol.subscript.get_key())} given."
+                                raise CompileError(
+                                    msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index
+                                ) from e
+
+                            self.parameter_base_df[primary_key].columns = primary_df.columns
+                        else:
+                            for n, in_use_subscripts in enumerate(self.parameter_subscript_names[primary_key]):
+                                if len(in_use_subscripts) > 1:
+                                    msg = f"Subscript(s) of {primary_key} must be renamed, the name for subscript {n} is ambiguous ({in_use_subscripts})"
+                                    raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
                     else:
-                        raise CompileError(
-                            f"Variable {lhs.get_key()} was declared to have subscript {lhs.subscript.get_key()}, but no usage of said variable was found.",
-                            self.model_code_string,
-                            lhs.line_index,
-                            lhs.column_index,
-                        )
-                else:
-                    lhs_base_df = None
+                        primary_df = None
+                case _:
+                    msg = f"Expected a parameter or data primary_symbol but got type {primary_symbol.__class__.__name__}"
+                    raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
 
-            for sub_expr in ops.search_tree(top_expr, ops.Param):
-                sub_expr_key = sub_expr.get_key()
-                # we're only interested in the RHS usages:
-                if sub_expr.get_key() == lhs.get_key():
+            # Find every other parameter in the line and attempt to construct data
+            # frames for the ones with subscripts
+            for param in ops.search_tree(top_expr, ops.Param):
+                param_key = param.get_key()
+
+                # no need to check the primary symbol
+                if param_key == primary_key:
                     continue
 
-                # if the variable is not subscripted, nothing more needs to be done
-                if not sub_expr.subscript:
+                # if the symbol is not subscripted, nothing more needs to be done
+                if not param.subscript:
                     continue
 
-                # get the subscripted columns from LHS base df
+                # get the subscripted columns from primary df
                 try:
-                    rhs_base_df = lhs_base_df.loc[:, sub_expr.subscript.get_key()]
+                    use_df = primary_df.loc[:, param.subscript.get_key()]
                 except KeyError as e:
-                    # this means a subscript referenced on RHS does not exist on the LHS base dataframe
-                    raise CompileError(
-                        f"Couldn't index RHS variable {sub_expr_key}'s declared subscript{sub_expr.subscript.get_key()} from LHS base df, which has subscripts {tuple(lhs_base_df.columns)}.",
-                        self.model_code_string,
-                        sub_expr.line_index,
-                        sub_expr.column_index,
-                    ) from e
+                    # this means a subscript referenced does not exist in the primary dataframe
+                    msg = f"Couldn't index RHS variable {param_key}'s declared subscript{param.subscript.get_key()} from LHS base df, which has subscripts {tuple(primary_df.columns)}."
+                    raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
                 except AttributeError as e:
                     # this means LHS has no base dataframe but a subscript was attempted from RHS
-                    raise CompileError(
-                        f"Variable on RHS side '{sub_expr_key}' attempted to subscript {sub_expr.subscript.get_key()}, but LHS variable '{lhs.get_key()}' has no subscripts!",
-                        self.model_code_string,
-                        sub_expr.line_index,
-                        sub_expr.column_index,
-                    ) from e
+                    msg = f"Variable {param_key} attempted to subscript using {param.subscript.get_key()}, but primary variable {primary_key} has no subscripts!"
+                    raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
 
-                if sub_expr_key in self.parameter_base_df:
+                if param_key in self.parameter_base_df:
                     # if we already have a base_df registered, try merging them
                     try:
-                        rhs_base_df.columns = tuple(self.parameter_base_df[sub_expr_key])
+                        use_df.columns = tuple(self.parameter_base_df[param_key])
                     except ValueError as e:
-                        raise CompileError(
-                            f"Subscript length mismatch: variable on RHS side '{sub_expr_key}' has declared subscript of length {len(sub_expr_key)}, but has been used with a subscript of length {len(self.parameter_base_df[sub_expr_key])}",
-                            self.model_code_string,
-                            sub_expr.line_index,
-                            sub_expr.column_index,
-                        ) from e
-                    self.parameter_base_df[sub_expr_key] = (
-                        pandas.concat([self.parameter_base_df[sub_expr_key], rhs_base_df]).drop_duplicates().reset_index(drop=True)
+                        msg = f"Subscript length mismatch: variable on RHS side {param_key} has declared subscript of length {len(param_key)}, but has been used with a subscript of length {len(self.parameter_base_df[param_key])}"
+                        raise CompileError(msg, self.model_code_string, param.line_index, param.column_index) from e
+
+                    self.parameter_base_df[param_key] = (
+                        pandas.concat([self.parameter_base_df[param_key], use_df])
+                        .drop_duplicates()
+                        .sort_values(list(use_df.columns))
+                        .reset_index(drop=True)
                     )
 
                     # keep track of subscript names for each position
-                    for n, subscript in enumerate(sub_expr.subscript.get_key()):
-                        self.parameter_subscript_names[sub_expr_key][n].add(subscript)
+                    for n, subscript in enumerate(param.subscript.get_key()):
+                        self.parameter_subscript_names[param_key][n].add(subscript)
 
                 else:  # or generate base df for RHS variable if it doesn't exist
                     # this list of sets keep track of the aliases of each subscript position
-                    self.parameter_subscript_names[sub_expr_key] = [set() for _ in range((len(sub_expr.subscript.get_key())))]
-                    for n, subscript in enumerate(sub_expr.subscript.get_key()):
-                        self.parameter_subscript_names[sub_expr_key][n].add(subscript)
+                    self.parameter_subscript_names[param_key] = [set() for _ in range((len(param.subscript.get_key())))]
+                    for n, subscript in enumerate(param.subscript.get_key()):
+                        self.parameter_subscript_names[param_key][n].add(subscript)
+                    self.parameter_base_df[param_key] = use_df.drop_duplicates().sort_values(list(use_df.columns)).reset_index(drop=True)
 
-                    self.parameter_base_df[sub_expr_key] = rhs_base_df.drop_duplicates().reset_index(drop=True)
+            # TODO: This check will need to get fancier when there are multiple dataframes
+            # Find every Data in the line and make sure that they all have the necessary subscripts
+            for data in ops.search_tree(top_expr, ops.Data):
+                data_key = data.get_key()
 
-            if lhs_key in self.parameter_base_df:
-                # Update base_df's column names to the latest subscript definitions.
-                # This means the index names will be set to the subscript names of the LHS definition
-                self.parameter_base_df[lhs_key].columns = tuple(lhs.subscript.get_key())
+                self.data_base_df[data_key] = self.data_df
 
-    def _build_variables(self, ordered_expr_trees: List[ops.Expr]):
+    def _build_variables(self):
         """
         The goal in the second pass is
         1. Generate variable.Param, variable.AssignedParam, variable.Data for each respective variable/data
@@ -289,176 +296,226 @@ class Compiler:
         The expression trees must be sorted in canonical topological order(LHS | RHS) in order to run succesfully.
         """
 
-        def unique_subscript_use_itentifier_generator():
-            identifier = 0
+        # Parameters cannot be used after they are assigned
+        N_lines = len(self.expr_tree_list)
+        for i, top_expr in enumerate(self.expr_tree_list):
+            match top_expr:
+                case ops.Assignment(lhs):
+                    for j in range(i + 1, N_lines):
+                        lhs_key = lhs.get_key()
+                        for symbol in ops.search_tree(self.expr_tree_list[j], ops.Param):
+                            symbol_key = symbol.get_key()
+                            if symbol_key == lhs_key:
+                                msg = f"Parameter {lhs.get_key()} is assigned on line {i} but used on line {j}. A variable cannot be used after it is assigned"
+                                raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
 
-            while True:
-                yield repr(identifier)
-                identifier += 1
+        ordered_expr_trees = list(reversed(self.expr_tree_list))
 
-        unique_subscript_use_itentifier = unique_subscript_use_itentifier_generator()
-
-        subscript_use_vars: List[variables.SubscriptUse] = []
+        # Create variable objects
         for top_expr in ordered_expr_trees:
-            logging.debug("@" * 5)
+            # if top_expr is an assignment or a match statement, pull out the left hand side and treat that specially
+            match top_expr:
+                case ops.Assignment(lhs, remainder):
+                    lhs_key = lhs.get_key()
 
-            if isinstance(top_expr, ops.Distr):
-                lhs = top_expr.variate
-            elif isinstance(top_expr, ops.Assignment):
-                lhs = top_expr.lhs
-            else:
-                raise CompileError(
-                    f"Top-level expressions may only be an assignment or sample statement, but got type {top_expr.__class__.__name__}",
-                    self.model_code_string,
-                    top_expr.line_index,
-                    top_expr.column_index,
-                )
+                    if not isinstance(lhs, ops.Param):
+                        msg = f"Left hand side for assignment statement must be a parameter instead of {lhs.__class__.__name__}"
+                        raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
 
-            lhs_key = lhs.get_key()
-            logging.debug(f"Second pass for {lhs_key}")
-            if isinstance(lhs, ops.Data):
-                lhs_base_df = self.data_df
-            elif isinstance(lhs, ops.Param):
-                if lhs.subscript is not None:
-                    lhs_base_df = self.parameter_base_df[lhs_key]
-                else:
-                    lhs_base_df = None
-            else:
-                raise CompileError(
-                    f"LHS of statement should be a Data or Param type, but got {lhs.__class__.__name__}",
-                    self.model_code_string,
-                    lhs.line_index,
-                    lhs.column_index,
-                )
+                    # create the variable if necessary
+                    if lhs_key not in self.assigned_parameter_variables:
+                        # if the underlying variable has a dataframe, there will be an entry in variable_subscripts
+                        if lhs_key in self.variable_subscripts:
+                            lhs_variable = variables.AssignedParam(lhs, remainder, self.variable_subscripts[lhs_key])
+                        else:
+                            lhs_variable = variables.AssignedParam(lhs, remainder)
 
-            if isinstance(top_expr, ops.Distr):
-                # If we're working with a sampling statement, create a variable object and link them to ops.Expr
-                if isinstance(lhs, ops.Data):
-                    self.data_variables[lhs_key] = variables.Data(lhs_key, self.data_df[lhs_key])
-                    lhs.variable = self.data_variables[lhs_key]
+                    # if this variable is stored in parameter_variables, remove the entry there
+                    if lhs_key in self.parameter_variables:
+                        self.parameter_variables.pop(lhs_key)
 
-                elif isinstance(lhs, ops.Param):
-                    try:  # evaluate constraint expressions
-                        lower_constraint_value = float(eval(lhs.lower.code()))
-                        upper_constraint_value = float(eval(lhs.upper.code()))
-                    except Exception as e:
-                        raise CompileError(
-                            f"Error when evaluating constraints for {lhs_key}. Constraint expressions must be able to be evaluated at compile time.",
-                            self.model_code_string,
-                            lhs.line_index,
-                            lhs.column_index,
-                        ) from e
+                    self.assigned_parameter_variables[lhs_key] = lhs_variable
+                case remainder:
+                    pass
 
-                    # generate variables.Param for LHS. This is because the variable on LHS is first seen here.
-                    if lhs.subscript is not None:
-                        lhs_variable = variables.Param(lhs_key, self.variable_subscripts[lhs_key])
-                    else:
-                        lhs_variable = variables.Param(lhs_key)
+            # remainder at this point is the part of top_expr that is not the left hand side of an assignment
+            for symbol in ops.search_tree(remainder, ops.Data, ops.Param):
+                symbol_key = symbol.get_key()
+
+                match symbol:
+                    case ops.Data():
+                        # create the variable if necessary
+                        if symbol_key not in self.data_variables:
+                            self.data_variables[symbol_key] = variables.Data(
+                                name=symbol_key,
+                                series=self.data_base_df[symbol_key].loc[:, symbol_key],
+                                subscript=self.variable_subscripts[symbol_key],
+                            )
+                    case ops.Param():
+                        # create the variable if necessary
+                        if symbol_key not in self.assigned_parameter_variables and symbol_key not in self.parameter_variables:
+                            # if the underlying variable has a dataframe, there will be an entry in variable_subscripts
+                            if symbol_key in self.variable_subscripts:
+                                variable = variables.Param(name=symbol_key, subscript=self.variable_subscripts[symbol_key])
+                            else:
+                                variable = variables.Param(name=symbol_key)
+
+                            self.parameter_variables[symbol_key] = variable
+                    case _:
+                        msg = f"Internal compiler error"
+                        raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
+
+        # Handle constraints
+        for top_expr in ordered_expr_trees:
+            for parameter_symbol in ops.search_tree(top_expr, ops.Param):
+                parameter_key = parameter_symbol.get_key()
+
+                try:  # evaluate constraint expressions
+                    lower_expr = parameter_symbol.lower
+                    upper_expr = parameter_symbol.upper
+
+                    lower_constraint_value = float(eval(lower_expr.code())) if lower_expr is not None else None
+                    upper_constraint_value = float(eval(upper_expr.code())) if upper_expr is not None else None
+                except Exception as e:
+                    msg = f"Error when evaluating constraints for {parameter_key}. Constraint expressions must be able to be evaluated at compile time."
+                    raise CompileError(msg, self.model_code_string, parameter_symbol.line_index, parameter_symbol.column_index) from e
+
+                # we only pay attention to constraints on actual parameters
+                if parameter_key in self.parameter_variables:
+                    parameter_variable = self.parameter_variables[parameter_key]
 
                     # apply constraints
-                    lhs_variable.set_constraints(lower_constraint_value, upper_constraint_value)
-                    lhs.variable = lhs_variable  # bind to ops.Param in expression tree
+                    try:
+                        parameter_variable.set_constraints(lower_constraint_value, upper_constraint_value)
+                    except Exception as e:
+                        msg = f"Constraints of {parameter_key} have already been set"
+                        raise CompileError(msg, self.model_code_string, parameter_symbol.line_index, parameter_symbol.column_index)
 
-                    self.parameter_variables[lhs_key] = lhs_variable
+        # Link ops back to variables
+        for top_expr in ordered_expr_trees:
+            for symbol in ops.search_tree(top_expr, ops.Data, ops.Param):
+                symbol_key = symbol.get_key()
 
-                else:
-                    # should be unreachable since parser checks types
-                    raise CompileError(
-                        f"LHS for sample statement has invalid type", self.model_code_string, lhs.line_index, lhs.column_index
-                    )
-            elif isinstance(top_expr, ops.Assignment):
-                # Same procedure with assignment statements: create variable object and link back to ops.Expr
-                if not isinstance(lhs, ops.Param):  # shouldn't be reachable because parser catches type errors
-                    raise CompileError(
-                        "LHS for assignment statement has invalid type", self.model_code_string, lhs.line_index, lhs.column_index
-                    )
+                match symbol:
+                    case ops.Data():
+                        # point symbol to appropriate variable
+                        if symbol_key not in self.data_variables:
+                            msg = f"Internal compiler error: Could not find data variable {symbol_key}"
+                            raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
-                # generate variables.AssignedParam for LHS. This is because the variable on LHS is first seen here.
-                if lhs.subscript is not None:
-                    lhs_variable = variables.AssignedParam(lhs, top_expr.rhs, self.variable_subscripts[lhs_key])
-                else:
-                    lhs_variable = variables.AssignedParam(lhs, top_expr.rhs)
+                        symbol.variable = self.data_variables[symbol_key]
 
-                self.assigned_parameter_variables[lhs_key] = lhs_variable
-                lhs.variable = lhs_variable  # link variable.Data to op.Data in expression tree
+                    case ops.Param():
+                        # If this symbol has a dataframe, then it must be left joinable to the primary dataframe
+                        if symbol_key in self.variable_subscripts:
+                            self.variable_subscripts[symbol_key]
 
-            #
-            # We now finished creating variable types for the LHS, which is the first time the variable was seen.
-            # Now we resolve the subscripts for each variable type on RHS, by creating SubscriptUse and linking them
-            # into each variables.Param in the line.
-            for subexpr in ops.search_tree(top_expr, ops.Data):
-                subexpr_key = subexpr.get_key()
-                if subexpr_key == lhs_key:
-                    # We don't manipulate the LHS variable that we just created
-                    continue
-                self.data_variables[subexpr_key] = variables.Data(subexpr_key, self.data_df[subexpr_key])
-                subexpr.variable = self.data_variables[subexpr_key]
+                        # point symbol to appropriate variable
+                        if symbol_key in self.assigned_parameter_variables:
+                            symbol.variable = self.assigned_parameter_variables[symbol_key]
+                        elif symbol_key in self.parameter_variables:
+                            symbol.variable = self.parameter_variables[symbol_key]
+                        else:
+                            msg = f"Internal compiler error: Could not find parameter variable {symbol_key}"
+                            raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
-            for subexpr in ops.search_tree(top_expr, ops.Param):
-                # iterate through parameters/assigned parameters
-                subexpr_key = subexpr.get_key()
+        # Build SubscriptUse variables for every time a variable is subscripted
+        for top_expr in ordered_expr_trees:
+            # At this point there should only be one primary variable per line
+            primary_op = self._get_primary_symbol_from_statement(top_expr)
 
-                # add parameter name to referenced data set and link to ops
-                if subexpr_key in self.assigned_parameter_variables:
-                    # link variable.AssignedParam to op.Param
-                    subexpr.variable = self.assigned_parameter_variables[subexpr_key]
-                elif subexpr_key in self.parameter_variables:
-                    # link variable.Param to op.Param
-                    subexpr.variable = self.parameter_variables[subexpr_key]
+            primary_key = primary_op.get_key()
 
-                else:
-                    # if a param does not exist yet, this means either:
-                    # 1. The model's computational graph is not a DAG
-                    # 2. The parameter is undefined
-                    raise CompileError(
-                        f"Could not find a prior declared for variable {subexpr_key}.",
-                        self.model_code_string,
-                        subexpr.line_index,
-                        subexpr.column_index,
-                    )
+            for symbol in ops.search_tree(top_expr, ops.Data, ops.Param):
+                # For each data op in the line (excluding left-hand-sides):
+                # 1. Make sure that any dataframe attached to this symbol can be joined to the primary dataframe
+                # 2. Link the symbol to the appropriate variable
+                # 3. Build necessary SubscriptUse objects
+                symbol_key = symbol.get_key()
 
                 # resolve subscripts
-                if subexpr.subscript is not None:
-                    # incorporate shifts into variable.Subscript
-                    self.variable_subscripts[subexpr_key].incorporate_shifts(subexpr.subscript.shifts)
+                if symbol.subscript is not None:
+                    primary_df = self.variable_subscripts[primary_key].base_df
 
-                    # get the base df's reference column names
-                    base_df_index = (
-                        subexpr.subscript.get_key()
-                        if isinstance(lhs, ops.Data)
-                        else lhs.variable.subscript.check_and_return_subscripts(subexpr.subscript.get_key())
-                    )
+                    # incorporate shifts into variable.Subscript
+                    self.variable_subscripts[symbol_key].incorporate_shifts(symbol.subscript.shifts)
 
                     # extract the subscripts from the base df and link them into variable.SubscriptUse
+                    # TODO: I'm suspicious we need some sort of error checking on this giant statement -- like
+                    # I'm not sure why we expect primary_df to have the symbol subscripts here
                     variable_subscript_use = variables.SubscriptUse(
-                        subexpr.subscript.get_key(),
-                        lhs_base_df.loc[:, base_df_index],
-                        self.variable_subscripts[subexpr_key],
-                        next(unique_subscript_use_itentifier),
-                        subexpr.subscript.shifts,
+                        names=symbol.subscript.get_key(),
+                        df=primary_df.loc[:, symbol.subscript.get_key()],
+                        subscript=self.variable_subscripts[symbol_key],
+                        unique_id=self._get_unique_identifier(),
+                        shifts=symbol.subscript.shifts,
                     )
+
+                    try:
+                        variable_subscript_use.to_numpy()
+                    except Exception as e:
+                        msg = f"Could not uniquely join rows of dataframe of {symbol_key} into {primary_key} on {symbol_key}"
+                        raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
                     # link the created variable.SubscriptUse into ops.Param
-                    subexpr.subscript.variable = variable_subscript_use
+                    symbol.subscript.variable = variable_subscript_use
                     self.subscript_use_variables[variable_subscript_use.code()] = variable_subscript_use
 
-            # quickly check to make sure subscripts don't exist for Data
-            for subexpr in ops.search_tree(top_expr, ops.Data):
-                subexpr_key = subexpr.get_key()
-                if subexpr.subscript:
-                    raise CompileError(
-                        f"Indexing on data variables ({subexpr_key}) not supported",
-                        self.model_code_string,
-                        subexpr.line_index,
-                        subexpr.column_index,
-                    )
+                    # quickly check to make sure subscripts don't exist for Data
+                    # for subexpr in ops.search_tree(top_expr, ops.Data):
+                    #    subexpr_key = subexpr.get_key()
+                    #    if subexpr.subscript:
+                    #        raise CompileError(
+                    #            f"Indexing on data variables ({subexpr_key}) not supported",
+                    #            self.model_code_string,
+                    #            subexpr.line_index,
+                    #            subexpr.column_index,
+                    #        )
 
             # self.line_functions.append(line_function)
             logging.debug(f"data: {list(self.data_variables.keys())}")
             logging.debug(f"parameters: {list(self.parameter_variables.keys())}")
             logging.debug(f"assigned parameters {list(self.assigned_parameter_variables.keys())}")
 
-    def _generate_python_source(self, ordered_expr_trees: List[ops.Expr]):
+    def _prepare_for_scans(self):
+        # If a variable is assigned on a given line, mark uses so that the code
+        # generation for the scan can handle this case correctly
+        for top_expr in self.expr_tree_list:
+            match top_expr:
+                case ops.Assignment(lhs, rhs):
+                    # Assume already that the left hand side is a Param
+                    assigned_key = lhs.get_key()
+
+                    # The left hand side is written by the assignment but will be updated
+                    # after the scan is complete and should not be marked
+                    for symbol in ops.search_tree(rhs, ops.Param):
+                        symbol_key = symbol.get_key()
+
+                        if assigned_key == symbol_key:
+                            symbol.assigned_by_scan = True
+
+                            if symbol.subscript is None or all(shift is None for shift in symbol.subscript.shifts):
+                                msg = f"Recursively assigning {symbol_key} requires a shifted subscript on the right hand side reference"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            shifts = symbol.subscript.shifts
+
+                            if sum(shift is not None for shift in shifts) != 1:
+                                msg = "Exactly one (no more, no less) subscripts can be shifted in a recursively assigned variable"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            if shifts[-1] is None:
+                                msg = "Only the right-most subscript of a recursively assigned variable can shifted"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            if any(shift <= 0 for shift in shifts if shift is not None):
+                                msg = "All shifts in a recursively assigned variable must be greater than zero (equal to zero is not supported)"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            # Generate the first in group indicators used to mask the scan carries
+                            self.first_in_group_indicators[assigned_key] = symbol.subscript.variable.get_first_in_group_indicators()
+
+    def _generate_python_source(self):
         """
         Return python source containing functions for constraining and transforming variables and
         evaluating all the log densities
@@ -523,13 +580,58 @@ class Compiler:
                 code += f"        {constrained_reference} = jax.numpy.pad({constrained_reference}, (0, {variable.padded_size() - size}))\n"
         code += "\n    return total, parameters\n"
 
+        ordered_expr_trees = list(reversed(self.expr_tree_list))
+
         # Transform parameters
-        code += "\ndef transform_parameters(data, subscripts, parameters):"
+        code += "\ndef transform_parameters(data, subscripts, first_in_group_indicators, parameters):"
         for top_expr in ordered_expr_trees:
-            if isinstance(top_expr, ops.Assignment):
-                lhs_key = top_expr.lhs.get_key()
-                code += f"\n    # {lhs_key}\n"
-                code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
+            match top_expr:
+                case ops.Assignment(lhs, rhs):
+                    # Assume left hand side is a parameter
+                    lhs_key = top_expr.lhs.get_key()
+                    code += f"\n    # {lhs_key}\n"
+
+                    lhs_size = lhs.variable.size()
+                    lhs_is_scalar = lhs_size == None
+                    lhs_used_in_rhs = False
+                    need_first_in_group_indicator = False
+                    if not lhs_is_scalar:
+                        carry_size = 0
+                        # Because left hand side is parameter, we only need to search for parameters on the right hand side
+                        for symbol in ops.search_tree(rhs, ops.Param):
+                            symbol_key = symbol.get_key()
+
+                            # Save an indicator if the left hand side is used on the right hand side
+                            if symbol_key == lhs_key:
+                                lhs_used_in_rhs = True
+
+                                # Figure out the carry size needed
+                                shifts = symbol.subscript.shifts
+
+                                carry_size = max(carry_size, shifts[-1])
+
+                                # There will be groupings if there is more than one shift
+                                if len(shifts) > 1:
+                                    need_first_in_group_indicator = True
+
+                    if lhs_used_in_rhs:
+                        # We need to scan in this case
+                        scan_function_name = f"scan_function_{self._get_unique_identifier()}"
+                        zero_tuple_string = f"({','.join(['0.0'] * carry_size)})"
+                        carry_strings = [f"carry{n}" for n in range(carry_size)]
+                        carry_tuple_string = f"({','.join(carry_strings)})"
+                        next_carry_tuple_string = f"({','.join(['next_value'] + carry_strings[:-1])})"
+
+                        code += f"    def {scan_function_name}(carry, index):\n"
+                        if need_first_in_group_indicator:
+                            code += f"        carry = jax.lax.cond(first_in_group_indicators['{lhs_key}'][index], lambda : {zero_tuple_string}, lambda : carry)\n"
+                        code += f"        {carry_tuple_string} = carry\n"
+                        code += f"        next_value = {top_expr.rhs.code(scalar = True)}\n"
+                        code += f"        return {next_carry_tuple_string}, next_value\n"
+
+                        code += f"\n    _, parameters['{lhs_key}'] = jax.lax.scan({scan_function_name}, {zero_tuple_string}, jax.numpy.arange({lhs_size}))\n"
+                    else:
+                        code += f"    parameters['{lhs_key}'] = {top_expr.rhs.code()}\n"
         code += "\n    return parameters\n"
 
         # Generate code for evaluating densities
@@ -549,38 +651,33 @@ class Compiler:
         Dict[str, variables.Param],
         Dict[str, variables.AssignedParam],
         Dict[str, variables.SubscriptUse],
+        Dict[str, numpy.ndarray],
         str,
     ]:
         if self.parameter_variables:
             raise Exception("Compiler.compile() may be invoked only once per instance. Create a new instance to recompile.")
 
-        # compiles the expression tree into function statements
-        dependency_graph: Dict[str, Set[str]] = self._generate_dependency_graph(reversed=True)
-        """the dependency graph stores for a key variable x values as variables that we need to know to evaluate.
-            If we think of it as rhs | lhs, the dependency graph is an *acyclic* graph that has directed edges going 
-            from rhs -> lhs. This is because subscripts on rhs can be resolved, given the dataframe of the lhs. However, for
-            assignments, the order is reversed(lhs -> rhs) since we need rhs to infer its subscripts"""
-
-        # traverse through all lines, assuming they are DAGs.
-        evaluation_order: List[ops.Expr] = self._order_expr_tree(dependency_graph)
-
-        logging.debug(f"reverse dependency graph: {dependency_graph}")
-        logging.debug(f"first pass line eval order: {[x.line_index for x in evaluation_order]}")
+        self._identify_primary_symbols()
 
         # build the parameter_base_df for each variable
-        self._build_base_df(evaluation_order)
+        self._build_base_df()
 
         # build variable.Subscript for each parameter
         logging.debug("now printing parameter_base_df")
-        for var_name, subscript in self.parameter_subscript_names.items():
+        for var_name, subscript_names in self.parameter_subscript_names.items():
             logging.debug(var_name)
             logging.debug(self.parameter_base_df[var_name])
-            self.variable_subscripts[var_name] = variables.Subscript(
-                self.parameter_base_df[var_name], self.parameter_subscript_names[var_name]
-            )
+            self.variable_subscripts[var_name] = variables.Subscript(self.parameter_base_df[var_name], subscript_names)
         logging.debug("done printing parameter_base_df")
-        logging.debug("now printing variable_subscripts")
 
+        # build variable.Subscript for each data
+        logging.debug("now printing data_base_df")
+        for var_name, base_df in self.data_base_df.items():
+            logging.debug(var_name)
+            self.variable_subscripts[var_name] = variables.Subscript(base_df, [])
+        logging.debug("done printing data_base_df")
+
+        logging.debug("now printing variable_subscripts")
         for key, val in self.variable_subscripts.items():
             logging.debug(key)
             logging.debug(val.base_df)
@@ -589,23 +686,19 @@ class Compiler:
             logging.info("-----")
         logging.debug("done printing variable_subscripts")
 
-        # rebuild the dependency graph in normal order, that is lhs | rhs. We now convert the expression trees into
-        # Python code
-        dependency_graph = self._generate_dependency_graph()
-
-        # and reorder the expression trees accordingly
-        evaluation_order = self._order_expr_tree(dependency_graph)
-
-        logging.debug(f"reverse dependency graph: {dependency_graph}")
-        logging.debug(f"second pass line eval order: {[x.line_index for x in evaluation_order]}")
-
         # run seconds pass, which binds subscripts and does codegen
-        self._build_variables(evaluation_order)
+        self._build_variables()
+
+        # search for and prepare for assignments that must be handled
+        # with scans (these are ones where the left hand side symbol
+        # appears on the right hand side)
+        self._prepare_for_scans()
 
         return (
             self.data_variables,
             self.parameter_variables,
             self.assigned_parameter_variables,
             self.subscript_use_variables,
-            self._generate_python_source(evaluation_order),
+            self.first_in_group_indicators,
+            self._generate_python_source(),
         )
