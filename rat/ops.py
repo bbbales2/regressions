@@ -99,6 +99,7 @@ class Subscript(Expr):
     def __str__(self):
         return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
+
 @dataclass
 class Shift(Expr):
     """

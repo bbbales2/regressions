@@ -440,7 +440,6 @@ class Compiler:
                     # evaluate shift amounts
                     symbol.subscript.shifts = [int(eval(expr.code())) if expr else None for expr in symbol.subscript.shifts]
 
-
                     # incorporate shifts into variable.Subscript
                     self.variable_subscripts[symbol_key].incorporate_shifts(symbol.subscript.shifts)
 
