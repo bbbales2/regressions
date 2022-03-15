@@ -188,7 +188,7 @@ class BinaryFunctions:
 
     @staticmethod
     def generate(arg1: Expr, arg2: Expr, func_type: Identifier):
-            return Shift(subscript=arg1, shift_expr=arg2, line_index=func_type.line_index, column_index=func_type.column_index)
+        return Shift(subscript=arg1, shift_expr=arg2, line_index=func_type.line_index, column_index=func_type.column_index)
 
 
 class Distributions:
@@ -398,7 +398,7 @@ class Parser:
             except TypeCheckError as e:
                 raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
             except Exception as e:
-                raise  ParseError(str(e), self.model_string, token.line_index, token.column_index)
+                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
             return exp
 
         elif isinstance(token, Identifier):  # parse data and param
@@ -432,7 +432,12 @@ class Parser:
                         match subscript_expr:
                             case Shift():
                                 if len(subscript_expr.subscript.names) > 1:
-                                    raise ParseError("Cannot have nested shift() uses in subscripts.", self.model_string, subscript_expr.line_index, subscript_expr.column_index)
+                                    raise ParseError(
+                                        "Cannot have nested shift() uses in subscripts.",
+                                        self.model_string,
+                                        subscript_expr.line_index,
+                                        subscript_expr.column_index,
+                                    )
                                 subscript_names.append(subscript_expr.subscript.names[0])
                                 shift_amounts.append(subscript_expr.shift_expr)
                             case Subscript():
@@ -441,9 +446,16 @@ class Parser:
                                         subscript_names.append(name)
                                 shift_amounts.extend(subscript_expr.shifts)
                             case _:
-                                raise ParseError(f"Found unknown expression class {subscript_expr.__class__.__name__} when parsing subscripts", self.model_string, subscript_expr.line_index, subscript_expr.column_index)
+                                raise ParseError(
+                                    f"Found unknown expression class {subscript_expr.__class__.__name__} when parsing subscripts",
+                                    self.model_string,
+                                    subscript_expr.line_index,
+                                    subscript_expr.column_index,
+                                )
 
-                    exp.subscript = Subscript(names=subscript_names, shifts=shift_amounts, line_index=next_token.line_index, column_index=next_token.column_index)
+                    exp.subscript = Subscript(
+                        names=subscript_names, shifts=shift_amounts, line_index=next_token.line_index, column_index=next_token.column_index
+                    )
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, next_token.line_index, next_token.column_index)
 
