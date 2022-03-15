@@ -77,9 +77,7 @@ def test_parser_rhs_index_shift():
         ),
         Param(
             name="skills_mu",
-            subscript=Subscript(
-                names=("year", "team"), shifts=(IntegerConstant(1), IntegerConstant(0))
-            ),
+            subscript=Subscript(names=("year", "team"), shifts=(IntegerConstant(1), IntegerConstant(0))),
         ),
         RealConstant(1.0),
     )
@@ -100,7 +98,8 @@ def test_parser_rhs_index_shift_multiple():
         ),
         Param(
             name="skills_mu",
-            subscript=Subscript(names=("year", "team"), shifts=(IntegerConstant(value=1), PrefixNegation(IntegerConstant(1))))),
+            subscript=Subscript(names=("year", "team"), shifts=(IntegerConstant(value=1), PrefixNegation(IntegerConstant(1)))),
+        ),
         RealConstant(1.0),
     )
     assert statement.__str__() == expected.__str__()
@@ -137,6 +136,7 @@ def test_parser_typeerror_shift():
         test_string = "tau<lower=0.0> ~ normal(skills_mu[shift(year, 1 + 2.4)], 1.0);"
         data_names = ["year", "skills_mu"]
         Parser(Scanner(test_string).scan()[0], data_names, test_string).statement()
+
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)
