@@ -437,6 +437,10 @@ class Compiler:
                 if symbol.subscript is not None:
                     primary_df = self.variable_subscripts[primary_key].base_df
 
+                    # evaluate shift amounts
+                    symbol.subscript.shifts = [int(eval(expr.code())) if expr else None for expr in symbol.subscript.shifts]
+
+
                     # incorporate shifts into variable.Subscript
                     self.variable_subscripts[symbol_key].incorporate_shifts(symbol.subscript.shifts)
 

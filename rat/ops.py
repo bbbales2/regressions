@@ -9,13 +9,6 @@ from . import variables
 from . import types
 
 
-class ConstantFoldError(Exception):
-    def __init__(self, msg, line_index, column_index):
-        self.line_index = line_index
-        self.column_index = column_index
-        super().__init__(msg)
-
-
 @dataclass
 class Expr:
     line_index: int = field(default=-1, kw_only=True)  # line index of the original model code
@@ -31,12 +24,6 @@ class Expr:
     def __post_init__(self):
         """
         __post_init__ must resolve and set self.out_type
-        """
-        pass
-
-    def fold(self):
-        """
-        method for constant folding, if applicable. Should return self if not
         """
         pass
 
@@ -65,9 +52,6 @@ class RealConstant(Expr):
     def __post_init__(self):
         self.out_type = types.RealType
 
-    def fold(self):
-        return self
-
     def __str__(self):
         return f"RealConstant({self.value})"
 
@@ -85,9 +69,6 @@ class IntegerConstant(Expr):
 
     def __post_init__(self):
         self.out_type = types.IntegerType
-
-    def fold(self):
-        return self
 
     def __str__(self):
         return f"IntegerConstant({self.value})"
@@ -115,53 +96,8 @@ class Subscript(Expr):
     def __post_init__(self):
         self.out_type = types.SubscriptSetType
 
-    def fold(self):
-        return self
-
     def __str__(self):
         return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
-
-
-@dataclass
-class SubscriptOp(Expr):
-    """
-    The subscript operator can be seen as the following:
-    If we use it as `param[sub1, sub2]` we are accessing an index set spanned by the subscript sets
-    sub1 and sub2.
-    We can also use subscript indexes: `param[sub1, 1]`. This means retrieve the index set created by subscript
-    set sub1 and the 1st element of the subscript set sub2.
-    SubscriptOp = operator[] (Subscript, ..., Subscript)
-    (Subscript, ..., Subscript) -> Subscript
-    """
-
-    subscripts: List[Expr]
-
-    def __post_init__(self):
-
-        signatures = {(types.SubscriptSetType,) * len(self.subscripts): types.SubscriptSetType}
-        self.out_type = types.get_output_type(signatures, tuple([x.out_type for x in self.subscripts]))
-
-    def fold(self):
-        """
-        Combines multiple subscripts into a single subscript.
-        Returns type SubscriptOp
-        """
-        names: List[str] = []
-        shifts: List[Union[Expr, None]] = []
-        for subscript in self.subscripts:
-            subscript = subscript.fold()
-            if isinstance(subscript, Subscript):
-                shifts.extend(subscript.shifts)
-                names.extend(subscript.names)
-            elif isinstance(subscript, IntegerConstant):
-                shifts.append(None)
-                names.append(subscript.value)
-
-        return Subscript(names=tuple(names), shifts=tuple(shifts), line_index=self.line_index, column_index=self.column_index)
-
-    def __str__(self):
-        return f"SubscriptOp({','.join([x.__str__() for x in self.subscripts])})"
-
 
 @dataclass
 class Shift(Expr):
@@ -176,24 +112,8 @@ class Shift(Expr):
         signatures = {(types.SubscriptSetType, types.IntegerType): types.SubscriptSetType}
         self.out_type = types.get_output_type(signatures, (self.subscript.out_type, self.shift_expr.out_type))
 
-    def fold(self) -> Subscript:
-        if isinstance(self.subscript, Subscript):
-            names = self.subscript.names
-        else:
-            raise types.TypeCheckError(f"Found unknown expression {self.subscript} in shift.")
-
-        if self.shift_expr:
-            folded_shift_amount = self.shift_expr.fold()
-            if not isinstance(folded_shift_amount, IntegerConstant):
-                raise types.TypeCheckError(f"Could not fold shift amount into an Integer! (Got type {folded_shift_amount.out_type})")
-            folded_shifts = (folded_shift_amount.value,)
-        else:
-            folded_shifts = (None,)
-
-        return Subscript(names=names, shifts=folded_shifts, line_index=self.subscript.line_index, column_index=self.subscript.column_index)
-
     def __str__(self):
-        return f"shift(subscript={self.subscript}, amount={self.shift_expr})"
+        return f"Shift(subscript={self.subscript}, amount={self.shift_expr})"
 
 
 @dataclass
@@ -252,39 +172,6 @@ class Param(PrimeableExpr):
     def get_key(self):
         return self.name
 
-    def fold(self):
-        if self.lower is not None:
-            self.lower = self.lower.fold()
-            if not isinstance(self.lower, (RealConstant, IntegerConstant)):
-                raise ConstantFoldError(
-                    f"Lower bound value must fold into a Numeric constant at compile time, but folded expression {self.lower} is not a constant!",
-                    self.line_index,
-                    self.column_index,
-                )
-
-        if self.upper is not None:
-            self.upper = self.upper.fold()
-            if not isinstance(self.upper, (RealConstant, IntegerConstant)):
-                raise ConstantFoldError(
-                    f"Upper bound value must fold into a Numeric constant at compile time, but folded expression {self.upper} is not a constant!",
-                    self.line_index,
-                    self.column_index,
-                )
-
-        if self.subscript:
-            self.subscript = self.subscript.fold()
-
-        return Param(
-            name=self.name,
-            prime=self.prime,
-            subscript=self.subscript,
-            lower=self.lower,
-            upper=self.upper,
-            assigned_by_scan=self.assigned_by_scan,
-            line_index=self.line_index,
-            column_index=self.column_index,
-        )
-
     def __post_init__(self):
         self.out_type = types.NumericType
 
@@ -340,12 +227,6 @@ class Normal(Distr):
         }
         self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
 
-    def fold(self):
-        self.mean = self.mean.fold()
-        self.std = self.std.fold()
-        self.variate = self.variate.fold()
-        return Normal(variate=self.variate, mean=self.mean, std=self.std, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
@@ -363,11 +244,6 @@ class BernoulliLogit(Distr):
     def __post_init__(self):
         signatures = {(types.NumericType,): types.IntegerType}
         self.out_type = types.get_output_type(signatures, (self.logit_p.out_type,))
-
-    def fold(self):
-        logit_p = self.logit_p.fold()
-        variate = self.variate.fold()
-        return BernoulliLogit(variate=variate, logit_p=logit_p, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"BernoulliLogit({self.variate.__str__()}, {self.logit_p.__str__()})"
@@ -388,12 +264,6 @@ class LogNormal(Distr):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
 
-    def fold(self):
-        self.mean = self.mean.fold()
-        self.std = self.std.fold()
-        self.variate = self.variate.fold()
-        return LogNormal(variate=self.variate, mean=self.mean, std=self.std, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"LogNormal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
 
@@ -413,14 +283,6 @@ class Cauchy(Distr):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.location.out_type, self.scale.out_type))
 
-    def fold(self):
-        self.location = self.location.fold()
-        self.scale = self.scale.fold()
-        self.variate = self.variate.fold()
-        return Cauchy(
-            variate=self.variate, location=self.location, scale=self.scale, line_index=self.line_index, column_index=self.column_index
-        )
-
     def __str__(self):
         return f"Cauchy({self.variate.__str__()}, {self.location.__str__()}, {self.scale.__str__()})"
 
@@ -438,11 +300,6 @@ class Exponential(Distr):
     def __post_init__(self):
         signatures = {(types.NumericType,): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.scale.out_type,))
-
-    def fold(self):
-        self.scale = self.scale.fold()
-        self.variate = self.variate.fold()
-        return Exponential(variate=self.variate, scale=self.scale, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Exponential({self.variate.__str__()}, {self.scale.__str__()})"
@@ -466,16 +323,6 @@ class Diff(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
-    def fold(self):
-        self.left = self.left.fold()
-        self.right = self.right.fold()
-        if isinstance(self.left, IntegerConstant) and isinstance(self.right, IntegerConstant):
-            return IntegerConstant(value=self.left.value - self.right.value)
-        elif isinstance(self.left, (RealConstant, IntegerConstant)) and isinstance(self.right, (RealConstant, IntegerConstant)):
-            return RealConstant(value=self.left.value - self.right.value)
-        else:
-            return Diff(left=self.left, right=self.right, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Diff({self.left.__str__()}, {self.right.__str__()})"
 
@@ -497,16 +344,6 @@ class Sum(Expr):
             (types.NumericType, types.NumericType): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
-
-    def fold(self):
-        self.left = self.left.fold()
-        self.right = self.right.fold()
-        if isinstance(self.left, IntegerConstant) and isinstance(self.right, IntegerConstant):
-            return IntegerConstant(value=self.left.value + self.right.value)
-        elif isinstance(self.left, (RealConstant, IntegerConstant)) and isinstance(self.right, (RealConstant, IntegerConstant)):
-            return RealConstant(value=self.left.value + self.right.value)
-        else:
-            return Sum(left=self.left, right=self.right, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Sum({self.left.__str__()}, {self.right.__str__()})"
@@ -530,16 +367,6 @@ class Mul(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
-    def fold(self):
-        self.left = self.left.fold()
-        self.right = self.right.fold()
-        if isinstance(self.left, IntegerConstant) and isinstance(self.right, IntegerConstant):
-            return IntegerConstant(value=self.left.value * self.right.value)
-        elif isinstance(self.left, (RealConstant, IntegerConstant)) and isinstance(self.right, (RealConstant, IntegerConstant)):
-            return RealConstant(value=self.left.value * self.right.value)
-        else:
-            return Mul(left=self.left, right=self.right, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Mul({self.left.__str__()}, {self.right.__str__()})"
 
@@ -562,16 +389,6 @@ class Pow(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.base.out_type, self.exponent.out_type))
 
-    def fold(self):
-        self.left = self.base.fold()
-        self.right = self.exponent.fold()
-        if isinstance(self.left, IntegerConstant) and isinstance(self.right, IntegerConstant):
-            return IntegerConstant(value=self.left.value**self.right.value)
-        elif isinstance(self.left, (RealConstant, IntegerConstant)) and isinstance(self.right, (RealConstant, IntegerConstant)):
-            return RealConstant(value=self.left.value**self.right.value)
-        else:
-            return Pow(base=self.base, exponent=self.exponent, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Pow({self.base.__str__()}, {self.exponent.__str__()})"
 
@@ -592,14 +409,6 @@ class Div(Expr):
             (types.NumericType, types.NumericType): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
-
-    def fold(self):
-        self.left = self.left.fold()
-        self.right = self.right.fold()
-        if isinstance(self.left, (RealConstant, IntegerConstant)) and isinstance(self.right, (RealConstant, IntegerConstant)):
-            return RealConstant(value=self.left.value / self.right.value)
-        else:
-            return Div(left=self.left, right=self.right, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Div({self.left.__str__()}, {self.right.__str__()})"
@@ -623,16 +432,6 @@ class Mod(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
-    def fold(self):
-        self.left = self.left.fold()
-        self.right = self.right.fold()
-        if isinstance(self.left, IntegerConstant) and isinstance(self.right, IntegerConstant):
-            return IntegerConstant(value=self.left.value % self.right.value)
-        elif isinstance(self.left, (RealConstant, IntegerConstant)) and isinstance(self.right, (RealConstant, IntegerConstant)):
-            return RealConstant(value=self.left.value % self.right.value)
-        else:
-            return Mod(left=self.left, right=self.right, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Mod({self.left.__str__(), self.right.__str__()})"
 
@@ -653,15 +452,6 @@ class PrefixNegation(Expr):
             (types.RealType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, IntegerConstant):
-            return IntegerConstant(value=-self.subexpr.value)
-        elif isinstance(self.subexpr, RealConstant):
-            return RealConstant(value=-self.subexpr.value)
-        else:
-            return PrefixNegation(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"PrefixNegation({self.subexpr.__str__()})"
@@ -685,11 +475,6 @@ class Assignment(Expr):
             (types.NumericType,): types.NumericType,
         }
         self.out_type = types.get_output_type(signatures, (self.rhs.out_type,))
-
-    def fold(self):
-        rhs = self.rhs.fold()
-        lhs = self.lhs.fold()
-        return Assignment(lhs=lhs, rhs=rhs, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
@@ -724,13 +509,6 @@ class Sqrt(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.sqrt(self.subexpr.value))
-        else:
-            return Sqrt(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Sqrt({self.subexpr.__str__()})"
 
@@ -751,13 +529,6 @@ class Log(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.log(self.subexpr.value))
-        else:
-            return Log(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Log({self.subexpr.__str__()})"
 
@@ -777,13 +548,6 @@ class Exp(Expr):
             (types.NumericType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.exp(self.subexpr.value))
-        else:
-            return Exp(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Exp({self.subexpr.__str__()})"
@@ -806,13 +570,6 @@ class Abs(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.abs(self.subexpr.value))
-        else:
-            return Abs(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Abs({self.subexpr.__str__()})"
 
@@ -832,13 +589,6 @@ class Floor(Expr):
             (types.NumericType,): types.IntegerType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.floor(self.subexpr.value))
-        else:
-            return Floor(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Floor({self.subexpr.__str__()})"
@@ -860,13 +610,6 @@ class Ceil(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.ceil(self.subexpr.value))
-        else:
-            return Ceil(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Ceil({self.subexpr.__str__()})"
 
@@ -886,13 +629,6 @@ class Round(Expr):
             (types.NumericType,): types.IntegerType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.round(self.subexpr.value))
-        else:
-            return Round(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Round({self.subexpr.__str__()})"
@@ -914,13 +650,6 @@ class Sin(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.sin(self.subexpr.value))
-        else:
-            return Sin(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Sin({self.subexpr.__str__()})"
 
@@ -940,13 +669,6 @@ class Cos(Expr):
             (types.NumericType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.cos(self.subexpr.value))
-        else:
-            return Cos(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Cos({self.subexpr.__str__()})"
@@ -968,13 +690,6 @@ class Tan(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.tan(self.subexpr.value))
-        else:
-            return Tan(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Tan({self.subexpr.__str__()})"
 
@@ -994,13 +709,6 @@ class Arcsin(Expr):
             (types.NumericType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.arcsin(self.subexpr.value))
-        else:
-            return Arcsin(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Arcsin({self.subexpr.__str__()})"
@@ -1022,13 +730,6 @@ class Arccos(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.arccos(self.subexpr.value))
-        else:
-            return Arccos(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Arccos({self.subexpr.__str__()})"
 
@@ -1048,13 +749,6 @@ class Arctan(Expr):
             (types.NumericType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, (RealConstant, IntegerConstant)):
-            return RealConstant(value=jax.numpy.arctan(self.subexpr.value))
-        else:
-            return Arctan(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"Arctan({self.subexpr.__str__()})"
@@ -1076,13 +770,6 @@ class Logit(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, RealConstant):
-            return RealConstant(value=jax.scipy.special.logit(self.subexpr.value))
-        else:
-            return Logit(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
-
     def __str__(self):
         return f"Logit({self.subexpr.__str__()})"
 
@@ -1102,13 +789,6 @@ class InverseLogit(Expr):
             (types.RealType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def fold(self):
-        self.subexpr = self.subexpr.fold()
-        if isinstance(self.subexpr, RealConstant):
-            return RealConstant(value=jax.scipy.special.expit(self.subexpr.value))
-        else:
-            return InverseLogit(subexpr=self.subexpr, line_index=self.line_index, column_index=self.column_index)
 
     def __str__(self):
         return f"InverseLogit({self.subexpr.__str__()})"
