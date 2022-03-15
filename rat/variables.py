@@ -43,7 +43,7 @@ class Subscript:
         self.rebuild_df()
 
     def incorporate_shifts(self, shifts):
-        if all(shift is None for shift in shifts):
+        if all(shift == 0 for shift in shifts):
             return
         self.shifts_list.append(shifts)
 
@@ -51,7 +51,7 @@ class Subscript:
 
     def compute_shifted_df(self, df, shifts):
         # TODO: I don't think this should be a member function of Subscript
-        if all(shift is None for shift in shifts):
+        if all(shift == 0 for shift in shifts):
             return df
 
         # TODO: I'm not sure why this is self.base_df and not df
@@ -61,7 +61,7 @@ class Subscript:
         shift_values = []
         grouping_columns = []
         for column, shift in zip(columns, shifts):
-            if shift is None:
+            if shift == 0:
                 grouping_columns.append(column)
             else:
                 shift_columns.append(column)
@@ -113,7 +113,7 @@ class Subscript:
         shift_values = []
         grouping_columns = []
         for column, shift in zip(columns, shifts):
-            if shift is None:
+            if shift == 0:
                 grouping_columns.append(column)
             else:
                 shift_columns.append(column)
@@ -226,7 +226,7 @@ class SubscriptUse:
         return self.subscript.get_first_in_group_indicators(self.shifts)
 
     def code(self):
-        if all(shift is None for shift in self.shifts):
+        if all(shift == 0 for shift in self.shifts):
             return f"{'_'.join(self.names)}__{self.unique_id}"
         else:
             return f"{'_'.join(self.names)}__{'_'.join([str(shift) for shift in self.shifts])}__{self.unique_id}"

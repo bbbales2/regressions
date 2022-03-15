@@ -6,9 +6,8 @@ import pandas
 import pytest
 
 from rat import ops
-from rat import compiler
 from rat.model import Model
-from rat.parser import Parser
+from rat.ops import IntegerConstant
 from pathlib import Path
 
 test_dir = pathlib.Path(__file__).parent
@@ -55,13 +54,13 @@ def test_full():
         ops.Normal(
             ops.Data("score_diff", prime=True),
             ops.Diff(
-                ops.Param("skills", subscript=ops.Subscript(("home_team", "year"))),
-                ops.Param("skills", subscript=ops.Subscript(("away_team", "year"))),
+                ops.Param("skills", subscript=ops.Subscript(("home_team", "year"), shifts=(IntegerConstant(0), IntegerConstant(0)))),
+                ops.Param("skills", subscript=ops.Subscript(("away_team", "year"), shifts=(IntegerConstant(0), IntegerConstant(0)))),
             ),
             ops.Param("sigma"),
         ),
         ops.Normal(
-            ops.Param("skills", prime=True, subscript=ops.Subscript(("team", "year"))),
+            ops.Param("skills", prime=True, subscript=ops.Subscript(("team", "year"), shifts=(IntegerConstant(0), IntegerConstant(0)))),
             ops.Param("skills_mu", subscript=ops.Subscript(("year",))),
             ops.Param("tau"),
         ),

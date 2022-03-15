@@ -498,22 +498,22 @@ class Compiler:
                         if assigned_key == symbol_key:
                             symbol.assigned_by_scan = True
 
-                            if symbol.subscript is None or all(shift is None for shift in symbol.subscript.shifts):
+                            if symbol.subscript is None or all(shift == 0 for shift in symbol.subscript.shifts):
                                 msg = f"Recursively assigning {symbol_key} requires a shifted subscript on the right hand side reference"
                                 raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
                             shifts = symbol.subscript.shifts
 
-                            if sum(shift is not None for shift in shifts) != 1:
+                            if sum(shift != 0 for shift in shifts) != 1:
                                 msg = "Exactly one (no more, no less) subscripts can be shifted in a recursively assigned variable"
                                 raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
-                            if shifts[-1] is None:
+                            if shifts[-1] == 0:
                                 msg = "Only the right-most subscript of a recursively assigned variable can shifted"
                                 raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
-                            if any(shift <= 0 for shift in shifts if shift is not None):
-                                msg = "All shifts in a recursively assigned variable must be greater than zero (equal to zero is not supported)"
+                            if any(shift < 0 for shift in shifts):
+                                msg = "All shifts in a recursively assigned variable must be greater than or equal to zero"
                                 raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
                             # Generate the first in group indicators used to mask the scan carries

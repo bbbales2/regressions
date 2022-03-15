@@ -81,7 +81,7 @@ class Subscript(Expr):
     """
 
     names: Tuple[str]
-    shifts: Tuple[Union[int, None]] = (None,)
+    shifts: Tuple[Expr] = (IntegerConstant(value=0), )
     variable: variables.SubscriptUse = None
 
     def get_key(self):
@@ -94,7 +94,9 @@ class Subscript(Expr):
             return f"subscripts['{self.variable.code()}']"
 
     def __post_init__(self):
-        self.out_type = types.SubscriptSetType
+        assert len(self.shifts) == len(self.names), "Internal Error: length of types.Subscript.names must equal length of types.Subscript.shifts"
+        signatures = {(types.IntegerType, ) * len(self.shifts): types.SubscriptSetType}
+        self.out_type = types.get_output_type(signatures, tuple(expr.out_type for expr in self.shifts))
 
     def __str__(self):
         return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
@@ -183,7 +185,7 @@ class Param(PrimeableExpr):
                     msg = "Internal error: Cannot do a vector evaluation of a recursively assigned variable"
                     raise CompileError(msg, self.line_index, self.column_index)
 
-                integer_shifts = [shift for shift in self.subscript.shifts if shift is not None]
+                integer_shifts = [int(shift.code()) for shift in self.subscript.shifts if int(shift.code()) != 0]
 
                 if len(integer_shifts) != 1:
                     msg = "Internal error: There should be exactly one shift"

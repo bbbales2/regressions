@@ -33,8 +33,8 @@ def test_parser_simple_constraint_sampling():
     input_str = "tau<lower=0.0> ~ normal(-2.0 + 1.0, 1.0);"
     data_names = []
 
-    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement(fold=False)
-    expected_unfolded = Normal(
+    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement()
+    expected = Normal(
         Param(
             name="tau",
             subscript=None,
@@ -44,25 +44,13 @@ def test_parser_simple_constraint_sampling():
         Sum(PrefixNegation(RealConstant(2.0)), RealConstant(1.0)),
         RealConstant(1.0),
     )
-    assert statement.__str__() == expected_unfolded.__str__()
-
-    expected_folded = Normal(
-        Param(
-            name="tau",
-            subscript=None,
-            lower=RealConstant(0.0),
-            upper=RealConstant(float("inf")),
-        ),
-        RealConstant(-1.0),
-        RealConstant(1.0),
-    )
-    assert statement.fold().__str__() == expected_folded.__str__()
+    assert statement.__str__() == expected.__str__()
 
 
 def test_parser_complex_constraint_sampling():
     input_str = "tau<lower=exp(0.0)> ~ normal(0.0, 1.0);"
     data_names = []
-    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement(fold=False)
+    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement()
     expected = Normal(
         Param(
             name="tau",
@@ -75,24 +63,11 @@ def test_parser_complex_constraint_sampling():
     )
     assert statement.__str__() == expected.__str__()
 
-    expected_folded = Normal(
-        Param(
-            name="tau",
-            subscript=None,
-            lower=RealConstant(1.0),
-            upper=RealConstant(float("inf")),
-        ),
-        RealConstant(0.0),
-        RealConstant(1.0),
-    )
-
-    assert statement.fold().__str__() == expected_folded.__str__()
-
 
 def test_parser_rhs_index_shift():
     input_str = "tau<lower=0.0> ~ normal(skills_mu[shift(year, 1), team], 1.0);"
     data_names = ["year"]
-    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement(fold=False)
+    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement()
     expected = Normal(
         Param(
             name="tau",
@@ -102,32 +77,20 @@ def test_parser_rhs_index_shift():
         ),
         Param(
             name="skills_mu",
-            subscript=SubscriptOp(
-                subscripts=[Shift(Subscript(names=("year",)), shift_expr=IntegerConstant(1)), Subscript(names=("team",))]
+            subscript=Subscript(
+                names=("year", "team"), shifts=(IntegerConstant(1), IntegerConstant(0))
             ),
         ),
         RealConstant(1.0),
     )
     assert statement.__str__() == expected.__str__()
-
-    expected_folded = Normal(
-        Param(
-            name="tau",
-            subscript=None,
-            lower=RealConstant(0.0),
-            upper=RealConstant(float("inf")),
-        ),
-        Param(name="skills_mu", subscript=Subscript(names=("year", "team"), shifts=(1, None))),
-        RealConstant(1.0),
-    )
-    assert statement.fold().__str__() == expected_folded.__str__()
 
 
 def test_parser_rhs_index_shift_multiple():
     input_str = "tau<lower=0.0> ~ normal(skills_mu[shift(year, 1), shift(team, -1)], 1.0);"
     data_names = ["year", "team"]
     print([(x.__class__.__name__, x.value) for x in Scanner(input_str).scan()[0]])
-    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement(fold=False)
+    statement = Parser(Scanner(input_str).scan()[0], data_names, input_str).statement()
     expected = Normal(
         Param(
             name="tau",
@@ -137,26 +100,10 @@ def test_parser_rhs_index_shift_multiple():
         ),
         Param(
             name="skills_mu",
-            subscript=SubscriptOp(
-                [Shift(Subscript(("year",)), IntegerConstant(1)), Shift(Subscript(("team",)), PrefixNegation(IntegerConstant(1)))]
-            ),
-        ),
+            subscript=Subscript(names=("year", "team"), shifts=(IntegerConstant(value=1), PrefixNegation(IntegerConstant(1))))),
         RealConstant(1.0),
     )
     assert statement.__str__() == expected.__str__()
-
-    expected_folded = Normal(
-        Param(
-            name="tau",
-            subscript=None,
-            lower=RealConstant(0.0),
-            upper=RealConstant(float("inf")),
-        ),
-        Param(name="skills_mu", subscript=Subscript(names=("year", "team"), shifts=(1, -1))),
-        RealConstant(1.0),
-    )
-
-    assert statement.fold().__str__() == expected_folded.__str__()
 
 
 def test_parser_prime():
@@ -172,7 +119,7 @@ def test_parser_prime():
             lower=RealConstant(0.0),
             upper=RealConstant(float("inf")),
         ),
-        Param(name="skills_mu", prime=True, subscript=Subscript(names=("year",), shifts=(None,))),
+        Param(name="skills_mu", prime=True, subscript=Subscript(names=("year",), shifts=(IntegerConstant(0),))),
         Param(name="skills_mu2", prime=False),
     )
     assert statement.__str__() == expected.__str__()
@@ -190,14 +137,6 @@ def test_parser_typeerror_shift():
         test_string = "tau<lower=0.0> ~ normal(skills_mu[shift(year, 1 + 2.4)], 1.0);"
         data_names = ["year", "skills_mu"]
         Parser(Scanner(test_string).scan()[0], data_names, test_string).statement()
-
-
-def test_parser_unfolderror_constraint():
-    with pytest.raises(ConstantFoldError, match="Lower bound value must fold"):
-        test_string = "tau<lower=aaaa> ~ normal(skills_mu[shift(year, 1)], 1.0);"
-        data_names = ["year", "skills_mu"]
-        print(Parser(Scanner(test_string).scan()[0], data_names, test_string).statement())
-
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)

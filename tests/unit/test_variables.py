@@ -32,7 +32,7 @@ def test_incorporate_shifts(index):
         True,
     ]
 
-    index.incorporate_shifts((None, 1))
+    index.incorporate_shifts((0, 1))
     assert index.df["group1"].to_list()[:-3] == [1, 1, 1, 2, 2]
     assert index.df["group1"].to_list()[-2:] == [1, 2]
     assert index.df["group2"].to_list()[:-3] == [1, 2, 3, 1, 2]
