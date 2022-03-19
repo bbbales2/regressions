@@ -169,7 +169,7 @@ class SampleFit(Fit):
         cls,
         constrained_variables: Dict[str, numpy.ndarray],
         base_dfs: Dict[str, pandas.DataFrame],
-        computational_diagnostics : Iterable[str],
+        computational_diagnostics: Iterable[str],
     ):
         # Unpack draws into dataframes
         draw_dfs = _build_constrained_dfs(constrained_variables, base_dfs)

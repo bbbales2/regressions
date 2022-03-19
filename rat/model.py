@@ -194,7 +194,7 @@ class Model:
         constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
         return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
 
-    def sample(self, num_draws=200, num_warmup=1000, chains=4, init=2, thin = 1, target_acceptance_rate=0.85):
+    def sample(self, num_draws=200, num_warmup=1000, chains=4, init=2, thin=1, target_acceptance_rate=0.85):
         """
         Sample the target log density using NUTS.
 
@@ -222,8 +222,8 @@ class Model:
 
         # Ordered as (draws, chains, param)
         unconstrained_draws = numpy.zeros((num_draws, chains, self.size))
-        leapfrog_steps = numpy.zeros((num_draws, chains), dtype = int)
-        divergences = numpy.zeros((num_draws, chains), dtype = bool)
+        leapfrog_steps = numpy.zeros((num_draws, chains), dtype=int)
+        divergences = numpy.zeros((num_draws, chains), dtype=bool)
 
         def generate_draws():
             stage_1_size = 100
@@ -240,15 +240,7 @@ class Model:
                 stage_3_size=stage_3_size,
             )
 
-            return nuts.sample(
-                potential,
-                rng,
-                initial_draw,
-                stepsize,
-                diagonal_inverse_metric,
-                num_draws,
-                thin
-            )
+            return nuts.sample(potential, rng, initial_draw, stepsize, diagonal_inverse_metric, num_draws, thin)
 
         with ThreadPoolExecutor(max_workers=chains) as e:
             results = []
@@ -259,10 +251,7 @@ class Model:
                 unconstrained_draws[:, chain, :], leapfrog_steps[:, chain], divergences[:, chain] = result.result()
 
         constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
-        computational_diagnostic_variables = {
-            "__leapfrog_steps" : leapfrog_steps,
-            "__divergences" : divergences
-        }
+        computational_diagnostic_variables = {"__leapfrog_steps": leapfrog_steps, "__divergences": divergences}
 
         for name, values in computational_diagnostic_variables.items():
             if name in constrained_draws:

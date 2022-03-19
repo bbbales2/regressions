@@ -211,7 +211,9 @@ def warmup(
         current_draw = initial_draw
         stepsize_adapter = StepsizeAdapter(target_accept_stat, stepsize)
         for i in range(stage_1_size):
-            current_draw, accept_stat, steps, divergence = one_draw_potential(potential, rng, current_draw, stepsize, diagonal_inverse_metric)
+            current_draw, accept_stat, steps, divergence = one_draw_potential(
+                potential, rng, current_draw, stepsize, diagonal_inverse_metric
+            )
             stepsize = stepsize_adapter.adapt(accept_stat)
             progress_bar.update()
             progress_bar.set_description(f"Moving from initial condition [leapfrogs {steps}]")
@@ -235,7 +237,9 @@ def warmup(
             stepsize_adapter = StepsizeAdapter(target_accept_stat, stepsize)
             window_draws = numpy.zeros((current_window_size, size))
             for i in range(current_window_size):
-                current_draw, accept_stat, steps, divergence = one_draw_potential(potential, rng, current_draw, stepsize, diagonal_inverse_metric)
+                current_draw, accept_stat, steps, divergence = one_draw_potential(
+                    potential, rng, current_draw, stepsize, diagonal_inverse_metric
+                )
                 window_draws[i] = current_draw
                 stepsize = stepsize_adapter.adapt(accept_stat)
                 progress_bar.update()
@@ -248,7 +252,9 @@ def warmup(
         # Stage 3, fine tune timestep
         stepsize_adapter = StepsizeAdapter(target_accept_stat, stepsize)
         for i in range(stage_3_size):
-            current_draw, accept_stat, steps, divergence = one_draw_potential(potential, rng, current_draw, stepsize, diagonal_inverse_metric)
+            current_draw, accept_stat, steps, divergence = one_draw_potential(
+                potential, rng, current_draw, stepsize, diagonal_inverse_metric
+            )
             stepsize = stepsize_adapter.adapt(accept_stat)
             progress_bar.update()
             progress_bar.set_description(f"Finalizing timestep [leapfrogs {steps}]")
@@ -275,8 +281,8 @@ def sample(
     """
     size = initial_draw.shape[0]
     draws = numpy.zeros((num_draws, size))
-    leapfrog_steps = numpy.zeros(num_draws, dtype = int)
-    divergences = numpy.zeros(num_draws, dtype = bool)
+    leapfrog_steps = numpy.zeros(num_draws, dtype=int)
+    divergences = numpy.zeros(num_draws, dtype=bool)
 
     desc = "Sampling" if thin == 1 else "Sampling (pre-thin)"
 
@@ -284,7 +290,9 @@ def sample(
         current_draw = initial_draw
         for i in range(num_draws):
             for j in range(thin):
-                current_draw, accept_stat, steps, divergence = one_draw_potential(potential, rng, current_draw, stepsize, diagonal_inverse_metric)
+                current_draw, accept_stat, steps, divergence = one_draw_potential(
+                    potential, rng, current_draw, stepsize, diagonal_inverse_metric
+                )
                 progress_bar.update()
                 progress_bar.set_description(f"Sampling [leapfrogs {steps:4d}]")
             draws[i, :] = current_draw

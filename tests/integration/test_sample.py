@@ -46,7 +46,7 @@ def test_sample_normal_mu_thin():
     thin = 4
 
     model = Model(data_df, model_string=model_string)
-    fit = model.sample(num_draws=num_draws, chains = chains, thin = thin)
+    fit = model.sample(num_draws=num_draws, chains=chains, thin=thin)
     mu_df = fit.draws("mu")
 
     assert len(mu_df) == num_draws * chains
