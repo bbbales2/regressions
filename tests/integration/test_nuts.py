@@ -35,11 +35,13 @@ def test_nuts():
     #    qs[n] = next_draw["q"]
     #    print(qs[n], next_draw["accept_stat"])
 
-    draws = nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 1000)
+    draws, leapfrog_steps, divergences = nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 1000)
 
     means = numpy.mean(draws, axis=0)
     stds = numpy.std(draws, axis=0)
 
+    assert (leapfrog_steps > 0).all()
+    assert (divergences == False).all()
     assert means == pytest.approx([17.1, 17.1], rel=0.05)
     assert stds == pytest.approx([0.3, 1.4], rel=0.10)
 

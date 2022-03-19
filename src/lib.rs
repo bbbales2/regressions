@@ -64,6 +64,7 @@ fn do_it<'py>(
     let mut q_ret = Array1::zeros(size);
     let mut accept_stat : Option<f64> = None;
     let mut total_leapfrogs_taken = 0;
+    let mut divergence = false;
 
     // Apparently using as for the conversion is kinda bad cause it can mess up
     let max_leapfrogs : usize = 2_usize.pow(max_treedepth as u32);
@@ -104,7 +105,6 @@ fn do_it<'py>(
         ps.row_mut(i_first).assign(&p0);
         log_pi[i_first] = -h0;
         
-        let mut divergence = false;
         // i_left and i_right are indices that track the leftmost and rightmost
         //  states of the integrated trajectory
         let mut i_left = i_first;
@@ -339,7 +339,8 @@ fn do_it<'py>(
     Ok(vec![
         q_ret.into_pyarray(py).to_object(py),
         accept_stat.unwrap().to_object(py),
-        total_leapfrogs_taken.to_object(py)
+        total_leapfrogs_taken.to_object(py),
+        divergence.to_object(py)
     ])
 }
 

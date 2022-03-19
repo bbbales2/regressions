@@ -165,11 +165,20 @@ class SampleFit(Fit):
         self.diag_dfs = diag_dfs
 
     @classmethod
-    def _from_constrained_variables(cls, constrained_variables: Dict[str, numpy.array], base_dfs: Dict[str, pandas.DataFrame]):
+    def _from_constrained_variables(
+        cls,
+        constrained_variables: Dict[str, numpy.ndarray],
+        base_dfs: Dict[str, pandas.DataFrame],
+        computational_diagnostics : Iterable[str],
+    ):
         # Unpack draws into dataframes
         draw_dfs = _build_constrained_dfs(constrained_variables, base_dfs)
         diag_dfs = {}
         for name, constrained_variable in constrained_variables.items():
+            # Ignore the computational diagnostic variables when computing rhat/ess
+            if name in computational_diagnostics:
+                continue
+
             # Compute ess/rhat, must reshape from (draw, chain, param) to (chain, draw, param)
             if len(constrained_variable.shape) == 3:
                 arviz_constrained_variable = numpy.swapaxes(constrained_variable, 0, 1)
