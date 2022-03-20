@@ -61,7 +61,9 @@ class SymbolTable:
                 record.subscripts |= subscripts
 
         else:
-            self.symbol_dict[variable_name] = TableRecord(variable_name, variable_type, subscripts if subscripts else set(), len(tuple(subscripts)[0]) if subscripts else 0)
+            self.symbol_dict[variable_name] = TableRecord(
+                variable_name, variable_type, subscripts if subscripts else set(), len(tuple(subscripts)[0]) if subscripts else 0
+            )
 
     def lookup(self, variable_name: str):
         return self.symbol_dict[variable_name]
@@ -80,7 +82,9 @@ class SymbolTable:
                 try:
                     df = data_df.loc[:, subscript_tuple]
                 except KeyError as e:
-                    raise CompileError(f"Internal Error - dataframe build failed. Could not index one or more columns in {subscript_tuple} from the data dataframe.") from e
+                    raise CompileError(
+                        f"Internal Error - dataframe build failed. Could not index one or more columns in {subscript_tuple} from the data dataframe."
+                    ) from e
 
                 df.columns = tuple([f"subscript__{x}" for x in range(subscript_length)])
                 base_df = pd.concat([base_df, df]).drop_duplicates().sort_values(list(df.columns)).reset_index(drop=True)
@@ -201,7 +205,9 @@ class Compiler:
                         if primary_variable.subscript:
                             for index, subscript_column in enumerate(primary_variable.subscript.names):
                                 if subscript_column.name not in self.data_df_columns:
-                                    subscript_aliases[subscript_column.name] = {subscript_tuple[index] for subscript_tuple in primary_variable_record.subscripts}
+                                    subscript_aliases[subscript_column.name] = {
+                                        subscript_tuple[index] for subscript_tuple in primary_variable_record.subscripts
+                                    }
 
                 case _:
                     msg = f"Expected a parameter or data primary variable but got type {primary_variable.__class__.__name__}"
@@ -237,7 +243,12 @@ class Compiler:
                     elif subscript_name in subscript_aliases:
                         subscript_list[index].extend(subscript_aliases[subscript_name])
                     else:
-                        raise CompileError(f"Unknown subscript name '{subscript_name}'", self.model_code_string, subscript_column.line_index, subscript_column.column_index)
+                        raise CompileError(
+                            f"Unknown subscript name '{subscript_name}'",
+                            self.model_code_string,
+                            subscript_column.line_index,
+                            subscript_column.column_index,
+                        )
 
                 unrolled_subscripts = [tuple(x) for x in itertools.product(*subscript_list)]
 
@@ -245,7 +256,6 @@ class Compiler:
 
     def generate_code(self):
         pass
-
 
     def compile(self):
         self._identify_primary_symbols()
