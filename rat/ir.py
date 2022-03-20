@@ -4,7 +4,8 @@ from enum import Enum
 import pandas as pd
 from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING, Set
 
-from . import types
+if TYPE_CHECKING:
+    from . import ast
 
 
 class BaseVisitor:
