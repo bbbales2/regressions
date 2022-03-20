@@ -1,7 +1,8 @@
-from codeop import Compile
 from dataclasses import dataclass, field
 from distutils.errors import CompileError
-from typing import Tuple, Union, Type, List, Dict
+from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING
+if TYPE_CHECKING:
+    from . import ir
 
 
 from . import types
@@ -23,12 +24,13 @@ class Expr:
         """
         __post_init__ must resolve and set self.out_type
         """
-        pass
+        raise NotImplementedError()
 
-    def accept(self, visitor):
+    def accept(self, visitor: ir.BaseVisitor, *args, **kwargs):
         """
         accept()
         """
+        raise NotImplementedError()
 
     def __str__(self):
         return "Expr()"
@@ -42,15 +44,11 @@ class RealConstant(Expr):
 
     value: float
 
-    def code(self, scalar=False):
-        if self.value == float("inf"):
-            return "float('inf')"
-        elif self.value == float("-inf"):
-            return "float('-inf')"
-        return f"{self.value}"
-
     def __post_init__(self):
         self.out_type = types.RealType
+
+    def accept(self, visitor: ir.BaseVisitor, *args, **kwargs):
+        visitor.visit_RealConstant(self, *args, **kwargs)
 
     def __str__(self):
         return f"RealConstant({self.value})"
@@ -181,9 +179,6 @@ class Normal(Distr):
     def __iter__(self):
         return iter([self.variate, self.mean, self.std])
 
-    def code(self, scalar=False):
-        return f"jax.scipy.stats.norm.logpdf({self.variate.code(scalar)}, {self.mean.code(scalar)}, {self.std.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType, types.NumericType): types.RealType,
@@ -201,9 +196,6 @@ class BernoulliLogit(Distr):
     def __iter__(self):
         return iter([self.variate, self.logit_p])
 
-    def code(self, scalar=False):
-        return f"rat.math.bernoulli_logit({self.variate.code(scalar)}, {self.logit_p.code(scalar)})"
-
     def __post_init__(self):
         signatures = {(types.NumericType,): types.IntegerType}
         self.out_type = types.get_output_type(signatures, (self.logit_p.out_type,))
@@ -219,9 +211,6 @@ class LogNormal(Distr):
 
     def __iter__(self):
         return iter([self.variate, self.mean, self.std])
-
-    def code(self, scalar=False):
-        return f"rat.math.log_normal({self.variate.code(scalar)}, {self.mean.code(scalar)}, {self.std.code(scalar)})"
 
     def __post_init__(self):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
@@ -239,9 +228,6 @@ class Cauchy(Distr):
     def __iter__(self):
         return iter([self.variate, self.location, self.scale])
 
-    def code(self, scalar=False):
-        return f"jax.scipy.stats.cauchy.logpdf({self.variate.code(scalar)}, {self.location.code(scalar)}, {self.scale.code(scalar)})"
-
     def __post_init__(self):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.location.out_type, self.scale.out_type))
@@ -256,9 +242,6 @@ class Exponential(Distr):
 
     def __iter__(self):
         return iter([self.variate, self.scale])
-
-    def code(self, scalar=False):
-        return f"jax.scipy.stats.expon.logpdf({self.variate.code(scalar)}, loc=0, scale={self.scale.code(scalar)})"
 
     def __post_init__(self):
         signatures = {(types.NumericType,): types.RealType}
@@ -275,9 +258,6 @@ class Diff(Expr):
 
     def __iter__(self):
         return iter([self.left, self.right])
-
-    def code(self, scalar=False):
-        return f"({self.left.code(scalar)} - {self.right.code(scalar)})"
 
     def __post_init__(self):
         signatures = {
@@ -298,9 +278,6 @@ class Sum(Expr):
     def __iter__(self):
         return iter([self.left, self.right])
 
-    def code(self, scalar=False):
-        return f"{self.left.code(scalar)} + {self.right.code(scalar)}"
-
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,
@@ -319,9 +296,6 @@ class Mul(Expr):
 
     def __iter__(self):
         return iter([self.left, self.right])
-
-    def code(self, scalar=False):
-        return f"{self.left.code(scalar)} * {self.right.code(scalar)}"
 
     def __post_init__(self):
         signatures = {
@@ -342,9 +316,6 @@ class Pow(Expr):
     def __iter__(self):
         return iter([self.base, self.exponent])
 
-    def code(self, scalar=False):
-        return f"{self.base.code(scalar)} ** {self.exponent.code(scalar)}"
-
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,
@@ -364,9 +335,6 @@ class Div(Expr):
     def __iter__(self):
         return iter([self.left, self.right])
 
-    def code(self, scalar=False):
-        return f"{self.left.code(scalar)} / {self.right.code(scalar)}"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType, types.NumericType): types.RealType,
@@ -384,9 +352,6 @@ class Mod(Expr):
 
     def __iter__(self):
         return iter([self.left, self.right])
-
-    def code(self, scalar=False):
-        return f"{self.left.code(scalar)} % {self.right.code(scalar)}"
 
     def __post_init__(self):
         signatures = {
@@ -406,9 +371,6 @@ class PrefixNegation(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"-{self.subexpr.code(scalar)}"
-
     def __post_init__(self):
         signatures = {
             (types.IntegerType,): types.IntegerType,
@@ -427,9 +389,6 @@ class Assignment(Expr):
 
     def __iter__(self):
         return iter([self.lhs, self.rhs])
-
-    def code(self, scalar=False):
-        return f"{self.lhs.code(scalar)} = {self.rhs.code(scalar)}"
 
     def __post_init__(self):
         signatures = {
@@ -463,9 +422,6 @@ class Sqrt(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"jax.numpy.sqrt({self.subexpr.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -482,9 +438,6 @@ class Log(Expr):
 
     def __iter__(self):
         return iter([self.subexpr])
-
-    def code(self, scalar=False):
-        return f"jax.numpy.log({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
         signatures = {
@@ -503,9 +456,6 @@ class Exp(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"jax.numpy.exp({self.subexpr.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -522,9 +472,6 @@ class Abs(Expr):
 
     def __iter__(self):
         return iter([self.subexpr])
-
-    def code(self, scalar=False):
-        return f"jax.numpy.abs({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
         signatures = {
@@ -544,9 +491,6 @@ class Floor(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"jax.numpy.floor({self.subexpr.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.IntegerType,
@@ -563,9 +507,6 @@ class Ceil(Expr):
 
     def __iter__(self):
         return iter([self.subexpr])
-
-    def code(self, scalar=False):
-        return f"jax.numpy.ceil({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
         signatures = {
@@ -584,9 +525,6 @@ class Round(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"jax.numpy.round({self.subexpr.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.IntegerType,
@@ -603,9 +541,6 @@ class Sin(Expr):
 
     def __iter__(self):
         return iter([self.subexpr])
-
-    def code(self, scalar=False):
-        return f"jax.numpy.sin({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
         signatures = {
@@ -624,9 +559,6 @@ class Cos(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"jax.numpy.cos({self.subexpr.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -643,9 +575,6 @@ class Tan(Expr):
 
     def __iter__(self):
         return iter([self.subexpr])
-
-    def code(self, scalar=False):
-        return f"jax.numpy.tan({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
         signatures = {
@@ -664,9 +593,6 @@ class Arcsin(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"jax.numpy.arcsin({self.subexpr.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -683,9 +609,6 @@ class Arccos(Expr):
 
     def __iter__(self):
         return iter([self.subexpr])
-
-    def code(self, scalar=False):
-        return f"jax.numpy.arccos({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
         signatures = {
@@ -704,9 +627,6 @@ class Arctan(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"jax.numpy.arctan({self.subexpr.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -724,9 +644,6 @@ class Logit(Expr):
     def __iter__(self):
         return iter([self.subexpr])
 
-    def code(self, scalar=False):
-        return f"jax.scipy.special.logit({self.subexpr.code(scalar)})"
-
     def __post_init__(self):
         signatures = {
             (types.RealType,): types.RealType,
@@ -743,9 +660,6 @@ class InverseLogit(Expr):
 
     def __iter__(self):
         return iter([self.subexpr])
-
-    def code(self, scalar=False):
-        return f"jax.scipy.special.expit({self.subexpr.code(scalar)})"
 
     def __post_init__(self):
         signatures = {
