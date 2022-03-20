@@ -8,9 +8,11 @@ import jax.numpy
 import jax.scipy.stats
 from typing import Iterable, List, Dict, Set, Tuple, Union
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import pprint
 import warnings
+
+import pandas as pd
 
 from . import ast
 
@@ -33,6 +35,7 @@ class TableRecord:
     name: str
     variable_type: VariableType
     subscripts: List[Set[Tuple[str, int]]]  # tuple of (subscript_name, shift_amount)
+    base_df: pd.DataFrame = field(default=None, kw_only=True)
 
 
 class SymbolTable:
@@ -62,6 +65,17 @@ class SymbolTable:
     def lookup(self, variable_name: str):
         return self.symbol_dict[variable_name]
 
+    def build_dataframes(self, data_df: pd.DataFrame):
+        dataframes = {}
+        for variable_name, record in self.symbol_dict.items():
+            if record.variable_type == VariableType.DATA:
+                continue
+
+            base_df = pd.DataFrame({f"subscript__{key}": [] for key in range(len(record.subscripts))})
+
+
+
+
     def __str__(self):
         return pprint.pformat(self.symbol_dict)
 
@@ -76,6 +90,8 @@ class Compiler:
         self.data_df_columns = list(data_df.columns)
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
+        self.symbol_table: SymbolTable = None
+        self.base_df: Dict[str, pd.DataFrame] = {}
 
     def _get_primary_symbol_from_statement(self, top_expr):
         """
@@ -199,7 +215,8 @@ class Compiler:
                 n_subscripts = len(param.subscript.names)
                 subscript_list = []
                 for index in range(n_subscripts):
-                    subscript_name = param.subscript.names[index].name
+                    subscript_column = param.subscript.names[index]
+                    subscript_name = subscript_column.name
                     subscript_shift = param.subscript.shifts[index].value
 
                     if subscript_name in self.data_df_columns:
@@ -207,11 +224,15 @@ class Compiler:
                     elif subscript_name in subscript_aliases:
                         subscript_list.append({s for s in subscript_aliases[subscript_name]})
                     else:
-                        print("ERROR ERROR", subscript_name)
+                        raise CompileError(f"Unknown subscript name '{subscript_name}'", self.model_code_string, subscript_column.line_index, subscript_column.column_index)
 
                 self.symbol_table.upsert(param_key, var_type, subscript_list)
 
         print(self.symbol_table)
+
+    def build_base_df(self):
+        pass
+
 
     def compile(self):
         self._identify_primary_symbols()

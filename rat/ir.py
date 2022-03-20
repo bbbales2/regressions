@@ -3,8 +3,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 import pandas as pd
 from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING, Set
-if TYPE_CHECKING:
-    from . import ast
 
 from . import types
 
@@ -186,4 +184,3 @@ class BaseVisitor:
         self.expression_string += "jax.scipy.special.expit("
         invlogit_node.subexpr.accept(self, *args, **kwargs)
         self.expression_string += ")"
-        diff_node.right.accept(self)

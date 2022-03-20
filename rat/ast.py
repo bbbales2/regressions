@@ -26,7 +26,7 @@ class Expr:
         """
         raise NotImplementedError()
 
-    def accept(self, visitor: ir.BaseVisitor, *args, **kwargs):
+    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         """
         accept()
         """
@@ -47,7 +47,7 @@ class RealConstant(Expr):
     def __post_init__(self):
         self.out_type = types.RealType
 
-    def accept(self, visitor: ir.BaseVisitor, *args, **kwargs):
+    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_RealConstant(self, *args, **kwargs)
 
     def __str__(self):
