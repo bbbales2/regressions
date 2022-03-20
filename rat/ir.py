@@ -186,5 +186,4 @@ class BaseVisitor:
         self.expression_string += "jax.scipy.special.expit("
         invlogit_node.subexpr.accept(self, *args, **kwargs)
         self.expression_string += ")"
-
-
+        diff_node.right.accept(self)

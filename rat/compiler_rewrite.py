@@ -46,7 +46,9 @@ class SymbolTable:
             if not subscripts:
                 return
             if len(record.subscripts) != len(subscripts) and len(record.subscripts) > 0:
-                raise ValueError(f"Internal error - symbol table update failed. Variable {variable_name} in table has {len(record.subscripts)} subscripts, but update request has {len(subscripts)}")
+                raise ValueError(
+                    f"Internal error - symbol table update failed. Variable {variable_name} in table has {len(record.subscripts)} subscripts, but update request has {len(subscripts)}"
+                )
 
             for index, subscript_set in enumerate(subscripts):
                 try:
@@ -176,8 +178,7 @@ class Compiler:
 
                 case _:
                     msg = f"Expected a parameter or data primary variable but got type {primary_variable.__class__.__name__}"
-                    raise CompileError(msg, self.model_code_string, primary_variable.line_index,
-                                       primary_variable.column_index)
+                    raise CompileError(msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index)
 
             if isinstance(top_expr, ast.Assignment):
                 self.symbol_table.upsert(top_expr.lhs.name, VariableType.ASSIGNED_PARAM)
@@ -207,7 +208,6 @@ class Compiler:
                         subscript_list.append({s for s in subscript_aliases[subscript_name]})
                     else:
                         print("ERROR ERROR", subscript_name)
-
 
                 self.symbol_table.upsert(param_key, var_type, subscript_list)
 

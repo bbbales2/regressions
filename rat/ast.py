@@ -85,8 +85,10 @@ class Subscript(Expr):
         return self.names
 
     def __post_init__(self):
-        assert len(self.shifts) == len(self.names), "Internal Error: length of types.Subscript.names must equal length of types.Subscript.shifts"
-        signatures = {(types.SubscriptSetType, ) * len(self.shifts) + (types.IntegerType, ) * len(self.shifts): types.SubscriptSetType}
+        assert len(self.shifts) == len(
+            self.names
+        ), "Internal Error: length of types.Subscript.names must equal length of types.Subscript.shifts"
+        signatures = {(types.SubscriptSetType,) * len(self.shifts) + (types.IntegerType,) * len(self.shifts): types.SubscriptSetType}
         self.out_type = types.get_output_type(signatures, tuple(expr.out_type for expr in (*self.names, *self.shifts)))
 
     def __str__(self):
@@ -98,6 +100,7 @@ class SubscriptColumn(Expr):
     """
     columns/names used as subscripts
     """
+
     name: str
 
     def __post_init__(self):
@@ -133,7 +136,6 @@ class PrimeableExpr(Expr):
 
 @dataclass
 class Data(PrimeableExpr):
-
     def get_key(self):
         return self.name
 
