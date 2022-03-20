@@ -9,7 +9,7 @@ import jax.scipy.stats
 from typing import Iterable, List, Dict, Set, Tuple, Union
 import warnings
 
-from . import ops
+from . import ast
 from . import variables
 
 

@@ -48,8 +48,10 @@ class TypeCheckError(Exception):
 
 
 def get_output_type(signatures: Dict[Tuple[Type[BaseType], ...], Type[BaseType]], in_sigs: Tuple[Type[BaseType], ...]) -> Type[BaseType]:
+    string_output = ""
     for in_sig, out_sig in signatures.items():
+        string_output += f"{[x.name for x in in_sig]} -> '{out_sig.name}'\n"
         if all([issubclass(in_sigs[i], in_sig[i]) for i in range(len(in_sigs))]):
             return out_sig
 
-    raise TypeCheckError(f"Input Type signature {[x.name for x in in_sigs]} is invalid.")
+    raise TypeCheckError(f"Input Type signature {[x.name for x in in_sigs]} is invalid.\nValid signatures:\n\n" + string_output)

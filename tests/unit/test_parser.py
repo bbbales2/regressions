@@ -4,7 +4,7 @@ import pytest
 import rat.parser
 from rat.parser import Parser, ParseError
 from rat.scanner import Scanner
-from rat.ops import *
+from rat.ast import *
 
 
 def test_parser_multiple():

@@ -5,7 +5,7 @@ import pandas
 import pytest
 import time
 
-from rat import ops
+from rat import ast
 from rat.compiler import CompileError
 from rat.model import Model
 

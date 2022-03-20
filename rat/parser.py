@@ -9,7 +9,7 @@ from .scanner import (
     NullToken,
     Terminate,
 )
-from .ops import *
+from .ast import *
 from .types import TypeCheckError
 import warnings
 import jax.numpy
@@ -188,7 +188,7 @@ class BinaryFunctions:
 
     @staticmethod
     def generate(arg1: Expr, arg2: Expr, func_type: Identifier):
-        return Shift(subscript=arg1, shift_expr=arg2, line_index=func_type.line_index, column_index=func_type.column_index)
+        return Shift(subscript_column=arg1, shift_expr=arg2, line_index=func_type.line_index, column_index=func_type.column_index)
 
 
 class Distributions:
@@ -406,7 +406,8 @@ class Parser:
                 if not is_subscript:
                     exp = Data(name=token.value, line_index=token.line_index, column_index=token.column_index)
                 else:
-                    exp = Subscript(names=(token.value,), line_index=token.line_index, column_index=token.column_index)
+                    exp = SubscriptColumn(name=token.value, line_index=token.line_index,
+                                          column_index=token.column_index)
                 self.remove()  # identifier
 
             elif token.value in Distributions.names:
@@ -415,7 +416,7 @@ class Parser:
                 if not is_subscript:
                     exp = self.parse_param(is_lhs=is_lhs)
                 else:
-                    exp = Subscript(names=(token.value,), line_index=token.line_index, column_index=token.column_index)
+                    exp = SubscriptColumn(name= token.value, line_index=token.line_index, column_index=token.column_index)
                     self.remove()  # token identifier(subscript)
 
             next_token = self.peek()
@@ -431,20 +432,11 @@ class Parser:
                     for subscript_expr in subscript_expressions:
                         match subscript_expr:
                             case Shift():
-                                if len(subscript_expr.subscript.names) > 1:
-                                    raise ParseError(
-                                        "Cannot have nested shift() uses in subscripts.",
-                                        self.model_string,
-                                        subscript_expr.line_index,
-                                        subscript_expr.column_index,
-                                    )
-                                subscript_names.append(subscript_expr.subscript.names[0])
+                                subscript_names.append(subscript_expr.subscript_column)
                                 shift_amounts.append(subscript_expr.shift_expr)
-                            case Subscript():
-                                for name in subscript_expr.names:
-                                    if name:
-                                        subscript_names.append(name)
-                                shift_amounts.extend(subscript_expr.shifts)
+                            case SubscriptColumn():
+                                subscript_names.append(subscript_expr)
+                                shift_amounts.append(IntegerConstant(value=0))
                             case _:
                                 raise ParseError(
                                     f"Found unknown expression class {subscript_expr.__class__.__name__} when parsing subscripts",
@@ -454,7 +446,7 @@ class Parser:
                                 )
 
                     exp.subscript = Subscript(
-                        names=subscript_names, shifts=shift_amounts, line_index=next_token.line_index, column_index=next_token.column_index
+                        names=tuple(subscript_names), shifts=tuple(shift_amounts), line_index=next_token.line_index, column_index=next_token.column_index
                     )
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, next_token.line_index, next_token.column_index)

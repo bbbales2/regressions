@@ -2,10 +2,8 @@ from codeop import Compile
 from dataclasses import dataclass, field
 from distutils.errors import CompileError
 from typing import Tuple, Union, Type, List, Dict
-import jax
 
 
-from . import variables
 from . import types
 
 
@@ -27,8 +25,10 @@ class Expr:
         """
         pass
 
-    def code(self, scalar=False):
-        pass
+    def accept(self, visitor):
+        """
+        accept()
+        """
 
     def __str__(self):
         return "Expr()"
@@ -37,7 +37,7 @@ class Expr:
 @dataclass
 class RealConstant(Expr):
     """
-    Elementary value, cannot be folded anymore
+    Elementary value
     """
 
     value: float
@@ -59,7 +59,7 @@ class RealConstant(Expr):
 @dataclass
 class IntegerConstant(Expr):
     """
-    Elementary value, cannot be folded anymore
+    Elementary value
     """
 
     value: int
@@ -77,43 +77,50 @@ class IntegerConstant(Expr):
 @dataclass
 class Subscript(Expr):
     """
-    Elementary value, cannot be folded anymore
+    Elementary value
     """
 
-    names: Tuple[str]
-    shifts: Tuple[Expr] = (IntegerConstant(value=0), )
-    variable: variables.SubscriptUse = None
+    names: Tuple[Expr]
+    shifts: Tuple[Expr]
 
     def get_key(self):
         return self.names
 
-    def code(self, scalar=False):
-        if scalar:
-            return f"subscripts['{self.variable.code()}'][index]"
-        else:
-            return f"subscripts['{self.variable.code()}']"
-
     def __post_init__(self):
         assert len(self.shifts) == len(self.names), "Internal Error: length of types.Subscript.names must equal length of types.Subscript.shifts"
-        signatures = {(types.IntegerType, ) * len(self.shifts): types.SubscriptSetType}
-        self.out_type = types.get_output_type(signatures, tuple(expr.out_type for expr in self.shifts))
+        signatures = {(types.SubscriptSetType, ) * len(self.shifts) + (types.IntegerType, ) * len(self.shifts): types.SubscriptSetType}
+        self.out_type = types.get_output_type(signatures, tuple(expr.out_type for expr in (*self.names, *self.shifts)))
 
     def __str__(self):
         return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
 
 @dataclass
+class SubscriptColumn(Expr):
+    """
+    columns/names used as subscripts
+    """
+    name: str
+
+    def __post_init__(self):
+        self.out_type = types.SubscriptSetType
+
+    def __str__(self):
+        return f"SubscriptColumn({self.name})"
+
+
+@dataclass
 class Shift(Expr):
     """
-    This is a function with signature (Subscript, Integer) -> Subscript
+    This is a function with type signature (SubscriptSet, Integer) -> SubscriptSet
     """
 
-    subscript: Expr
+    subscript_column: Expr
     shift_expr: Expr
 
     def __post_init__(self):
         signatures = {(types.SubscriptSetType, types.IntegerType): types.SubscriptSetType}
-        self.out_type = types.get_output_type(signatures, (self.subscript.out_type, self.shift_expr.out_type))
+        self.out_type = types.get_output_type(signatures, (self.subscript_column.out_type, self.shift_expr.out_type))
 
     def __str__(self):
         return f"Shift(subscript={self.subscript}, amount={self.shift_expr})"
@@ -128,39 +135,21 @@ class PrimeableExpr(Expr):
 
 @dataclass
 class Data(PrimeableExpr):
-    variable: variables.Data = None
 
     def get_key(self):
         return self.name
-
-    def code(self, scalar=False):
-        variable_code = self.variable.code()
-        if self.subscript is not None:
-            return f"data['{variable_code}'][{self.subscript.code(scalar)}]"
-        else:
-            return f"data['{variable_code}']"
-
-    def fold(self):
-        if self.subscript:
-            self.subscript = self.subscript.fold()
-        return Data(name=self.name, prime=self.prime, subscript=self.subscript, line_index=self.line_index, column_index=self.column_index)
 
     def __post_init__(self):
         self.out_type = types.NumericType
 
     def __str__(self):
-        if self.subscript is None:
-            return f"Data({self.name}, {self.prime})"
-        else:
-            return f"Data({self.name}, {self.prime}, {self.subscript})"
-        # return f"Placeholder({self.name}, {self.subscript.__str__()}) = {{{self.value.__str__()}}}"
+        return f"Data({self.name}, subscript={self.subscript}, prime={self.prime})"
 
 
 @dataclass
 class Param(PrimeableExpr):
-    variable: variables.Param = None
-    lower: Expr = None  # RealConstant(float("-inf"))
-    upper: Expr = None  # RealConstant(float("inf"))
+    lower: Expr = RealConstant(value=float("-inf"))
+    upper: Expr = RealConstant(value=float("inf"))
     assigned_by_scan: bool = False
 
     def __iter__(self):
@@ -169,43 +158,14 @@ class Param(PrimeableExpr):
         else:
             return iter([])
 
-    def scalar(self):
-        return self.subscript is None
-
     def get_key(self):
         return self.name
 
     def __post_init__(self):
         self.out_type = types.NumericType
 
-    def code(self, scalar=False):
-        variable_code = self.variable.code()
-        if self.subscript:
-            if self.assigned_by_scan:
-                if scalar == False:
-                    msg = "Internal error: Cannot do a vector evaluation of a recursively assigned variable"
-                    raise CompileError(msg, self.line_index, self.column_index)
-
-                integer_shifts = [int(shift.code()) for shift in self.subscript.shifts if int(shift.code()) != 0]
-
-                if len(integer_shifts) != 1:
-                    msg = "Internal error: There should be exactly one shift"
-                    raise CompileError(msg, self.line_index, self.column_index)
-
-                shift = integer_shifts[0]
-
-                if shift <= 0:
-                    msg = "Internal error: Shifts must be positive"
-                    raise CompileError(msg, self.line_index, self.column_index)
-
-                return f"carry{shift - 1}"
-            else:
-                return f"parameters['{variable_code}'][{self.subscript.code(scalar)}]"
-        else:
-            return f"parameters['{variable_code}']"
-
     def __str__(self):
-        return f"Param({self.name}, subscript={self.subscript.__str__()}, lower={self.lower}, upper={self.upper}, assigned={self.assigned_by_scan})"
+        return f"Param({self.name}, subscript={self.subscript}, prime={self.prime}, lower={self.lower}, upper={self.upper}, assigned={self.assigned_by_scan})"
 
 
 @dataclass
@@ -231,7 +191,7 @@ class Normal(Distr):
         self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
 
     def __str__(self):
-        return f"Normal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+        return f"Normal({self.variate}, {self.mean}, {self.std})"
 
 
 @dataclass
@@ -249,7 +209,7 @@ class BernoulliLogit(Distr):
         self.out_type = types.get_output_type(signatures, (self.logit_p.out_type,))
 
     def __str__(self):
-        return f"BernoulliLogit({self.variate.__str__()}, {self.logit_p.__str__()})"
+        return f"BernoulliLogit({self.variate}, {self.logit_p})"
 
 
 @dataclass
@@ -268,7 +228,7 @@ class LogNormal(Distr):
         self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
 
     def __str__(self):
-        return f"LogNormal({self.variate.__str__()}, {self.mean.__str__()}, {self.std.__str__()})"
+        return f"LogNormal({self.variate}, {self.mean}, {self.std})"
 
 
 @dataclass
@@ -287,7 +247,7 @@ class Cauchy(Distr):
         self.out_type = types.get_output_type(signatures, (self.location.out_type, self.scale.out_type))
 
     def __str__(self):
-        return f"Cauchy({self.variate.__str__()}, {self.location.__str__()}, {self.scale.__str__()})"
+        return f"Cauchy({self.variate}, {self.location}, {self.scale})"
 
 
 @dataclass
@@ -305,7 +265,7 @@ class Exponential(Distr):
         self.out_type = types.get_output_type(signatures, (self.scale.out_type,))
 
     def __str__(self):
-        return f"Exponential({self.variate.__str__()}, {self.scale.__str__()})"
+        return f"Exponential({self.variate}, {self.scale})"
 
 
 @dataclass
@@ -327,7 +287,7 @@ class Diff(Expr):
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
     def __str__(self):
-        return f"Diff({self.left.__str__()}, {self.right.__str__()})"
+        return f"Diff({self.left}, {self.right})"
 
 
 @dataclass
@@ -349,7 +309,7 @@ class Sum(Expr):
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
     def __str__(self):
-        return f"Sum({self.left.__str__()}, {self.right.__str__()})"
+        return f"Sum({self.left}, {self.right})"
 
 
 @dataclass
@@ -371,7 +331,7 @@ class Mul(Expr):
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
     def __str__(self):
-        return f"Mul({self.left.__str__()}, {self.right.__str__()})"
+        return f"Mul({self.left}, {self.right})"
 
 
 @dataclass
@@ -393,7 +353,7 @@ class Pow(Expr):
         self.out_type = types.get_output_type(signatures, (self.base.out_type, self.exponent.out_type))
 
     def __str__(self):
-        return f"Pow({self.base.__str__()}, {self.exponent.__str__()})"
+        return f"Pow({self.base}, {self.exponent})"
 
 
 @dataclass
@@ -414,7 +374,7 @@ class Div(Expr):
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
     def __str__(self):
-        return f"Div({self.left.__str__()}, {self.right.__str__()})"
+        return f"Div({self.left}, {self.right})"
 
 
 @dataclass
@@ -436,7 +396,7 @@ class Mod(Expr):
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
     def __str__(self):
-        return f"Mod({self.left.__str__(), self.right.__str__()})"
+        return f"Mod({self.left, self.right})"
 
 
 @dataclass
@@ -457,12 +417,12 @@ class PrefixNegation(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"PrefixNegation({self.subexpr.__str__()})"
+        return f"PrefixNegation({self.subexpr})"
 
 
 @dataclass
 class Assignment(Expr):
-    lhs: Expr
+    lhs: PrimeableExpr
     rhs: Expr
 
     def __iter__(self):
@@ -480,7 +440,7 @@ class Assignment(Expr):
         self.out_type = types.get_output_type(signatures, (self.rhs.out_type,))
 
     def __str__(self):
-        return f"Assignment({self.lhs.__str__()}, {self.rhs.__str__()})"
+        return f"Assignment({self.lhs}, {self.rhs})"
 
 
 class Prime(Expr):
@@ -493,7 +453,7 @@ class Prime(Expr):
         return f"{self.subexpr.code(scalar)}"
 
     def __str__(self):
-        return f"Prime({self.subexpr.__str__()})"
+        return f"Prime({self.subexpr})"
 
 
 @dataclass
@@ -513,7 +473,7 @@ class Sqrt(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Sqrt({self.subexpr.__str__()})"
+        return f"Sqrt({self.subexpr})"
 
 
 @dataclass
@@ -533,7 +493,7 @@ class Log(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Log({self.subexpr.__str__()})"
+        return f"Log({self.subexpr})"
 
 
 @dataclass
@@ -553,7 +513,7 @@ class Exp(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Exp({self.subexpr.__str__()})"
+        return f"Exp({self.subexpr})"
 
 
 @dataclass
@@ -574,7 +534,7 @@ class Abs(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Abs({self.subexpr.__str__()})"
+        return f"Abs({self.subexpr})"
 
 
 @dataclass
@@ -594,7 +554,7 @@ class Floor(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Floor({self.subexpr.__str__()})"
+        return f"Floor({self.subexpr})"
 
 
 @dataclass
@@ -614,7 +574,7 @@ class Ceil(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Ceil({self.subexpr.__str__()})"
+        return f"Ceil({self.subexpr})"
 
 
 @dataclass
@@ -634,7 +594,7 @@ class Round(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Round({self.subexpr.__str__()})"
+        return f"Round({self.subexpr})"
 
 
 @dataclass
@@ -654,7 +614,7 @@ class Sin(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Sin({self.subexpr.__str__()})"
+        return f"Sin({self.subexpr})"
 
 
 @dataclass
@@ -674,7 +634,7 @@ class Cos(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Cos({self.subexpr.__str__()})"
+        return f"Cos({self.subexpr})"
 
 
 @dataclass
@@ -694,7 +654,7 @@ class Tan(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Tan({self.subexpr.__str__()})"
+        return f"Tan({self.subexpr})"
 
 
 @dataclass
@@ -714,7 +674,7 @@ class Arcsin(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Arcsin({self.subexpr.__str__()})"
+        return f"Arcsin({self.subexpr})"
 
 
 @dataclass
@@ -734,7 +694,7 @@ class Arccos(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Arccos({self.subexpr.__str__()})"
+        return f"Arccos({self.subexpr})"
 
 
 @dataclass
@@ -754,7 +714,7 @@ class Arctan(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Arctan({self.subexpr.__str__()})"
+        return f"Arctan({self.subexpr})"
 
 
 @dataclass
@@ -774,7 +734,7 @@ class Logit(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"Logit({self.subexpr.__str__()})"
+        return f"Logit({self.subexpr})"
 
 
 @dataclass
@@ -794,29 +754,7 @@ class InverseLogit(Expr):
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
     def __str__(self):
-        return f"InverseLogit({self.subexpr.__str__()})"
-
-
-@dataclass
-class Placeholder(Expr):
-    name: str
-    index: Union[Subscript, None]
-    value: float = None
-
-    def __iter__(self):
-        if self.index is not None:
-            return iter([self.index])
-        else:
-            return iter([])
-
-    def code(self, scalar=False):
-        if self.index is not None:
-            return f"{self.name}[{self.index.code(scalar)}]"
-        else:
-            return self.name
-
-    def __str__(self):
-        return f"Placeholder({self.name}, {self.index.__str__()})"
+        return f"InverseLogit({self.subexpr})"
 
 
 def search_tree(expr: Expr, *types) -> Expr:

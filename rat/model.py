@@ -15,7 +15,7 @@ from typing import Callable, List, Dict, Union
 from tqdm import tqdm
 
 from . import compiler
-from . import ops
+from . import ast
 from .scanner import Scanner
 from .parser import Parser
 from . import fit
