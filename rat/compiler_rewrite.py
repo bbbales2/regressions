@@ -215,16 +215,17 @@ class Compiler:
             for param in ast.search_tree(top_expr, ast.Param):
                 param_key = param.get_key()
 
-                if param_key == primary_variable_key:
+                if not param.subscript:
                     continue
 
-                if not param.subscript:
+                if param_key == primary_variable_key:
                     continue
 
                 try:
                     var_type = self.symbol_table.lookup(param_key).variable_type
                 except KeyError:
                     var_type = VariableType.DATA if param_key in self.data_df_columns else VariableType.PARAM
+
                 n_subscripts = len(param.subscript.names)
                 subscript_list = [[] for _ in range(n_subscripts)]
                 for index in range(n_subscripts):
