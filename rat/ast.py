@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from distutils.errors import CompileError
 from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING
+
 if TYPE_CHECKING:
     from . import ir
 

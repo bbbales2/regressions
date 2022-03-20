@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import pandas as pd
 from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING, Set
+
 if TYPE_CHECKING:
     from . import ast
 
