@@ -276,11 +276,20 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span> <span class="o">=</span> <span class="n">diag_dfs</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">_from_constrained_variables</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
+    <span class="k">def</span> <span class="nf">_from_constrained_variables</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span>
+        <span class="n">computational_diagnostics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">):</span>
         <span class="c1"># Unpack draws into dataframes</span>
         <span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">_build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
         <span class="n">diag_dfs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">constrained_variable</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Ignore the computational diagnostic variables when computing rhat/ess</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">computational_diagnostics</span><span class="p">:</span>
+                <span class="k">continue</span>
+
             <span class="c1"># Compute ess/rhat, must reshape from (draw, chain, param) to (chain, draw, param)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
                 <span class="n">arviz_constrained_variable</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">constrained_variable</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -572,11 +581,20 @@ existing files and folders</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">diag_dfs</span> <span class="o">=</span> <span class="n">diag_dfs</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">_from_constrained_variables</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]):</span>
+    <span class="k">def</span> <span class="nf">_from_constrained_variables</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">constrained_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">base_dfs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span>
+        <span class="n">computational_diagnostics</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">):</span>
         <span class="c1"># Unpack draws into dataframes</span>
         <span class="n">draw_dfs</span> <span class="o">=</span> <span class="n">_build_constrained_dfs</span><span class="p">(</span><span class="n">constrained_variables</span><span class="p">,</span> <span class="n">base_dfs</span><span class="p">)</span>
         <span class="n">diag_dfs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">constrained_variable</span> <span class="ow">in</span> <span class="n">constrained_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Ignore the computational diagnostic variables when computing rhat/ess</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">computational_diagnostics</span><span class="p">:</span>
+                <span class="k">continue</span>
+
             <span class="c1"># Compute ess/rhat, must reshape from (draw, chain, param) to (chain, draw, param)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
                 <span class="n">arviz_constrained_variable</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">constrained_variable</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>

@@ -121,7 +121,7 @@ class Model:
             model_source_file = os.path.join(self.working_dir.name, "model_source.py")
         else:
             self.working_dir = os.path.dirname(compile_path)
-            if self.working_dir is not "":
+            if self.working_dir != "":
                 os.makedirs(self.working_dir, exist_ok=True)
 
             if os.path.exists(compile_path) and not overwrite:
@@ -194,7 +194,7 @@ class Model:
         constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
         return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
 
-    def sample(self, num_draws=200, num_warmup=1000, chains=4, init=2, target_acceptance_rate=0.85):
+    def sample(self, num_draws=200, num_warmup=1000, chains=4, init=2, thin=1, target_acceptance_rate=0.85):
         """
         Sample the target log density using NUTS.
 
@@ -202,7 +202,8 @@ class Model:
         space [-2, 2]. Use `num_warmup` draws to warmup and collect `num_draws` draws in each
         chain after warmup.
 
-        Regardless of the value of `chains`, only one chain is used for warmup.
+        If `thin` is greater than 1, then compute internally `num_draws * thin` draws and
+        output only every `thin` draws (so the output is size `num_draws`).
 
         `target_acceptance_rate` is the target acceptance rate for adaptation. Should be less
         than one and greater than zero.
@@ -221,6 +222,8 @@ class Model:
 
         # Ordered as (draws, chains, param)
         unconstrained_draws = numpy.zeros((num_draws, chains, self.size))
+        leapfrog_steps = numpy.zeros((num_draws, chains), dtype=int)
+        divergences = numpy.zeros((num_draws, chains), dtype=bool)
 
         def generate_draws():
             stage_1_size = 100
@@ -237,7 +240,7 @@ class Model:
                 stage_3_size=stage_3_size,
             )
 
-            return nuts.sample(potential, rng, initial_draw, stepsize, diagonal_inverse_metric, num_draws)
+            return nuts.sample(potential, rng, initial_draw, stepsize, diagonal_inverse_metric, num_draws, thin)
 
         with ThreadPoolExecutor(max_workers=chains) as e:
             results = []
@@ -245,8 +248,16 @@ class Model:
                 results.append(e.submit(generate_draws))
 
             for chain, result in enumerate(results):
-                unconstrained_draws[:, chain, :] = result.result()
+                unconstrained_draws[:, chain, :], leapfrog_steps[:, chain], divergences[:, chain] = result.result()
 
         constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
+        computational_diagnostic_variables = {"__leapfrog_steps": leapfrog_steps, "__divergences": divergences}
 
-        return fit.SampleFit._from_constrained_variables(constrained_draws, base_dfs)
+        for name, values in computational_diagnostic_variables.items():
+            if name in constrained_draws:
+                print(f"{name} already exists in sampler output, not writing diagnostic variable")
+            else:
+                constrained_draws[name] = values
+                base_dfs[name] = pandas.DataFrame()
+
+        return fit.SampleFit._from_constrained_variables(constrained_draws, base_dfs, computational_diagnostic_variables.keys())

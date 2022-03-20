@@ -18,6 +18,7 @@ parser.add_argument("--chains", type = int, default = 4, help = "Number of MCMC 
 parser.add_argument("--init", type = float, default = 2.0, help = "Random init radius")
 parser.add_argument("--num_warmup", type = int, default = 1000, help = "Number of draws to use for warmup (only available for sample)")
 parser.add_argument("--num_draws", type = int, default = 1000, help = "Number of draws to sample after warmup (only available for sample)")
+parser.add_argument("--thin", type = int, default = 1, help = "Use this many internal draws to compute each output draw (only available for sample)")
 parser.add_argument("--retries", type = int, default = 4, help = "Number of times to retry optimization (only available for optimize)")
 parser.add_argument("--tolerance", type = float, default = 1e-2, help = "All optimization results must be within rtol = atol = tolerance of each other or throw an error (only available for optimize)")
 parser.add_argument("--target_acceptance_rate", type = float, default = 0.85, help = "Target acceptance rate for adaptation")
@@ -38,6 +39,7 @@ chains = args.chains
 init = args.init
 num_warmup = args.num_warmup
 num_draws = args.num_draws
+thin = args.thin
 retries = args.retries
 tolerance = args.tolerance
 target_acceptance_rate = args.target_acceptance_rate
@@ -74,6 +76,6 @@ if method == "optimize":
     fit.save(output_folder, overwrite = overwrite)
 else:
     print("Running MCMC")
-    fit = model.sample(num_warmup=num_warmup, num_draws=num_draws, chains=chains, init=init, target_acceptance_rate=target_acceptance_rate)
+    fit = model.sample(num_warmup=num_warmup, num_draws=num_draws, chains=chains, init=init, thin = thin, target_acceptance_rate=target_acceptance_rate)
     print("Writing output")
     fit.save(output_folder, overwrite = overwrite)
