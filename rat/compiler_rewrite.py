@@ -52,8 +52,14 @@ class SymbolTable:
         self.symbol_dict: Dict[str, TableRecord] = {}
         self.unconstrained_param_count: int = 0
 
-    def upsert(self, variable_name: str, variable_type: VariableType = None, subscripts: Set[Tuple[str]] = None,
-               constraint_lower: float = float("-inf"), constraint_upper: float = float("inf")):
+    def upsert(
+        self,
+        variable_name: str,
+        variable_type: VariableType = None,
+        subscripts: Set[Tuple[str]] = None,
+        constraint_lower: float = float("-inf"),
+        constraint_upper: float = float("inf"),
+    ):
         if variable_name in self.symbol_dict:
             record = self.symbol_dict[variable_name]
             if variable_type:
@@ -76,8 +82,12 @@ class SymbolTable:
 
         else:
             self.symbol_dict[variable_name] = TableRecord(
-                variable_name, variable_type, subscripts if subscripts else set(), len(tuple(subscripts)[0]) if subscripts else 0,
-                constraint_lower=constraint_lower, constraint_upper=constraint_upper
+                variable_name,
+                variable_type,
+                subscripts if subscripts else set(),
+                len(tuple(subscripts)[0]) if subscripts else 0,
+                constraint_lower=constraint_lower,
+                constraint_upper=constraint_upper,
             )
 
     def lookup(self, variable_name: str):
@@ -265,7 +275,9 @@ class Compiler:
                     error_msg = f"Failed evaluating constraints for parameter {param_key}"
                     raise CompileError(error_msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index) from e
                 else:
-                    self.symbol_table.upsert(variable_name=param_key, constraint_lower=lower_constraint_value, constraint_upper=upper_constraint_value)
+                    self.symbol_table.upsert(
+                        variable_name=param_key, constraint_lower=lower_constraint_value, constraint_upper=upper_constraint_value
+                    )
 
                 if not param.subscript:
                     continue
@@ -332,7 +344,11 @@ class Compiler:
             self.generated_code += f"    # Param: {variable_name}, lower: {record.constraint_lower}, upper: {record.constraint_upper}\n"
 
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
-            index_string = f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index}" if record.unconstrained_vector_start_index != record.unconstrained_vector_end_index else f"{record.unconstrained_vector_start_index}"
+            index_string = (
+                f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index}"
+                if record.unconstrained_vector_start_index != record.unconstrained_vector_end_index
+                else f"{record.unconstrained_vector_start_index}"
+            )
             self.generated_code += f"    {unconstrained_reference} = unconstrained_parameter_vector[..., {index_string}]\n"
 
             if record.constraint_lower > float("-inf") or record.constraint_upper < float("inf"):
@@ -367,7 +383,6 @@ class Compiler:
 
         self.generated_code += "\n"
         self.generated_code += "    return target\n"
-
 
     def compile(self):
         self._identify_primary_symbols()

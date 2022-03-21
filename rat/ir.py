@@ -190,4 +190,3 @@ class BaseVisitor:
 class AssignmentVisitor(BaseVisitor):
     def __init__(self):
         super(AssignmentVisitor, self).__init__()
-
