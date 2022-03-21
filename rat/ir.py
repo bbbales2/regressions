@@ -4,13 +4,13 @@ from enum import Enum
 import pandas as pd
 from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING, Set
 
-if TYPE_CHECKING:
-    from . import ast
+from . import ast
 
 
 class BaseVisitor:
-    def __init__(self):
+    def __init__(self, symbol_table):
         self.expression_string = ""
+        self.symbol_table = symbol_table
 
     def visit_IntegerConstant(self, integer_node: ast.IntegerConstant, *args, **kwargs):
         self.expression_string += integer_node.value
@@ -33,7 +33,7 @@ class BaseVisitor:
         raise NotImplementedError()
 
     def visit_Data(self, data_node: ast.Data, *args, **kwargs):
-        raise NotImplementedError()
+        self.expression_string += f"data['{data_node.name}']"
 
     def visit_Param(self, param_node: ast.Param, *args, **kwargs):
         raise NotImplementedError()
@@ -185,3 +185,9 @@ class BaseVisitor:
         self.expression_string += "jax.scipy.special.expit("
         invlogit_node.subexpr.accept(self, *args, **kwargs)
         self.expression_string += ")"
+
+
+class AssignmentVisitor(BaseVisitor):
+    def __init__(self):
+        super(AssignmentVisitor, self).__init__()
+
