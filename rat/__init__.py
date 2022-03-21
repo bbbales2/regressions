@@ -101,23 +101,62 @@ offense_summary_df = (
 )
 ```
 
-## Likelihood
+## Basics
 
-Every Rat program comes with a dataframe. The dataframe defines the data which
-the Rat model fits itself to.
+Rat syntax is built for writing vectorized expressions across dataframes. The idea
+is that this is a useful framework for conceptualizing multilevel regressions, and
+Rat tries to make it easy to do this in code.
 
-Rat programs are broken up into statements separated by semicolons. There are
-two types of statements, sampling statements (those where the lefthand side
-and righthand side are separated by `~`) and assignments (the lefthand side
-and righthand side are separated by `=`).
+Rat is made of *statements*. A statement in Rat consists of two *expressions* (the left hand side
+and right hand side expressions) separated by either an `~` or an `=` and ending in `;`.
+Those where the lefthand side and righthand side are separated by `~` are called sampling statements,
+and those where the lefthand side and righthand side are separated by `=` are called assignments.
+Expressions are composed of *functions* and *variable references* and do not contain any intervening `~`, `=`, or
+`;` characters.
 
-Sampling statements come in two varieties, likelihoods and priors. Likelihoods
-are the sampling statements where the variable name on the left hand side of the
-`~` comes from the input dataframe (and priors are the other ones). This section
-discusses the basics of likelihood statements. Priors and assignments are discussed
-later (under section [Priors](#priors) and [Transformed Parameters](#transformed-parameters)).
+A statement can be multiple lines, and any line can end with a *comment* separated with `#`.
+There are no multiline comments.
 
-Assume we have the following dataframe:
+For example, this is a valid sampling statement in Rat:
+```
+score_diff' ~ normal( # It's a sampling statement!
+    skill[home_team], # It's a regression with one group-level intercept!
+    sigma);
+```
+
+Rat syntax vectorizes over dataframes. This means that each statement will produce code
+that runs for each row in a dataframe. The dataframe that a statement vectorizes across is
+called the *primary dataframe* -- there is exactly one primary dataframe per statement.
+
+Rat statements resolve their primary dataframes in a process called *primary variable deduction*.
+Every variable (a variable being a named symbol that is not a function) has exactly one dataframe
+attached to it. To identify the primary dataframe, rat must identify the primary variable.
+
+The rules for primary variable deduction are as follows (executed in order):
+
+1. There can only be one primary variable in a statement.
+2. If a variable reference is *primed*, then that variable is the primary variable.
+3. If there is no primed variable references, then all variables with non-empty dataframes are treated as prime.
+4. If there are no variables with non-empty dataframes, the leftmost one is the primary one.
+5. It is an error if anything other than one primary variable is identified.
+6. A *parameter* can only be used as the primary variable in one statement.
+
+A variable reference can be primed if it ends with a `'`. A variable reference itself
+is a variable name, an optional constraint, an optional sequence of *subscripts*, and an
+followed by the optional prime symbol. In the example above, `score_diff`, `skill`, and
+`sigma` are variable names. `home_team` is a subscript. `score_diff'`, `skill[home_team]`,
+and `sigma` are the variable references, and `score_diff` is the primary variable.
+
+Variables are associated with dataframes with the process of *variable dataframe deduction* (executed in order):
+
+1. Variables with names that match columns in the *input dataframe* take the input dataframe
+2. Otherwise, variables references are associated with parameters. The dataframe of the parameter is the minimum
+dataframe required to execute all statements it is used in.
+
+For the purposes of both dataframe deductions, Rat programs are understood top to bottom.
+
+The input dataframe is a single dataframe passed to a Rat program. For the regression above, a
+suitable example might be (the point differentials for a number of NBA games from the 2016 season):
 
 ```
     game_id  home_score  away_score home_team away_team  score_diff  year
@@ -134,35 +173,100 @@ Assume we have the following dataframe:
 10       11          97         103       PHI       CLE        -6.0  2016
 ```
 
-The first line of a Rat program modeling this data might be:
+Because `score_diff` matches a column in the input dataframe, the input dataframe
+is the primary dataframe for this datement. Because `skill` and `sigma` do not appear
+as columns in this dataframe, they will be parameters.
+
+The statement will *execute* once for each line of this dataframe. As the statement runs,
+it will substitute values from this dataframe into variables and subscripts that match
+column names.
+
+In this case, that means there must be a value in `skill` corresponding to each
+of the home teams (`CLE, POR, GSW, ORL, IND, BOS, TOR, MIL, MEM, PHI`). Because there
+is one subscript, the `skill` dataframe will have one column. The values in that column
+will be extended as necessary to allow all the `home_team` references.
+
+Because `sigma` has no subscripts, the minimum dataframe necessary to support it is
+the empty dataframe.
+
+Execution for a sampling statement means evaluating and accumulating the log density
+given by the name of the distribution on the right hand side of the `~`.
+
+Execution of assignments is described in [Transformed Parameters](#transformed-parameters) and
+[Shifts in transformed Parameters](#shifts-in-transformed-parameters).
+
+Considering the data, it may seem useful to predict the score differential of an NBA game
+in terms of both teams' skills. A suitable model for this would be:
+```
+score_diff' ~ normal(skill[home_team] - skill[away_team], sigma);
+```
+
+In this statement, there is an extra variable reference, `skill[away_team]`. Because of
+this, the `skill` dataframe will need to be extended to support all the away teams as well
+(adding all the teams but CLE [Cleveland], which is already there).
+
+## Transformed parameters
+
+Modeling the `skill` parameter in the model above hierarchically with a non-centered
+parameterization will be a good demonstration of assignment statements in Rat. As a reminder,
+this sort of parameterization is useful for avoiding [divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html),
+when doing MCMC using NUTS on multilevel models.
+
+The non-centered parameterization takes the form:
+```
+score_diff' ~ normal(skill[home_team] - skill[away_team], sigma);
+skill[team]' = skill_z[team] * tau;
+skill_z ~ normal(0.0, 1.0);
+```
+
+For the second statement `skill` is the primary variable, so the dataframe defined implicitly
+in the first statement will be the primary dataframe for the second line. Because of the subscript,
+the parameter `skill_z` will be created with a non-empty dataframe. Because it has no subscript,
+the parameter `tau` is created using the empty dataframe.
+
+The subscript of `skill` is *renamed* to `team` by use as a primary variable. Because the subscript
+is referenced by two names in the first statement, its name is ambiguous. Subscripts in a
+primary variable reference are *renaming subscripts*. Because a parameter can only be used
+as a primary variable once, this renaming only happens once. The renaming is necessary
+for two reasons:
+    
+1. Rat needs the subscript to be named for output to work
+2. Creating an underlying parameter `skill_z` for each `skill` requires that `skill_z` be
+subscripted by the `skill` dataframe.
+
+The assignment itself works by evaluating the expression on the right hand side and writing
+the transformed parameter on the left (and the variable on the left hand side must
+be a parameter, not data). Transformed parameters are immutable, so once they are set
+they cannot be changed. All uses of a transformed parameter must preceed the definition. This
+may seem non-intuitive coming from other languages, but in Rat parameter use defines the
+parameters themselves -- the assignment will simply guarantee that the necessary values
+get set. Effectively Rat statements will be executed in reverse order as they are written.
+
+In the final statement the prior for `skill_z` is defined. Because `skill_z` is the only variable
+in the statement, its dataframe will be the primary dataframe (and there is no need to prime it
+manually). Because the use uniquely defines a name for the subscript, there is no need to rename it.
+
+## Constraints
+
+The model above won't get far without a prior on `tau`. Because `tau` is a
+standard deviation, it must be constrained to be positive.
+
+Rat adopts a similar constraint syntax to Stan:
 
 ```
-score_diff ~ normal(skill[home_team], sigma);
+score_diff' ~ normal(skill[home_team] - skill[away_team], sigma);
+skill[team]' = skill_z[team] * tau;
+skill_z ~ normal(0.0, 1.0);
+tau<lower = 0.0> ~ normal(0.0, 1.0);
 ```
 
-Because this is a sampling statement (the `~`) and name on the lefthand side
-is in the dataframe, this is a likelihood statement.
+Constraints can only be used on parameters.
 
-This says model `score_diff` (the score difference between the home and away teams for a
-handful of games in the 2016 NBA season) as a normally distributed random variable given
-a mean `skill[home_team]` and standard deviation `sigma`. There will be one
-term in the likelihood for every row in the dataframe (so each row corresponds
-to a conditionally independent term).
+The constraint goes after the parameter name but before the subscripts. Rat
+supports a `lower`, `upper` and a combination of the two constraints.
 
-The other column of the dataframe that is being used is `home_team`. If we
-look back at the dataframe, `home_team` is a string identifying which NBA
-team was playing at home in each game. In the model it appears in brackets
-after the variable `skill` -- in Rat terms `home_team` *subscripts* `skill`.
-This means for each row of the input dataframe, take the entry of the variable
-skill that corresponds to the value of `home_team`.
+----
 
-Because `skill` is subscripted (and is not a column in the dataframe), Rat
-infers that it is a parameter in the model. There will be as many unique
-elements of `skill` as there are unique elements of `home_team`, because
-this is exactly how many parameters need to exist to evaluate the likelihood.
-
-Because `sigma` is not a column in the dataframe, Rat infers it is a parameter.
-Because it is not subscripted, Rat infers it is a scalar parameter.
 
 ## Priors
 
@@ -227,26 +331,10 @@ subscript would correspond to the unique values of year in the original datafram
 skill[year, team] ~ normal(all_time_skill[team], tau);
 ```
 
-## Constraints
 
-The model above won't get far without a prior on `tau`. Because `tau` is a
-standard deviation, it must be constrained to be positive.
-
-Rat adopts a similar constraint syntax to Stan:
-
-```
-score_diff ~ normal(skill[home_team], sigma);
-skill[home_team] ~ normal(0.0, tau);
-tau<lower = 0.0> ~ normal(0.0, 1.0);
-```
-
-The constraint goes after the parameter name but before the subscripts. Rat
-supports a `lower`, `upper` and a combination of the two constraints.
-
-## Transformed parameters
 
 Rat may infer that a variable is a parameter by its use, but this parameter
-doesn't necessarily need to be a parameter of the joint distribution sampled
+doesn't necessarily need to directly be a parameter of the distribution sampled
 with MCMC. Transformed parameters are immutable functions of other parameters
 that are set in assignment statements (statements where the left and right hand
 side is separated by an `=`).
@@ -343,6 +431,8 @@ A negative shift produces a different result:
 | `skill[CHA, 2017]`  | `0`                           |
 | `skill[ATL, 2017]`  | `0`                           |
 
+## Shifts in transformed parameters
+
 ## Execution order
 
 Rat sorts statements to make sure they are evaluated in an order so that
@@ -392,7 +482,12 @@ $\mathcal{R}$ here means all real numbers and $\mathcal{R}^+$ means real numbers
 
 # Installation and Use
 
-Rat is only available from Github:
+Rat is only available from Github, and requires [Rust](https://www.rust-lang.org/) to
+be installed to work.
+
+First, follow the [Rust installation directions](https://www.rust-lang.org/tools/install).
+
+Secondly, install rat from Github:
 
 ```
 git clone https://github.com/bbbales2/regressions
