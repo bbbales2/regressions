@@ -134,6 +134,8 @@ class SymbolTable:
 
         self.unconstrained_param_count = current_index
 
+    def get_parameter_indices(self, primary_variable_name, target_variable_name):
+
     def __str__(self):
         return pprint.pformat(self.symbol_dict)
 
@@ -264,11 +266,11 @@ class Compiler:
                 param_key = param.get_key()
 
                 try:
-                    lower_constraint_evaluator = ir.BaseVisitor()
+                    lower_constraint_evaluator = ir.BaseVisitor(self.symbol_table)
                     param.lower.accept(lower_constraint_evaluator)
                     lower_constraint_value = float(eval(lower_constraint_evaluator.expression_string))
 
-                    upper_constraint_evaluator = ir.BaseVisitor()
+                    upper_constraint_evaluator = ir.BaseVisitor(self.symbol_table)
                     param.upper.accept(upper_constraint_evaluator)
                     upper_constraint_value = float(eval(upper_constraint_evaluator.expression_string))
                 except Exception as e:

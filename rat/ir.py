@@ -38,6 +38,9 @@ class BaseVisitor:
     def visit_Param(self, param_node: ast.Param, *args, **kwargs):
         raise NotImplementedError()
 
+    def visit_Assignment(self, assignment_node: ast.Assignment, *args, **kwargs):
+        raise NotImplementedError()
+
     def visit_Normal(self, normal_node: ast.Normal, *args, **kwargs):
         self.expression_string += "jax.scipy.stats.norm.logpdf("
         normal_node.variate.accept(self, *args, **kwargs)
@@ -187,6 +190,18 @@ class BaseVisitor:
         self.expression_string += ")"
 
 
-class AssignmentVisitor(BaseVisitor):
-    def __init__(self):
-        super(AssignmentVisitor, self).__init__()
+class LinkedVisitor(BaseVisitor):
+    def __init__(self, symbol_table):
+        super(LinkedVisitor, self).__init__(symbol_table)
+
+    def visit_Data(self, data_node: ast.Data, *args, **kwargs):
+        self.expression_string += f"data['{data_node.name}']"
+
+    def visit_Param(self, param_node: ast.Param, *args, **kwargs):
+        self.expression_string += f"parameters['{param_node.name}']"
+        if param_node.subscript:
+            self.expression_string += "["
+            param_node.subscript.accept(self, *args, **kwargs)
+            self.expression_string += "]"
+
+
