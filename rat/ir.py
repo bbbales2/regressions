@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 from . import ast
 
 
-
 class BaseVisitor:
     def __init__(self, symbol_table: "compiler_rewrite.SymbolTable", primary_variable=None):
         self.expression_string = ""
@@ -200,7 +199,9 @@ class EvalDensityVisitor(BaseVisitor):
         super(EvalDensityVisitor, self).__init__(symbol_table, primary_variable)
         self.primary_variable_name = self.primary_variable.name
         if self.primary_variable.subscript:
-            self.primary_variable_subscript_names = tuple([subscript_column.name for subscript_column in self.primary_variable.subscript.names])
+            self.primary_variable_subscript_names = tuple(
+                [subscript_column.name for subscript_column in self.primary_variable.subscript.names]
+            )
         else:
             self.primary_variable_subscript_names = tuple()
 
@@ -218,9 +219,7 @@ class EvalDensityVisitor(BaseVisitor):
         variable_name = kwargs.pop("variable_name")
         subscript_names = tuple([x.name for x in subscript_node.names])
         subscript_shifts = tuple([x.value for x in subscript_node.shifts])
-        subscript_key = self.symbol_table.get_subscript_key(self.primary_variable_name,
-                                                            self.primary_variable_subscript_names, variable_name,
-                                                            subscript_names, subscript_shifts)
+        subscript_key = self.symbol_table.get_subscript_key(
+            self.primary_variable_name, self.primary_variable_subscript_names, variable_name, subscript_names, subscript_shifts
+        )
         self.expression_string += f"subscripts['{subscript_key}']"
-
-
