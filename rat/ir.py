@@ -8,9 +8,10 @@ from . import ast
 
 
 class BaseVisitor:
-    def __init__(self, symbol_table):
+    def __init__(self, symbol_table, primary_variable=None):
         self.expression_string = ""
         self.symbol_table = symbol_table
+        self.primary_variable = primary_variable
 
     def visit_IntegerConstant(self, integer_node: ast.IntegerConstant, *args, **kwargs):
         self.expression_string += integer_node.value
@@ -190,9 +191,14 @@ class BaseVisitor:
         self.expression_string += ")"
 
 
-class LinkedVisitor(BaseVisitor):
-    def __init__(self, symbol_table):
-        super(LinkedVisitor, self).__init__(symbol_table)
+class EvalDensityVisitor(BaseVisitor):
+    def __init__(self, symbol_table, primary_variable):
+        super(EvalDensityVisitor, self).__init__(symbol_table, primary_variable)
+        self.primary_variable_name = self.primary_variable.name
+        if self.primary_variable.subscript:
+            self.primary_variable_subscript = tuple([subscript_column.name for subscript_column in self.primary_variable.subscript.names])
+        else:
+            self.primary_variable_subscript = tuple()
 
     def visit_Data(self, data_node: ast.Data, *args, **kwargs):
         self.expression_string += f"data['{data_node.name}']"
@@ -201,7 +207,11 @@ class LinkedVisitor(BaseVisitor):
         self.expression_string += f"parameters['{param_node.name}']"
         if param_node.subscript:
             self.expression_string += "["
-            param_node.subscript.accept(self, *args, **kwargs)
+            param_node.subscript.accept(self, variable_name=param_node.name, *args, **kwargs)
             self.expression_string += "]"
 
+    def visit_Subscript(self, subscript_node: ast.Subscript, *args, **kwargs):
+        variable_name = kwargs.pop("variable_name")
+        subscript_names = tuple([x.name for x in subscript_node.names])
+        subscript_shifts = tuple([x.shift])
 
