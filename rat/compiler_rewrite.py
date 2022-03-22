@@ -178,7 +178,7 @@ class SymbolTable:
 
         self.unconstrained_param_count = current_index
 
-    def get_parameter_indices(self, primary_variable_name, target_variable_name, subscript_names, shift_amounts):
+    def get_subscript_key(self, primary_variable_name, primary_subscript_names, target_variable_name, subscript_names, shift_amounts):
         pass
 
     def __str__(self):

@@ -4,11 +4,15 @@ from enum import Enum
 import pandas as pd
 from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING, Set
 
+if TYPE_CHECKING:
+    from . import compiler_rewrite
+
 from . import ast
 
 
+
 class BaseVisitor:
-    def __init__(self, symbol_table, primary_variable=None):
+    def __init__(self, symbol_table: "compiler_rewrite.SymbolTable", primary_variable=None):
         self.expression_string = ""
         self.symbol_table = symbol_table
         self.primary_variable = primary_variable
@@ -196,9 +200,9 @@ class EvalDensityVisitor(BaseVisitor):
         super(EvalDensityVisitor, self).__init__(symbol_table, primary_variable)
         self.primary_variable_name = self.primary_variable.name
         if self.primary_variable.subscript:
-            self.primary_variable_subscript = tuple([subscript_column.name for subscript_column in self.primary_variable.subscript.names])
+            self.primary_variable_subscript_names = tuple([subscript_column.name for subscript_column in self.primary_variable.subscript.names])
         else:
-            self.primary_variable_subscript = tuple()
+            self.primary_variable_subscript_names = tuple()
 
     def visit_Data(self, data_node: ast.Data, *args, **kwargs):
         self.expression_string += f"data['{data_node.name}']"
@@ -213,5 +217,9 @@ class EvalDensityVisitor(BaseVisitor):
     def visit_Subscript(self, subscript_node: ast.Subscript, *args, **kwargs):
         variable_name = kwargs.pop("variable_name")
         subscript_names = tuple([x.name for x in subscript_node.names])
-        subscript_shifts = tuple([x.shift])
+        subscript_shifts = tuple([x.value for x in subscript_node.shifts])
+        subscript_key = self.symbol_table.get_subscript_key(self.primary_variable_name,
+                                                            self.primary_variable_subscript_names, variable_name,
+                                                            subscript_names, subscript_shifts)
+        self.expression_string += f"subscripts['{subscript_key}']"
 
