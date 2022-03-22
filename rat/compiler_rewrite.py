@@ -9,8 +9,10 @@ import jax.scipy.stats
 from typing import Iterable, List, Dict, Set, Tuple, Union
 from enum import Enum
 from dataclasses import dataclass, field
+from collections import defaultdict
 import pprint
 import itertools
+import warnings
 
 import pandas as pd
 
@@ -26,6 +28,16 @@ class CompileError(Exception):
         else:
             exception_message = f"An error occurred during compilation:\n{message}"
         super().__init__(exception_message)
+
+
+class CompileWarning(UserWarning):
+    def __init__(self, message, code_string: str = "", line_num: int = -1, column_num: int = -1):
+        code_string = code_string.split("\n")[line_num] if code_string else ""
+        if code_string:
+            warning_message = f"Compilation warning({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
+        else:
+            warning_message = f"Compilation warning:\n{message}"
+        super().__init__(warning_message)
 
 
 class VariableType(Enum):
@@ -70,9 +82,18 @@ class TableRecord:
 
 
 class SymbolTable:
-    def __init__(self):
+    def __init__(self, data_df):
+        """
+        symbol_dict: The internal dictionary that represents the symbol table. Key values are variable names.
+        unconstrained_param_count: the length of the required unconstrained parameter vector.
+        data_df: the input data dataframe
+        generated_subscript_dict: Dictionary which maps subscript keys to indices.
+        """
         self.symbol_dict: Dict[str, TableRecord] = {}
         self.unconstrained_param_count: int = 0  # length of the unconstrained parameter vector
+        self.data_df = data_df
+        self.generated_subscript_dict: Dict[str, numpy.ndarray] = {}
+        self.generated_subscript_count = 0
 
     def upsert(
         self,
@@ -130,10 +151,18 @@ class SymbolTable:
         """
         return self.symbol_dict[variable_name]
 
+    def iter_records(self):
+        for name, record in self.symbol_dict.items():
+            yield name, record
+
     def build_base_dataframes(self, data_df: pd.DataFrame):
         """
         Builds the base dataframes for parameters from the current symbol table.
+        Also resets any generated subscript indices
         """
+        self.generated_subscript_dict = {}
+        self.generated_subscript_count = 0
+
         current_index = 0
         for variable_name, record in self.symbol_dict.items():
             if not record.variable_type:
@@ -161,10 +190,12 @@ class SymbolTable:
                     df.columns = tuple(record.subscript_alias)
                     base_df = pd.concat([base_df, df]).drop_duplicates().sort_values(list(df.columns)).reset_index(drop=True)
 
+
+
                 # For parameters, allocate space on the unconstrained parameter vector and record indices
                 if record.variable_type == VariableType.PARAM:
                     nrows = base_df.shape[0]
-                    base_df["index__"] = pd.Series(range(current_index, current_index + nrows))
+                    base_df["__index"] = pd.Series(range(current_index, current_index + nrows))
                     record.unconstrained_vector_start_index = current_index
                     record.unconstrained_vector_end_index = current_index + nrows - 1
                     current_index += nrows
@@ -179,8 +210,70 @@ class SymbolTable:
 
         self.unconstrained_param_count = current_index
 
-    def get_subscript_key(self, primary_variable_name, primary_subscript_names, target_variable_name, subscript_names, shift_amounts):
-        pass
+    def get_subscript_key(self, primary_variable_name: str, primary_subscript_names: Tuple[str], target_variable_name: str, target_subscript_names: Tuple[str], target_shift_amounts: Tuple[int]):
+        """
+        Find the subscript indices for (target variable, subscript, shift) given its primary variable and its declared subscript
+        For example:
+        param_a[s1, s2] = param_b[s1]
+
+        Procedure:
+        1. filter out base_df of param_a so that only rows containing s1 and s2 exists.
+        2. filter out base_df of param_b so that only rows containing s1 exists.
+        3. apply shifts to dataframe (1), creating new columns on dataframe 1
+        3. merge dataframe (1) with dataframe (2) along s1, keeping indices from dataframe (2)
+
+        """
+        primary_record = self.lookup(primary_variable_name)
+        target_record = self.lookup(target_variable_name)
+
+        if primary_record.variable_type == VariableType.DATA:
+            primary_base_df = self.data_df.copy()
+
+        else:
+            primary_base_df = primary_record.base_df.copy()
+
+            for index, subscript in enumerate(primary_subscript_names):
+                base_df_subscript_name = primary_record.subscript_alias[index]
+                if subscript == base_df_subscript_name:
+                    continue
+                else:
+                    subset_df = self.data_df.loc[:, [subscript]].drop_duplicates()
+                    subset_df.columns = (base_df_subscript_name, )
+                    primary_base_df = pd.merge(primary_base_df, subset_df, on=base_df_subscript_name, how="inner")
+
+        primary_base_df = primary_base_df[list(target_subscript_names)]
+
+        shift_subscripts = []
+        shift_values = []
+        grouping_subscripts = []
+        for column, shift in zip(target_subscript_names, target_shift_amounts):
+            if shift == 0:
+                grouping_subscripts.append(column)
+            else:
+                shift_subscripts.append(column)
+                shift_values.append(shift)
+
+        if len(grouping_subscripts) > 0:
+            grouped_df = primary_base_df.groupby(grouping_subscripts)
+        else:
+            grouped_df = primary_base_df
+
+        for column, shift in zip(shift_subscripts, shift_values):
+            print("waa")
+            shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
+            primary_base_df[column] = shifted_column
+
+        target_base_df = target_record.base_df.copy().loc[:, target_record.base_df.columns != "__index"]
+        target_base_df.columns = list(target_subscript_names)
+
+        target_base_df["__in_dataframe_index"] = pd.Series(range(0, target_base_df.shape[0]))
+
+
+        key_name = f"subscript__{self.generated_subscript_count}"
+        self.generated_subscript_count += 1
+        self.generated_subscript_dict[key_name] = pd.merge(primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left")["__in_dataframe_index"].to_numpy(dtype=int)
+        return key_name
+
 
     def __str__(self):
         return pprint.pformat(self.symbol_dict)
@@ -273,7 +366,7 @@ class Compiler:
         """
         Builds the "symbol table", which holds information for all variables in the model.
         """
-        self.symbol_table = SymbolTable()
+        self.symbol_table = SymbolTable(self.data_df)
 
         for top_expr in self.expr_tree_list:
             primary_variable = self._get_primary_symbol_from_statement(top_expr)
@@ -287,9 +380,11 @@ class Compiler:
             subscript_aliases: Dict[str, Set] = {}
             # this dict stores any subscript aliases of the primary dataframe.
 
+            # find the primary variable and its subscript aliases
             match primary_variable:
                 case ast.Data():
-                    pass
+                    # these are the allowed subscript names in scope
+                    allowed_subscript_names = tuple(self.data_df.columns)
                 case ast.Param():
                     try:
                         primary_variable_record = self.symbol_table.lookup(primary_variable_key)
@@ -297,30 +392,44 @@ class Compiler:
                         msg = f"Primary variable {primary_variable_key} does not exist on the symbol table. Did you define the variable before using it as a primary variable?"
                         raise CompileError(msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index)
                     else:
-                        if primary_variable.subscript:
-                            for index, subscript_column in enumerate(primary_variable.subscript.names):
-                                if subscript_column.name not in self.data_df_columns:
-                                    # If there's a subscript name that's not present in the input dataframe, this means
-                                    # it's a subscript "alias", which points to the "true" subscripts that's already on
-                                    # the symbol table. We look up its "true" subscripts and keep them in the scope of
-                                    # this line
-                                    subscript_aliases[subscript_column.name] = {
-                                        subscript_tuple[index] for subscript_tuple in primary_variable_record.subscripts
-                                    }
+                        if primary_variable_record.subscript_length > 0:
+                            # these are the allowed subscript names in scope
 
-                            self.symbol_table.upsert(
-                                primary_variable_key, subscript_alias=tuple([x.name for x in primary_variable.subscript.names])
-                            )
+                            if primary_variable.subscript:
+                                for index, subscript_column in enumerate(primary_variable.subscript.names):
+                                    if subscript_column.name not in self.data_df_columns:
+                                        subscript_aliases[subscript_column.name] = {
+                                            subscript_tuple[index] for subscript_tuple in primary_variable_record.subscripts
+                                        }
+
+                                self.symbol_table.upsert(
+                                    primary_variable_key, subscript_alias=tuple([x.name for x in primary_variable.subscript.names])
+                                )
+
+                            else:
+                                for index, subscript_column in enumerate(primary_variable_record.subscript_alias):
+                                    if subscript_column not in self.data_df_columns:
+                                        # If there's a subscript name that's not present in the input dataframe, this means
+                                        # it's a subscript "alias", which points to the "true" subscripts that's already on
+                                        # the symbol table. We look up its "true" subscripts and keep them in the scope of
+                                        # this line
+                                        subscript_aliases[subscript_column] = {
+                                            subscript_tuple[index] for subscript_tuple in primary_variable_record.subscripts
+                                        }
+                            allowed_subscript_names = primary_variable_record.subscript_alias
+                        else:
+                            # these are the allowed subscript names in scope
+                            allowed_subscript_names = tuple()
 
                 case _:
                     msg = f"Expected a parameter or data primary variable but got type {primary_variable.__class__.__name__}"
                     raise CompileError(msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index)
 
-            # If it's an assignemnt, we save the type of the LHS variable to be an assigned parameter
+            # If it's an assignment, we save the type of the LHS variable to be an assigned parameter
             if isinstance(top_expr, ast.Assignment):
                 self.symbol_table.upsert(variable_name=top_expr.lhs.name, variable_type=VariableType.ASSIGNED_PARAM)
-            #####
 
+            # iterate through the remaining non-primary variables, resolving subscripts according to primary's subscripts
             for param in ast.search_tree(top_expr, ast.Param):
                 param_key = param.get_key()
 
@@ -340,14 +449,14 @@ class Compiler:
                     self.symbol_table.upsert(
                         variable_name=param_key, constraint_lower=lower_constraint_value, constraint_upper=upper_constraint_value
                     )
-                #####
+                ###########
 
                 # The following operations are done for subscripts only
                 if not param.subscript:
                     continue
 
-                if param_key == primary_variable_key:
-                    continue
+                # if param_key == primary_variable_key:
+                #     continue
 
                 # fold shift values into IntegerConstant if it's an expression instead of a constant
                 folded_shift_exprs: List[ast.IntegerConstant] = []
@@ -364,7 +473,7 @@ class Compiler:
                             error_msg = f"Failed evaluating shift amounts for parameter {param_key}. Shift amount expressions must be an expression which can be evaluated at compile-time."
                             raise CompileError(error_msg, self.model_code_string, shift_expr.line_index, shift_expr.column_index) from e
                 param.subscript.shifts = folded_shift_exprs
-                #####
+                ###########
 
                 # Determine type of the variable. If its name exists in the input dataframe, it's a data variable.
                 # Param is the default value. Assigned params are upserted when the compiler identifies it being used on
@@ -373,36 +482,40 @@ class Compiler:
                     var_type = self.symbol_table.lookup(param_key).variable_type
                 except KeyError:
                     var_type = VariableType.DATA if param_key in self.data_df_columns else VariableType.PARAM
-                #####
+                ###########
 
-                # We "resulve" subscripts, so every single parameters' subscripts can be described with only the input
+                # We "resolve" subscripts, so every single parameters' subscripts can be described with only the input
                 # dataframe's columns. The symbol table holds the "true" subscript columns for each parameter.
                 n_subscripts = len(param.subscript.names)
                 subscript_list = [[] for _ in range(n_subscripts)]
+
                 variable_subscript_alias: List[str] = []  # This list holds the actual column names of the base DF
                 for index in range(n_subscripts):
                     subscript_column = param.subscript.names[index]
                     subscript_name = subscript_column.name
 
-                    if subscript_name in self.data_df_columns:
-                        subscript_list[index].append(subscript_name)
-                    elif subscript_name in subscript_aliases:
+                    if subscript_name in subscript_aliases:
                         subscript_list[index].extend(subscript_aliases[subscript_name])
+                    elif subscript_name in allowed_subscript_names:
+                        subscript_list[index].append(subscript_name)
                     else:
                         raise CompileError(
-                            f"Unknown subscript name '{subscript_name}'",
+                            f"Subscript name '{subscript_name}' not in scope.",
                             self.model_code_string,
                             subscript_column.line_index,
                             subscript_column.column_index,
                         )
                     variable_subscript_alias.append(subscript_name)
 
+                # store the "true" subscripts
+                # ex) sub_1 = {sub_2, sub_3, sub_4}
+                # then the true subscripts of param[sub_1, x] is [(sub_2, x), (sub_3, x), (sub_4, x)]
                 unrolled_subscripts = [tuple(x) for x in itertools.product(*subscript_list)]
 
                 self.symbol_table.upsert(
                     param_key, var_type, subscripts=set(unrolled_subscripts), subscript_alias=tuple(variable_subscript_alias)
                 )
-                #####
+
 
     def codegen(self):
         self.generated_code = ""
@@ -437,7 +550,7 @@ class Compiler:
 
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             index_string = (
-                f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index}"
+                f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index + 1}"
                 if record.unconstrained_vector_start_index != record.unconstrained_vector_end_index
                 else f"{record.unconstrained_vector_start_index}"
             )
@@ -459,17 +572,29 @@ class Compiler:
         self.generated_code += "    return jacobian_adjustments, parameters\n\n"
 
     def codegen_transform_parameters(self):
-        pass
+        self.generated_code += "def transform_parameters(data, subscripts, first_in_group_indicators, parameters)\n"
+
+        for top_expr in self.expr_tree_list:
+            if not isinstance(top_expr, ast.Assignment):
+                continue
+
+            codegen_visitor = ir.TransformedParametersVisitor(self.symbol_table, self._get_primary_symbol_from_statement(top_expr))
+            top_expr.accept(codegen_visitor)
+            self.generated_code += "    "
+            self.generated_code += codegen_visitor.expression_string
+
+        self.generated_code += "\n\n"
+        self.generated_code += "    return parameters\n\n"
 
     def codegen_evaluate_densities(self):
         self.generated_code += "def evaluate_densities(data, subscripts, parameters):\n"
-        self.generated_code += "target = 0.0"
+        self.generated_code += "    target = 0.0\n"
 
         for top_expr in self.expr_tree_list:
             if not isinstance(top_expr, ast.Distr):
                 continue
 
-            codegen_visitor = ir.BaseVisitor(self.symbol_table)
+            codegen_visitor = ir.EvaluateDensityVisitor(self.symbol_table, self._get_primary_symbol_from_statement(top_expr))
             top_expr.accept(codegen_visitor)
             self.generated_code += f"    target += jax.numpy.sum({codegen_visitor.expression_string})\n"
 
@@ -483,4 +608,6 @@ class Compiler:
 
         self.symbol_table.build_base_dataframes(self.data_df)
 
-        # self.codegen()
+        print(self.symbol_table)
+
+        self.codegen()

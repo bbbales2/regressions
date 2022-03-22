@@ -17,7 +17,7 @@ class BaseVisitor:
         self.primary_variable = primary_variable
 
     def visit_IntegerConstant(self, integer_node: ast.IntegerConstant, *args, **kwargs):
-        self.expression_string += integer_node.value
+        self.expression_string += str(integer_node.value)
 
     def visit_RealConstant(self, real_node: ast.RealConstant, *args, **kwargs):
         if real_node.value == float("inf"):
@@ -67,6 +67,8 @@ class BaseVisitor:
         self.expression_string += ", "
         lognormal_node.mean.accept(self, *args, **kwargs)
         self.expression_string += ", "
+        lognormal_node.std.accept(self, *args, **kwargs)
+        self.expression_string += ")"
 
     def visit_Cauchy(self, cauchy_node: ast.Cauchy, *args, **kwargs):
         self.expression_string += "jax.scipy.stats.cauchy.logpdf("
@@ -194,9 +196,9 @@ class BaseVisitor:
         self.expression_string += ")"
 
 
-class EvalDensityVisitor(BaseVisitor):
+class EvaluateDensityVisitor(BaseVisitor):
     def __init__(self, symbol_table, primary_variable):
-        super(EvalDensityVisitor, self).__init__(symbol_table, primary_variable)
+        super(EvaluateDensityVisitor, self).__init__(symbol_table, primary_variable)
         self.primary_variable_name = self.primary_variable.name
         if self.primary_variable.subscript:
             self.primary_variable_subscript_names = tuple(
@@ -216,10 +218,31 @@ class EvalDensityVisitor(BaseVisitor):
             self.expression_string += "]"
 
     def visit_Subscript(self, subscript_node: ast.Subscript, *args, **kwargs):
-        variable_name = kwargs.pop("variable_name")
+        variable_name = kwargs.pop("variable_name")  # passed from EvaluateDensityVisitor.visit_Param
         subscript_names = tuple([x.name for x in subscript_node.names])
         subscript_shifts = tuple([x.value for x in subscript_node.shifts])
+        print(variable_name, subscript_names, subscript_shifts)
         subscript_key = self.symbol_table.get_subscript_key(
             self.primary_variable_name, self.primary_variable_subscript_names, variable_name, subscript_names, subscript_shifts
         )
         self.expression_string += f"subscripts['{subscript_key}']"
+
+
+class TransformedParametersVisitor(EvaluateDensityVisitor):
+    def __init__(self, symbol_table, primary_variable):
+        super(TransformedParametersVisitor, self).__init__(symbol_table, primary_variable)
+        self.lhs_used_in_rhs = False
+
+    def visit_Assignment(self, assignment_node: ast.Assignment, *args, **kwargs):
+        lhs = assignment_node.lhs
+        rhs = assignment_node.rhs
+
+        for symbol in ast.search_tree(rhs, ast.Param):
+            if symbol.get_key() == lhs.get_key():
+                self.lhs_used_in_rhs = True
+
+
+        lhs.accept(self, *args, **kwargs)
+        self.expression_string += " = "
+        rhs.accept(self, *args, **kwargs)
+

@@ -69,6 +69,9 @@ class IntegerConstant(Expr):
     def __post_init__(self):
         self.out_type = types.IntegerType
 
+    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
+        visitor.visit_IntegerConstant(self, *args, **kwargs)
+
     def __str__(self):
         return f"IntegerConstant({self.value})"
 
