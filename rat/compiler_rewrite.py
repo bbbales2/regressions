@@ -190,8 +190,6 @@ class SymbolTable:
                     df.columns = tuple(record.subscript_alias)
                     base_df = pd.concat([base_df, df]).drop_duplicates().sort_values(list(df.columns)).reset_index(drop=True)
 
-
-
                 # For parameters, allocate space on the unconstrained parameter vector and record indices
                 if record.variable_type == VariableType.PARAM:
                     nrows = base_df.shape[0]
@@ -210,7 +208,14 @@ class SymbolTable:
 
         self.unconstrained_param_count = current_index
 
-    def get_subscript_key(self, primary_variable_name: str, primary_subscript_names: Tuple[str], target_variable_name: str, target_subscript_names: Tuple[str], target_shift_amounts: Tuple[int]):
+    def get_subscript_key(
+        self,
+        primary_variable_name: str,
+        primary_subscript_names: Tuple[str],
+        target_variable_name: str,
+        target_subscript_names: Tuple[str],
+        target_shift_amounts: Tuple[int],
+    ):
         """
         Find the subscript indices for (target variable, subscript, shift) given its primary variable and its declared subscript
         For example:
@@ -238,7 +243,7 @@ class SymbolTable:
                     continue
                 else:
                     subset_df = self.data_df.loc[:, [subscript]].drop_duplicates()
-                    subset_df.columns = (base_df_subscript_name, )
+                    subset_df.columns = (base_df_subscript_name,)
                     primary_base_df = pd.merge(primary_base_df, subset_df, on=base_df_subscript_name, how="inner")
 
         primary_base_df = primary_base_df[list(target_subscript_names)]
@@ -268,12 +273,12 @@ class SymbolTable:
 
         target_base_df["__in_dataframe_index"] = pd.Series(range(0, target_base_df.shape[0]))
 
-
         key_name = f"subscript__{self.generated_subscript_count}"
         self.generated_subscript_count += 1
-        self.generated_subscript_dict[key_name] = pd.merge(primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left")["__in_dataframe_index"].to_numpy(dtype=int)
+        self.generated_subscript_dict[key_name] = pd.merge(
+            primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left"
+        )["__in_dataframe_index"].to_numpy(dtype=int)
         return key_name
-
 
     def __str__(self):
         return pprint.pformat(self.symbol_dict)
@@ -515,7 +520,6 @@ class Compiler:
                 self.symbol_table.upsert(
                     param_key, var_type, subscripts=set(unrolled_subscripts), subscript_alias=tuple(variable_subscript_alias)
                 )
-
 
     def codegen(self):
         self.generated_code = ""

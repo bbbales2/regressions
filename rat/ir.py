@@ -241,8 +241,6 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
             if symbol.get_key() == lhs.get_key():
                 self.lhs_used_in_rhs = True
 
-
         lhs.accept(self, *args, **kwargs)
         self.expression_string += " = "
         rhs.accept(self, *args, **kwargs)
-
