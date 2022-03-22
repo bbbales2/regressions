@@ -214,4 +214,3 @@ class EvalDensityVisitor(BaseVisitor):
         variable_name = kwargs.pop("variable_name")
         subscript_names = tuple([x.name for x in subscript_node.names])
         subscript_shifts = tuple([x.shift])
-
