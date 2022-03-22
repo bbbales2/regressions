@@ -95,7 +95,6 @@ class Subscript(Expr):
     def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_Subscript(self, *args, **kwargs)
 
-
     def __str__(self):
         return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
@@ -646,6 +645,7 @@ class Cos(Expr):
 
     def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_Cos(self, *args, **kwargs)
+
     def __str__(self):
         return f"Cos({self.subexpr})"
 
@@ -665,6 +665,7 @@ class Tan(Expr):
 
     def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_Tan(self, *args, **kwargs)
+
     def __str__(self):
         return f"Tan({self.subexpr})"
 
@@ -684,6 +685,7 @@ class Arcsin(Expr):
 
     def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_Arcsin(self, *args, **kwargs)
+
     def __str__(self):
         return f"Arcsin({self.subexpr})"
 
@@ -703,6 +705,7 @@ class Arccos(Expr):
 
     def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_Arccos(self, *args, **kwargs)
+
     def __str__(self):
         return f"Arccos({self.subexpr})"
 
@@ -722,6 +725,7 @@ class Arctan(Expr):
 
     def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_Arctan(self, *args, **kwargs)
+
     def __str__(self):
         return f"Arctan({self.subexpr})"
 
@@ -741,6 +745,7 @@ class Logit(Expr):
 
     def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_Logit(self, *args, **kwargs)
+
     def __str__(self):
         return f"Logit({self.subexpr})"
 
@@ -760,6 +765,7 @@ class InverseLogit(Expr):
 
     def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
         visitor.visit_InverseLogit(self, *args, **kwargs)
+
     def __str__(self):
         return f"InverseLogit({self.subexpr})"
 

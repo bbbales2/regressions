@@ -223,3 +223,4 @@ class EvalDensityVisitor(BaseVisitor):
                                                             subscript_names, subscript_shifts)
         self.expression_string += f"subscripts['{subscript_key}']"
 
+
