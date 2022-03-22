@@ -264,20 +264,22 @@ class SymbolTable:
             grouped_df = primary_base_df
 
         for column, shift in zip(shift_subscripts, shift_values):
-            print("waa")
             shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
             primary_base_df[column] = shifted_column
 
         target_base_df = target_record.base_df.copy().loc[:, target_record.base_df.columns != "__index"]
         target_base_df.columns = list(target_subscript_names)
 
-        target_base_df["__in_dataframe_index"] = pd.Series(range(0, target_base_df.shape[0]))
+        target_base_df["__in_dataframe_index"] = pd.Series(range(target_base_df.shape[0]))
 
         key_name = f"subscript__{self.generated_subscript_count}"
         self.generated_subscript_count += 1
-        self.generated_subscript_dict[key_name] = pd.merge(
+        output_df = pd.merge(
             primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left"
-        )["__in_dataframe_index"].to_numpy(dtype=int)
+        )
+        output_df["__in_dataframe_index"] = output_df["__in_dataframe_index"].fillna(target_base_df.shape[0] + 1)
+        self.generated_subscript_dict[key_name] = output_df["__in_dataframe_index"].to_numpy(dtype=int)
+
         return key_name
 
     def __str__(self):
@@ -537,7 +539,7 @@ class Compiler:
         self.codegen_evaluate_densities()
 
     def codegen_constrain_parameters(self):
-        self.generated_code += "def constrain_parameters(unconstrained_parameter_vector):\n"
+        self.generated_code += "def constrain_parameters(unconstrained_parameter_vector, pad=True):\n"
         self.generated_code += "    unconstrained_parameters = {}\n"
         self.generated_code += "    parameters = {}\n"
         self.generated_code += "    jacobian_adjustments = 0.0\n"
