@@ -250,7 +250,6 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
 
         carry_size = 0
 
-
         for symbol in ast.search_tree(rhs, ast.Param):
             if symbol.get_key() == self.lhs_key:
                 self.lhs_used_in_rhs = True
@@ -258,13 +257,14 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
         if self.lhs_used_in_rhs:
             self.expression_string += f"def scan_function_{self.symbol_table.get_unique_number()}(carry, index):\n"
             if self.lhs_key in self.symbol_table.first_in_group_indicator:
-                self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'][index], lambda : (0.0), lambda : carry)\n"
+                self.expression_string += (
+                    f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'][index], lambda : (0.0), lambda : carry)\n"
+                )
             self.expression_string += f"    (carry0) = carry\n"
             self.expression_string += f"    next_value = carry0 + "
             rhs.accept(self, *args, is_rhs=True, **kwargs)
             self.expression_string += "\n"
             self.expression_string += f"    return (next_value), next_value\n"
-
 
         lhs.accept(self, *args, **kwargs)
         self.expression_string += " = "

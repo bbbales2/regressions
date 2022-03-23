@@ -202,7 +202,7 @@ class SymbolTable:
                 # For parameters, allocate space on the unconstrained parameter vector and record indices
                 if record.variable_type == VariableType.PARAM:
                     nrows = base_df.shape[0]
-                    #base_df["__index"] = pd.Series(range(current_index, current_index + nrows))
+                    # base_df["__index"] = pd.Series(range(current_index, current_index + nrows))
                     record.unconstrained_vector_start_index = current_index
                     record.unconstrained_vector_end_index = current_index + nrows - 1
                     current_index += nrows
@@ -276,7 +276,7 @@ class SymbolTable:
             shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
             primary_base_df[column] = shifted_column
 
-        #target_base_df = target_record.base_df.copy().loc[:, target_record.base_df.columns != "__index"]
+        # target_base_df = target_record.base_df.copy().loc[:, target_record.base_df.columns != "__index"]
         target_base_df = target_record.base_df.copy()
         target_base_df.columns = list(target_subscript_names)
 
@@ -284,12 +284,9 @@ class SymbolTable:
 
         key_name = f"subscript__{self.generated_subscript_count}"
         self.generated_subscript_count += 1
-        output_df = pd.merge(
-            primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left"
-        )
+        output_df = pd.merge(primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left")
         if sum([1 if x != 0 else 0 for x in shift_values]) > 1:
-            self.first_in_group_indicator[target_variable_name] = (
-                ~output_df.duplicated(subset=grouping_subscripts)).to_numpy()
+            self.first_in_group_indicator[target_variable_name] = (~output_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
         output_df["__in_dataframe_index"] = output_df["__in_dataframe_index"].fillna(target_base_df.shape[0])
         self.generated_subscript_dict[key_name] = output_df["__in_dataframe_index"].to_numpy(dtype=int)
@@ -609,7 +606,9 @@ class Compiler:
             if not isinstance(top_expr, ast.Assignment):
                 continue
 
-            codegen_visitor = codegen_backends.TransformedParametersVisitor(self.symbol_table, self._get_primary_symbol_from_statement(top_expr))
+            codegen_visitor = codegen_backends.TransformedParametersVisitor(
+                self.symbol_table, self._get_primary_symbol_from_statement(top_expr)
+            )
             top_expr.accept(codegen_visitor)
             self.generated_code += "    "
             self.generated_code += codegen_visitor.expression_string
@@ -653,5 +652,10 @@ class Compiler:
             else:
                 base_df_dict[variable_name] = pd.DataFrame()
 
-        return (data_dict, base_df_dict, self.symbol_table.generated_subscript_dict,
-               self.symbol_table.first_in_group_indicator, self.generated_code)
+        return (
+            data_dict,
+            base_df_dict,
+            self.symbol_table.generated_subscript_dict,
+            self.symbol_table.first_in_group_indicator,
+            self.generated_code,
+        )
