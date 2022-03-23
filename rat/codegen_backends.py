@@ -217,11 +217,15 @@ class EvaluateDensityVisitor(BaseVisitor):
             param_node.subscript.accept(self, variable_name=param_node.name, *args, **kwargs)
             self.expression_string += "]"
 
+        # delete if not needed
+        else:
+            if self.symbol_table.lookup(param_node.name).pad_needed:
+                self.expression_string += "[:-1]"
+
     def visit_Subscript(self, subscript_node: ast.Subscript, *args, **kwargs):
         variable_name = kwargs.pop("variable_name")  # passed from EvaluateDensityVisitor.visit_Param
         subscript_names = tuple([x.name for x in subscript_node.names])
         subscript_shifts = tuple([x.value for x in subscript_node.shifts])
-        print(variable_name, subscript_names, subscript_shifts)
         subscript_key = self.symbol_table.get_subscript_key(
             self.primary_variable_name, self.primary_variable_subscript_names, variable_name, subscript_names, subscript_shifts
         )
@@ -232,14 +236,35 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
     def __init__(self, symbol_table, primary_variable):
         super(TransformedParametersVisitor, self).__init__(symbol_table, primary_variable)
         self.lhs_used_in_rhs = False
+        self.lhs_key = ""
+
+    def visit_Subscript(self, subscript_node: ast.Subscript, *args, **kwargs):
+        super().visit_Subscript(subscript_node, *args, **kwargs)
+        if "is_rhs" in kwargs:
+            self.expression_string += "[index]"
 
     def visit_Assignment(self, assignment_node: ast.Assignment, *args, **kwargs):
         lhs = assignment_node.lhs
+        self.lhs_key = lhs.get_key()
         rhs = assignment_node.rhs
 
+        carry_size = 0
+
+
         for symbol in ast.search_tree(rhs, ast.Param):
-            if symbol.get_key() == lhs.get_key():
+            if symbol.get_key() == self.lhs_key:
                 self.lhs_used_in_rhs = True
+
+        if self.lhs_used_in_rhs:
+            self.expression_string += f"def scan_function_{self.symbol_table.get_unique_number()}(carry, index):\n"
+            if self.lhs_key in self.symbol_table.first_in_group_indicator:
+                self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'][index], lambda : (0.0), lambda : carry)\n"
+            self.expression_string += f"    (carry0) = carry\n"
+            self.expression_string += f"    next_value = carry0 + "
+            rhs.accept(self, *args, is_rhs=True, **kwargs)
+            self.expression_string += "\n"
+            self.expression_string += f"    return (next_value), next_value\n"
+
 
         lhs.accept(self, *args, **kwargs)
         self.expression_string += " = "
