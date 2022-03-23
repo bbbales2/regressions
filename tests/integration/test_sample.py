@@ -24,7 +24,31 @@ def test_sample_normal_mu():
     model = Model(data_df, model_string=model_string)
     fit = model.sample(num_draws=1000)
     mu_df = fit.draws("mu")
+    leapfrog_steps_df = fit.draws("__leapfrog_steps")
+    divergences_df = fit.draws("__divergences")
 
+    assert (leapfrog_steps_df["__leapfrog_steps"] > 0).all()
+    assert (divergences_df["__divergences"] == 0).all()
+    assert mu_df["mu"].mean() == pytest.approx(-1.11, rel=1e-2)
+
+
+def test_sample_normal_mu_thin():
+    data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
+
+    model_string = """
+    y ~ normal(mu, 1.5);
+    mu ~ normal(-0.5, 0.3);
+    """
+
+    num_draws = 250
+    chains = 4
+    thin = 4
+
+    model = Model(data_df, model_string=model_string)
+    fit = model.sample(num_draws=num_draws, chains=chains, thin=thin)
+    mu_df = fit.draws("mu")
+
+    assert len(mu_df) == num_draws * chains
     assert mu_df["mu"].mean() == pytest.approx(-1.11, rel=1e-2)
 
 

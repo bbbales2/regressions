@@ -35,11 +35,13 @@ def test_nuts():
     #    qs[n] = next_draw["q"]
     #    print(qs[n], next_draw["accept_stat"])
 
-    draws = nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 1000)
+    draws, leapfrog_steps, divergences = nuts.sample(potential, rng, draw, stepsize, diagonal_inverse_metric, 1000)
 
     means = numpy.mean(draws, axis=0)
     stds = numpy.std(draws, axis=0)
 
+    assert (leapfrog_steps > 0).all()
+    assert (divergences == False).all()
     assert means == pytest.approx([17.1, 17.1], rel=0.05)
     assert stds == pytest.approx([0.3, 1.4], rel=0.10)
 
@@ -66,7 +68,7 @@ def test_multithreaded_nuts():
         for chain in range(chains):
             results.append(e.submit(generate_draws))
 
-        draws = numpy.array([result.result() for result in results])
+        draws = numpy.array([result.result()[0] for result in results])
     print(f"Total time: {time.time() - start} s")
 
     means = numpy.mean(draws, axis=(0, 1))
@@ -90,7 +92,7 @@ def test_one_draw():
 
     potential = nuts.Potential(negative_log_density, chains, size)
 
-    next_draw, accept_stat, steps = nuts.one_draw_potential(potential, rng, initial_draw, 0.005, numpy.array([1.3, 1.7]))
+    next_draw, accept_stat, steps, divergence = nuts.one_draw_potential(potential, rng, initial_draw, 0.005, numpy.array([1.3, 1.7]))
 
     assert next_draw == pytest.approx([0.9861392099298243, 0.9739089300939995])
     assert accept_stat == 1.0

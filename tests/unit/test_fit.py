@@ -35,7 +35,7 @@ def optimization_fit(scalar_constrained_draws, scalar_base_dfs):
 
 @pytest.fixture
 def sample_fit(scalar_constrained_draws, scalar_base_dfs):
-    return fit.SampleFit._from_constrained_variables(scalar_constrained_draws, scalar_base_dfs)
+    return fit.SampleFit._from_constrained_variables(scalar_constrained_draws, scalar_base_dfs, [])
 
 
 def test_optimization_save_and_reload(optimization_fit):
