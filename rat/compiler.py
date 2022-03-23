@@ -603,7 +603,7 @@ class Compiler:
         self.generated_code += "    return jacobian_adjustments, parameters\n\n"
 
     def codegen_transform_parameters(self):
-        self.generated_code += "def transform_parameters(data, subscripts, first_in_group_indicators, parameters)\n"
+        self.generated_code += "def transform_parameters(data, subscripts, first_in_group_indicators, parameters):\n"
 
         for top_expr in self.expr_tree_list:
             if not isinstance(top_expr, ast.Assignment):
@@ -639,6 +639,19 @@ class Compiler:
 
         self.symbol_table.build_base_dataframes(self.data_df)
 
-        print(self.symbol_table)
-
         self.codegen()
+
+        data_dict = {}
+        base_df_dict = {}
+
+        for column in self.data_df_columns:
+            data_dict[column] = self.data_df[column].to_numpy()
+
+        for variable_name, record in self.symbol_table.iter_records():
+            if record.base_df is not None:
+                base_df_dict[variable_name] = record.base_df
+            else:
+                base_df_dict[variable_name] = pd.DataFrame()
+
+        return (data_dict, base_df_dict, self.symbol_table.generated_subscript_dict,
+               self.symbol_table.first_in_group_indicator, self.generated_code)
