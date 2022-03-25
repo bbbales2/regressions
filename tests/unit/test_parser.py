@@ -77,7 +77,7 @@ def test_parser_rhs_index_shift():
         ),
         Param(
             name="skills_mu",
-            subscript=Subscript(names=("year", "team"), shifts=(IntegerConstant(1), IntegerConstant(0))),
+            subscript=Subscript(names=(SubscriptColumn("year"), SubscriptColumn("team")), shifts=(IntegerConstant(1), IntegerConstant(0))),
         ),
         RealConstant(1.0),
     )
@@ -98,7 +98,7 @@ def test_parser_rhs_index_shift_multiple():
         ),
         Param(
             name="skills_mu",
-            subscript=Subscript(names=("year", "team"), shifts=(IntegerConstant(value=1), PrefixNegation(IntegerConstant(1)))),
+            subscript=Subscript(names=(SubscriptColumn("year"), SubscriptColumn("team")), shifts=(IntegerConstant(value=1), PrefixNegation(IntegerConstant(1)))),
         ),
         RealConstant(1.0),
     )
@@ -118,7 +118,7 @@ def test_parser_prime():
             lower=RealConstant(0.0),
             upper=RealConstant(float("inf")),
         ),
-        Param(name="skills_mu", prime=True, subscript=Subscript(names=("year",), shifts=(IntegerConstant(0),))),
+        Param(name="skills_mu", prime=True, subscript=Subscript(names=(SubscriptColumn("year"),), shifts=(IntegerConstant(0),))),
         Param(name="skills_mu2", prime=False),
     )
     assert statement.__str__() == expected.__str__()

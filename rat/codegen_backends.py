@@ -135,7 +135,7 @@ class BaseVisitor:
 
     def visit_PrefixNegation(self, pneg_node: ast.PrefixNegation, *args, **kwargs):
         self.expression_string += "-"
-        pneg_node.accept(self, *args, **kwargs)
+        pneg_node.subexpr.accept(self, *args, **kwargs)
 
     def visit_Sqrt(self, sqrt_node: ast.Sqrt, *args, **kwargs):
         self.expression_string += "jax.numpy.sqrt("
@@ -230,14 +230,14 @@ class EvaluateDensityVisitor(BaseVisitor):
     def visit_Param(self, param_node: ast.Param, *args, **kwargs):
         self.expression_string += f"parameters['{param_node.name}']"
         if param_node.subscript:
-            self.expression_string += "["
-            param_node.subscript.accept(self, variable_name=param_node.name, *args, **kwargs)
-            self.expression_string += "]"
-
             # delete if not needed
             if self.symbol_table.lookup(param_node.name).pad_needed:
                 # if padded: remove the zero-pad
                 self.expression_string += "[:-1]"
+
+            self.expression_string += "["
+            param_node.subscript.accept(self, variable_name=param_node.name, *args, **kwargs)
+            self.expression_string += "]"
 
     def visit_Subscript(self, subscript_node: ast.Subscript, *args, **kwargs):
         variable_name = kwargs.pop("variable_name")  # passed from EvaluateDensityVisitor.visit_Param
@@ -276,7 +276,7 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
                         subscript_names, subscript_shifts
                     )
 
-                    shift = subscript_shifts[0]
+                    shift = [x for x in subscript_shifts if x != 0][0]
                     self.expression_string += f"carry{shift}"
                 else:
                     self.expression_string += f"parameters['{param_key}']"
@@ -317,7 +317,7 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
             lhs_size = lhs_record.base_df.shape[0]
 
             zero_tuple_string = f"({','.join(['0.0'] * carry_size)})"
-            carry_strings = [f"carry{n}" for n in range(carry_size)]
+            carry_strings = [f"carry{n}" for n in range(1, carry_size + 1)]
             carry_tuple_string = f"({','.join(carry_strings)})"  # (carry0, carry1, ...)
             next_carry_tuple_string = f"({','.join(['next_value'] + carry_strings[:-1])})"
             scan_function_name = f"scan_function_{self.symbol_table.get_unique_number()}"

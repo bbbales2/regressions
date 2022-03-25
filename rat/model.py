@@ -118,6 +118,8 @@ class Model:
 
             model_source_file = compile_path
 
+        print(model_source_string)
+
         with open(model_source_file, "w") as f:
             f.write(model_source_string)
 

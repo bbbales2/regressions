@@ -556,7 +556,13 @@ class Compiler:
                 )
 
     def pre_codegen_checks(self):
-        for top_expr in self.expr_tree_list:
+        N_lines = len(self.expr_tree_list)
+
+        for line_index, top_expr in enumerate(self.expr_tree_list):
+            primary_symbol = self._get_primary_symbol_from_statement(top_expr)
+            primary_key = primary_symbol.get_key()
+
+            # 1. check restrictions regarding
             match top_expr:
                 case ast.Assignment(lhs, rhs):
                     # Assume already that the left hand side is a Param
@@ -584,6 +590,27 @@ class Compiler:
                                 msg = "All nonzero shifts in a recursively assigned variable must be positive"
                                 raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
+            # 2. Check that all secondary parameter uses precede primary uses (or throw an error)
+            if isinstance(primary_symbol, ast.Param):
+                for j in range(line_index + 1, N_lines):
+                    for secondary_symbol in ast.search_tree(self.expr_tree_list[j], ast.Param):
+                        secondary_key = secondary_symbol.get_key()
+
+                        if primary_key == secondary_key and not secondary_symbol.prime:
+                            msg = f"Primary variable {primary_symbol.get_key()} used on line {line_index} but then referenced as non-prime on line {j}. The primed uses must come last"
+                            raise CompileError(msg, self.model_code_string, primary_symbol.line_index,
+                                               primary_symbol.column_index)
+
+            # 3. Parameters cannot be used after they are assigned
+            match top_expr:
+                case ast.Assignment(lhs):
+                    for j in range(line_index + 1, N_lines):
+                        lhs_key = lhs.get_key()
+                        for symbol in ast.search_tree(self.expr_tree_list[j], ast.Param):
+                            symbol_key = symbol.get_key()
+                            if symbol_key == lhs_key:
+                                msg = f"Parameter {lhs.get_key()} is assigned on line {line_index} but used on line {j}. A variable cannot be used after it is assigned"
+                                raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
 
     def codegen(self):
         self.generated_code = ""
@@ -620,7 +647,7 @@ class Compiler:
             index_string = (
                 f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index + 1}"
                 if record.unconstrained_vector_start_index != record.unconstrained_vector_end_index
-                else f"{record.unconstrained_vector_start_index}"
+                else f"[{record.unconstrained_vector_start_index}]"
             )
             self.generated_code += f"    {unconstrained_reference} = unconstrained_parameter_vector[..., {index_string}]\n"
 
@@ -662,6 +689,10 @@ class Compiler:
         self.generated_code += "def evaluate_densities(data, subscripts, parameters):\n"
         self.generated_code += "    target = 0.0\n"
 
+        self.generated_code += "    print('BEGIN OUTPUT')\n"
+        self.generated_code += "    for key, val in parameters.items(): print(f'{key}:{val.shape}')\n"
+        self.generated_code += "    print('END OUTPUT')\n"
+
         for top_expr in self.expr_tree_list:
             if not isinstance(top_expr, ast.Distr):
                 continue
@@ -695,12 +726,6 @@ class Compiler:
                     base_df_dict[variable_name] = record.base_df
                 else:
                     base_df_dict[variable_name] = pd.DataFrame()
-
-        print(list(data_dict.keys()))
-        print(list(self.symbol_table.generated_subscript_dict.keys()))
-        print(list(self.symbol_table.first_in_group_indicator.keys()))
-        print(list(base_df_dict.keys()))
-
 
         return (data_dict, base_df_dict, self.symbol_table.generated_subscript_dict,
                self.symbol_table.first_in_group_indicator, self.generated_code)

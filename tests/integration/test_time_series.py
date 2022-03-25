@@ -159,7 +159,7 @@ def test_optimize_time_series_2_error():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    with pytest.raises(CompileError, match="must be renamed"):
+    with pytest.raises(CompileError, match="not in scope"):
         model = Model(data_df, model_string=model_string)
 
 

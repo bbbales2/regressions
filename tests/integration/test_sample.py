@@ -7,7 +7,7 @@ import pytest
 
 from rat import ast
 from rat.model import Model
-from rat.ast import IntegerConstant
+from rat.ast import IntegerConstant, SubscriptColumn
 from pathlib import Path
 
 test_dir = pathlib.Path(__file__).parent
@@ -74,41 +74,15 @@ def test_full():
         .assign(year=lambda df: df["date"].str[0:4].astype("int"))
     )
 
-    parsed_lines = [
-        ops.Normal(
-            ops.Data("score_diff", prime=True),
-            ops.Diff(
-                ops.Param("skills", subscript=ops.Subscript(("home_team", "year"), shifts=(IntegerConstant(0), IntegerConstant(0)))),
-                ops.Param("skills", subscript=ops.Subscript(("away_team", "year"), shifts=(IntegerConstant(0), IntegerConstant(0)))),
-            ),
-            ops.Param("sigma"),
-        ),
-        ops.Normal(
-            ops.Param("skills", prime=True, subscript=ops.Subscript(("team", "year"), shifts=(IntegerConstant(0), IntegerConstant(0)))),
-            ops.Param("skills_mu", subscript=ops.Subscript(("year",))),
-            ops.Param("tau"),
-        ),
-        ops.Normal(
-            ops.Param(
-                "skills_mu",
-                subscript=ops.Subscript(("year",)),
-            ),
-            ops.RealConstant(0.0),
-            ops.RealConstant(1.0),
-        ),
-        ops.Normal(
-            ops.Param("tau", lower=ops.RealConstant(0.0)),
-            ops.RealConstant(0.0),
-            ops.RealConstant(1.0),
-        ),
-        ops.Normal(
-            ops.Param("sigma", lower=ops.RealConstant(0.0)),
-            ops.RealConstant(0.0),
-            ops.RealConstant(1.0),
-        ),
-    ]
+    model_string = """
+    score_diff' ~ normal(skills[home_team, year] - skills[away_team, year], sigma);
+    skills[team, year]' ~ normal(skills_mu[year], tau);
+    skills_mu[year] ~ normal(0.0, 1.0);
+    tau<lower = 0.0> ~ normal(0.0, 1.0);
+    sigma<lower = 0.0> ~ normal(0.0, 1.0);
+    """
 
-    model = Model(data_df, parsed_lines=parsed_lines)
+    model = Model(data_df, model_string=model_string)
     fit = model.sample(num_draws=20, num_warmup=201)
 
     tau_df = fit.draws("tau")

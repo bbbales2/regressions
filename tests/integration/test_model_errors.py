@@ -14,7 +14,7 @@ def test_optimize_missing_prior_or_assign():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     parsed_lines = [
-        ops.Normal(ops.Data("y"), ops.Param("theta", ops.Subscript(("school",))), ops.Data("sigma")),
+        ast.Normal(ast.Data("y"), ast.Param("theta", ast.Subscript(names=(ast.SubscriptColumn("school"), ), shifts=(ast.IntegerConstant(0), ))), ast.Data("sigma")),
     ]
 
     with pytest.raises(Exception):
@@ -25,7 +25,7 @@ def test_optimize_unknown_subscript():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     parsed_lines = [
-        ops.Normal(ops.Data("y"), ops.Param("theta", ops.Subscript(("rabbit",))), ops.Data("sigma")),
+        ast.Normal(ast.Data("y"), ast.Param("theta", ast.Subscript(names=(ast.SubscriptColumn("rabbit"),), shifts=(ast.IntegerConstant(0),))), ast.Data("sigma")),
     ]
 
     with pytest.raises(Exception):
@@ -36,8 +36,8 @@ def test_optimize_missing_subscript():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     parsed_lines = [
-        ops.Normal(ops.Data("y"), ops.Param("theta", ops.Subscript(("school",))), ops.Data("sigma")),
-        ops.Normal(ops.Param("theta"), ops.RealConstant(0.0), ops.RealConstant(5.0)),
+        ast.Normal(ast.Data("y"), ast.Param("theta", ast.Subscript(names=(ast.SubscriptColumn("school"),), shifts=(ast.IntegerConstant(0),))), ast.Data("sigma")),
+        ast.Normal(ast.Param("theta"), ast.RealConstant(0.0), ast.RealConstant(5.0)),
     ]
 
     with pytest.raises(Exception):

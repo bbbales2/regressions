@@ -1,17 +1,18 @@
 import pandas
 import pytest
-from rat import variables
 from rat.scanner import Scanner
 from rat.parser import Parser
 from rat.math import log_normal
-
+from rat.ast import LogNormal, Data
 
 def test_log_normal_parser():
     model_string = "y ~ log_normal(mu, sigma');"
 
     parsed = Parser(Scanner(model_string).scan()[0], ["y", "mu", "sigma"], model_string).statement()
 
-    assert str(parsed) == "LogNormal(Data(y, False), Data(mu, False), Data(sigma, True))"
+    expected = LogNormal(Data("y", prime=False), Data("mu", prime=False), Data("sigma", prime=True))
+
+    assert str(parsed) == str(expected)
 
 
 def test_log_normal_values():
