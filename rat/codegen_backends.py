@@ -299,11 +299,16 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
 
         carry_size = 0
 
+        need_first_in_group_indicator = False
+
         for symbol in ast.search_tree(rhs, ast.Param):
             if symbol.get_key() == self.lhs_key:
                 self.lhs_used_in_rhs = True
 
                 shifts = symbol.subscript.shifts
+
+                if len(shifts) > 1:
+                    need_first_in_group_indicator = True
                 carry_size = max(carry_size, *[shift.value for shift in shifts])
 
         self.expression_string += f"# Assigned param: {self.lhs_key}\n"
@@ -318,8 +323,8 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
             scan_function_name = f"scan_function_{self.symbol_table.get_unique_number()}"
 
             self.expression_string += f"def {scan_function_name}(carry, index):\n"
-            if self.lhs_key in self.symbol_table.first_in_group_indicator:
-                self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'], lambda : {zero_tuple_string}, lambda : carry)\n"
+            if need_first_in_group_indicator:
+                self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'][index], lambda : {zero_tuple_string}, lambda : carry)\n"
             self.expression_string += f"    {carry_tuple_string} = carry\n"
             self.expression_string += f"    next_value = "
             self.at_rhs = True

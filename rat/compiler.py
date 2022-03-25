@@ -56,6 +56,8 @@ class TableRecord:
     subscripts: If subscripts exist, the "true" subscript set of the variable. All subscripts aliases effectively
     point to one or more columns of the input dataframe. Those columns of the input dataframe are the true subscripts
     of the variable. If the variable has 2 subscripts, it is stored as {(column_1, column_2), ...}
+    shifts: set of shift combinations used for this parameter. For example, param[shift(sub_1, 1), sub_2] would be saved
+    as (1, 0)
     subscript_length: the length of the subscript, that is, how many subscripts are declared for the variable.
     subscript_alias: This is the "fake" subscript names, declared by the user for the variable. These values are used
     as column names of the base dataframe
@@ -73,6 +75,7 @@ class TableRecord:
     name: str
     variable_type: VariableType
     subscripts: Set[Tuple[str]]  # tuple of (subscript_name, subscript_name, ...)
+    #shifts: Set[Tuple[int]]
     subscript_length: int = field(default=0)
     subscript_alias: Tuple[str] = field(default=tuple())
     constraint_lower: float = field(default=float("-inf"))
@@ -289,7 +292,7 @@ class SymbolTable:
 
         # number of columns being subscripted
         n_shifts = len(target_shift_amounts)
-        if n_shifts > 1:
+        if n_shifts > 1 and target_record.variable_type == VariableType.ASSIGNED_PARAM:
             self.first_in_group_indicator[target_variable_name] = (
                 ~output_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
