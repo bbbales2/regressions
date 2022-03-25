@@ -75,7 +75,7 @@ class TableRecord:
     name: str
     variable_type: VariableType
     subscripts: Set[Tuple[str]]  # tuple of (subscript_name, subscript_name, ...)
-    #shifts: Set[Tuple[int]]
+    # shifts: Set[Tuple[int]]
     subscript_length: int = field(default=0)
     subscript_alias: Tuple[str] = field(default=tuple())
     constraint_lower: float = field(default=float("-inf"))
@@ -286,15 +286,12 @@ class SymbolTable:
 
         key_name = f"subscript__{self.generated_subscript_count}"
         self.generated_subscript_count += 1
-        output_df = pd.merge(
-            primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left"
-        )
+        output_df = pd.merge(primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left")
 
         # number of columns being subscripted
         n_shifts = len(target_shift_amounts)
         if n_shifts > 1 and target_record.variable_type == VariableType.ASSIGNED_PARAM:
-            self.first_in_group_indicator[target_variable_name] = (
-                ~output_df.duplicated(subset=grouping_subscripts)).to_numpy()
+            self.first_in_group_indicator[target_variable_name] = (~output_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
         output_df["__in_dataframe_index"] = output_df["__in_dataframe_index"].fillna(target_base_df.shape[0])
         self.generated_subscript_dict[key_name] = output_df["__in_dataframe_index"].to_numpy(dtype=int)
@@ -598,8 +595,7 @@ class Compiler:
 
                         if primary_key == secondary_key and not secondary_symbol.prime:
                             msg = f"Primary variable {primary_symbol.get_key()} used on line {line_index} but then referenced as non-prime on line {j}. The primed uses must come last"
-                            raise CompileError(msg, self.model_code_string, primary_symbol.line_index,
-                                               primary_symbol.column_index)
+                            raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
 
             # 3. Parameters cannot be used after they are assigned
             match top_expr:

@@ -5,6 +5,7 @@ from rat.parser import Parser
 from rat.math import log_normal
 from rat.ast import LogNormal, Data
 
+
 def test_log_normal_parser():
     model_string = "y ~ log_normal(mu, sigma');"
 

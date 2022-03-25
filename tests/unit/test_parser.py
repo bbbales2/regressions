@@ -98,7 +98,10 @@ def test_parser_rhs_index_shift_multiple():
         ),
         Param(
             name="skills_mu",
-            subscript=Subscript(names=(SubscriptColumn("year"), SubscriptColumn("team")), shifts=(IntegerConstant(value=1), PrefixNegation(IntegerConstant(1)))),
+            subscript=Subscript(
+                names=(SubscriptColumn("year"), SubscriptColumn("team")),
+                shifts=(IntegerConstant(value=1), PrefixNegation(IntegerConstant(1))),
+            ),
         ),
         RealConstant(1.0),
     )

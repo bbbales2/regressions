@@ -11,7 +11,7 @@ from . import ast
 
 
 class IndentedString:
-    def __init__(self, indent_level = 0):
+    def __init__(self, indent_level=0):
         self.prefix = " " * indent_level
         self.string = self.prefix
 
@@ -272,8 +272,7 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
                     subscript_names = tuple([x.name for x in subscript_node.names])
                     subscript_shifts = tuple([x.value for x in subscript_node.shifts])
                     subscript_key = self.symbol_table.get_subscript_key(
-                        self.primary_variable_name, self.primary_variable_subscript_names, param_key,
-                        subscript_names, subscript_shifts
+                        self.primary_variable_name, self.primary_variable_subscript_names, param_key, subscript_names, subscript_shifts
                     )
 
                     shift = [x for x in subscript_shifts if x != 0][0]
