@@ -642,7 +642,7 @@ class Compiler:
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             index_string = (
                 f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index + 1}"
-                if record.unconstrained_vector_start_index != record.unconstrained_vector_end_index
+                if record.subscript_length > 0
                 else f"[{record.unconstrained_vector_start_index}]"
             )
             self.generated_code += f"    {unconstrained_reference} = unconstrained_parameter_vector[..., {index_string}]\n"
