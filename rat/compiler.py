@@ -674,7 +674,7 @@ class Compiler:
                 continue
 
             codegen_visitor = codegen_backends.TransformedParametersVisitor(
-                self.symbol_table, self._get_primary_symbol_from_statement(top_expr)
+                self.symbol_table, self._get_primary_symbol_from_statement(top_expr), indent=4
             )
 
             top_expr.accept(codegen_visitor)
