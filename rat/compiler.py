@@ -205,7 +205,7 @@ class SymbolTable:
                 # For parameters, allocate space on the unconstrained parameter vector and record indices
                 if record.variable_type == VariableType.PARAM:
                     nrows = base_df.shape[0]
-                    #base_df["__index"] = pd.Series(range(current_index, current_index + nrows))
+                    # base_df["__index"] = pd.Series(range(current_index, current_index + nrows))
                     record.unconstrained_vector_start_index = current_index
                     record.unconstrained_vector_end_index = current_index + nrows - 1
                     current_index += nrows
@@ -677,7 +677,10 @@ class Compiler:
             if not isinstance(top_expr, ast.Assignment):
                 continue
 
-            codegen_visitor = codegen_backends.TransformedParametersVisitor(self.symbol_table, self._get_primary_symbol_from_statement(top_expr), indent=4)
+            codegen_visitor = codegen_backends.TransformedParametersVisitor(
+                self.symbol_table, self._get_primary_symbol_from_statement(top_expr)
+            )
+
             top_expr.accept(codegen_visitor)
             self.generated_code += codegen_visitor.get_expression_string()
             self.generated_code += "\n"
@@ -723,5 +726,10 @@ class Compiler:
                 else:
                     base_df_dict[variable_name] = pd.DataFrame()
 
-        return (data_dict, base_df_dict, self.symbol_table.generated_subscript_dict,
-               self.symbol_table.first_in_group_indicator, self.generated_code)
+        return (
+            data_dict,
+            base_df_dict,
+            self.symbol_table.generated_subscript_dict,
+            self.symbol_table.first_in_group_indicator,
+            self.generated_code,
+        )

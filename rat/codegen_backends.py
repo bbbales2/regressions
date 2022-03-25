@@ -300,7 +300,6 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
         carry_size = 0
 
         need_first_in_group_indicator = False
-
         for symbol in ast.search_tree(rhs, ast.Param):
             if symbol.get_key() == self.lhs_key:
                 self.lhs_used_in_rhs = True
