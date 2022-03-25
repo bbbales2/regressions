@@ -689,10 +689,6 @@ class Compiler:
         self.generated_code += "def evaluate_densities(data, subscripts, parameters):\n"
         self.generated_code += "    target = 0.0\n"
 
-        self.generated_code += "    print('BEGIN OUTPUT')\n"
-        self.generated_code += "    for key, val in parameters.items(): print(f'{key}:{val.shape}')\n"
-        self.generated_code += "    print('END OUTPUT')\n"
-
         for top_expr in self.expr_tree_list:
             if not isinstance(top_expr, ast.Distr):
                 continue
