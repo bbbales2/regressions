@@ -154,7 +154,7 @@ class SymbolTable:
                 constraint_upper=constraint_upper,
             )
 
-    def lookup(self, variable_name: str):
+    def lookup(self, variable_name: str) -> TableRecord:
         """
         Dictionary indexing
         """
@@ -276,7 +276,6 @@ class SymbolTable:
             shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
             primary_base_df[column] = shifted_column
 
-        #target_base_df = target_record.base_df.copy().loc[:, target_record.base_df.columns != "__index"]
         target_base_df = target_record.base_df.copy()
         target_base_df.columns = list(target_subscript_names)
 
@@ -287,7 +286,10 @@ class SymbolTable:
         output_df = pd.merge(
             primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left"
         )
-        if sum([1 if x != 0 else 0 for x in shift_values]) > 1:
+
+        # number of columns being subscripted
+        n_shifts = len(target_shift_amounts)
+        if n_shifts > 1:
             self.first_in_group_indicator[target_variable_name] = (
                 ~output_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
@@ -311,7 +313,6 @@ class Compiler:
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
         self.symbol_table: SymbolTable = None
-        self.base_df: Dict[str, pd.DataFrame] = {}
         self.generated_code = ""
 
     def _get_primary_symbol_from_statement(self, top_expr):
@@ -390,6 +391,11 @@ class Compiler:
         self.symbol_table = SymbolTable(self.data_df)
 
         for top_expr in self.expr_tree_list:
+            if isinstance(top_expr, ast.Distr):
+                lhs_variable_key = top_expr.variate.get_key()
+            elif isinstance(top_expr, ast.Assignment):
+                lhs_variable_key = top_expr.lhs.get_key()
+
             primary_variable = self._get_primary_symbol_from_statement(top_expr)
             primary_variable_key = primary_variable.get_key()
 
@@ -451,75 +457,76 @@ class Compiler:
                 self.symbol_table.upsert(variable_name=top_expr.lhs.name, variable_type=VariableType.ASSIGNED_PARAM)
 
             # iterate through the remaining non-primary variables, resolving subscripts according to primary's subscripts
-            for param in ast.search_tree(top_expr, ast.Param):
-                param_key = param.get_key()
+            for variable in ast.search_tree(top_expr, ast.Param, ast.Data):
+                variable_key = variable.get_key()
+
+                if isinstance(variable, ast.Data):
+                    self.symbol_table.upsert(variable_name=variable_key, variable_type=VariableType.DATA)
+                    continue
 
                 # If there are constraints, we evaluate their values and store them on the symbol table
                 try:
                     lower_constraint_evaluator = codegen_backends.BaseVisitor(self.symbol_table)
-                    param.lower.accept(lower_constraint_evaluator)
-                    lower_constraint_value = float(eval(lower_constraint_evaluator.expression_string))
+                    variable.lower.accept(lower_constraint_evaluator)
+                    lower_constraint_value = float(eval(lower_constraint_evaluator.get_expression_string()))
 
                     upper_constraint_evaluator = codegen_backends.BaseVisitor(self.symbol_table)
-                    param.upper.accept(upper_constraint_evaluator)
-                    upper_constraint_value = float(eval(upper_constraint_evaluator.expression_string))
+                    variable.upper.accept(upper_constraint_evaluator)
+                    upper_constraint_value = float(eval(upper_constraint_evaluator.get_expression_string()))
                 except Exception as e:
-                    error_msg = f"Failed evaluating constraints for parameter {param_key}"
+                    error_msg = f"Failed evaluating constraints for parameter {variable_key}"
                     raise CompileError(error_msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index) from e
                 else:
                     self.symbol_table.upsert(
-                        variable_name=param_key, constraint_lower=lower_constraint_value, constraint_upper=upper_constraint_value
+                        variable_name=variable_key, constraint_lower=lower_constraint_value, constraint_upper=upper_constraint_value
                     )
                 ###########
 
                 # The following operations are done for subscripts only
-                if not param.subscript:
+                if not variable.subscript:
                     continue
-
-                # if param_key == primary_variable_key:
-                #     continue
 
                 # fold shift values into IntegerConstant if it's an expression instead of a constant
                 folded_shift_exprs: List[ast.IntegerConstant] = []
-                for shift_expr in param.subscript.shifts:
+                for shift_expr in variable.subscript.shifts:
                     if isinstance(shift_expr, ast.IntegerConstant):
                         folded_shift_exprs.append(shift_expr)
                     else:
                         try:
                             shift_code_visitor = codegen_backends.BaseVisitor(self.symbol_table)
                             shift_expr.accept(shift_code_visitor)
-                            folded_integerconstant = ast.IntegerConstant(value=int(eval(shift_code_visitor.expression_string)))
+                            folded_integerconstant = ast.IntegerConstant(value=int(eval(shift_code_visitor.get_expression_string())))
                             folded_shift_exprs.append(folded_integerconstant)
 
                         except Exception as e:
-                            error_msg = f"Failed evaluating shift amounts for parameter {param_key}. Shift amount expressions must be an expression which can be evaluated at compile-time."
+                            error_msg = f"Failed evaluating shift amounts for parameter {variable_key}. Shift amount expressions must be an expression which can be evaluated at compile-time."
                             raise CompileError(error_msg, self.model_code_string, shift_expr.line_index, shift_expr.column_index) from e
 
                 # If there is shift, set pad needed to True
                 for integer_constant in folded_shift_exprs:
                     if integer_constant.value != 0:
-                        self.symbol_table.lookup(param_key).pad_needed = True
+                        self.symbol_table.lookup(variable_key).pad_needed = True
                         break
-                param.subscript.shifts = folded_shift_exprs
+                variable.subscript.shifts = folded_shift_exprs
                 ###########
 
                 # Determine type of the variable. If its name exists in the input dataframe, it's a data variable.
                 # Param is the default value. Assigned params are upserted when the compiler identifies it being used on
                 # the LHS of an assignment.
                 try:
-                    var_type = self.symbol_table.lookup(param_key).variable_type
+                    var_type = self.symbol_table.lookup(variable_key).variable_type
                 except KeyError:
-                    var_type = VariableType.DATA if param_key in self.data_df_columns else VariableType.PARAM
+                    var_type = VariableType.DATA if variable_key in self.data_df_columns else VariableType.PARAM
                 ###########
 
                 # We "resolve" subscripts, so every single parameters' subscripts can be described with only the input
                 # dataframe's columns. The symbol table holds the "true" subscript columns for each parameter.
-                n_subscripts = len(param.subscript.names)
+                n_subscripts = len(variable.subscript.names)
                 subscript_list = [[] for _ in range(n_subscripts)]
 
                 variable_subscript_alias: List[str] = []  # This list holds the actual column names of the base DF
                 for index in range(n_subscripts):
-                    subscript_column = param.subscript.names[index]
+                    subscript_column = variable.subscript.names[index]
                     subscript_name = subscript_column.name
 
                     if subscript_name in subscript_aliases:
@@ -536,13 +543,44 @@ class Compiler:
                     variable_subscript_alias.append(subscript_name)
 
                 # store the "true" subscripts
-                # ex) sub_1 = {sub_2, sub_3, sub_4}
-                # then the true subscripts of param[sub_1, x] is [(sub_2, x), (sub_3, x), (sub_4, x)]
+                # ex) let sub_1 := {sub_2, sub_3, sub_4}
+                # then the true subscripts of param[sub_1, x] is [(sub_2, x), (sub_3, x), (sub_4, x)],
+                # with subscript length 2
                 unrolled_subscripts = [tuple(x) for x in itertools.product(*subscript_list)]
 
                 self.symbol_table.upsert(
-                    param_key, var_type, subscripts=set(unrolled_subscripts), subscript_alias=tuple(variable_subscript_alias)
+                    variable_key, var_type, subscripts=set(unrolled_subscripts), subscript_alias=tuple(variable_subscript_alias)
                 )
+
+    def pre_codegen_checks(self):
+        for top_expr in self.expr_tree_list:
+            match top_expr:
+                case ast.Assignment(lhs, rhs):
+                    # Assume already that the left hand side is a Param
+                    assigned_key = lhs.get_key()
+
+                    # The left hand side is written by the assignment but will be updated
+                    # after the scan is complete and should not be marked
+                    for symbol in ast.search_tree(rhs, ast.Param):
+                        symbol_key = symbol.get_key()
+
+                        if assigned_key == symbol_key:
+                            symbol.assigned_by_scan = True
+
+                            if symbol.subscript is None or all(shift is None for shift in symbol.subscript.shifts):
+                                msg = f"Recursively assigning {symbol_key} requires a shifted subscript on the right hand side reference"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            shifts = [shift.value for shift in symbol.subscript.shifts]
+
+                            if sum(shift != 0 for shift in shifts) != 1:
+                                msg = "Exactly one (no more, no less) subscripts can be shifted in a recursively assigned variable"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            if any(shift < 0 for shift in shifts):
+                                msg = "All nonzero shifts in a recursively assigned variable must be positive"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
 
     def codegen(self):
         self.generated_code = ""
@@ -605,14 +643,14 @@ class Compiler:
     def codegen_transform_parameters(self):
         self.generated_code += "def transform_parameters(data, subscripts, first_in_group_indicators, parameters):\n"
 
-        for top_expr in self.expr_tree_list:
+        for top_expr in list(reversed(self.expr_tree_list)):
             if not isinstance(top_expr, ast.Assignment):
                 continue
 
-            codegen_visitor = codegen_backends.TransformedParametersVisitor(self.symbol_table, self._get_primary_symbol_from_statement(top_expr))
+            codegen_visitor = codegen_backends.TransformedParametersVisitor(self.symbol_table, self._get_primary_symbol_from_statement(top_expr), indent=4)
             top_expr.accept(codegen_visitor)
-            self.generated_code += "    "
-            self.generated_code += codegen_visitor.expression_string
+            self.generated_code += codegen_visitor.get_expression_string()
+            self.generated_code += "\n"
 
         self.generated_code += "\n"
         self.generated_code += "    return parameters\n\n"
@@ -627,7 +665,7 @@ class Compiler:
 
             codegen_visitor = codegen_backends.EvaluateDensityVisitor(self.symbol_table, self._get_primary_symbol_from_statement(top_expr))
             top_expr.accept(codegen_visitor)
-            self.generated_code += f"    target += jax.numpy.sum({codegen_visitor.expression_string})\n"
+            self.generated_code += f"    target += jax.numpy.sum({codegen_visitor.get_expression_string()})\n"
 
         self.generated_code += "\n"
         self.generated_code += "    return target\n"
@@ -639,19 +677,27 @@ class Compiler:
 
         self.symbol_table.build_base_dataframes(self.data_df)
 
+        self.pre_codegen_checks()
+
         self.codegen()
 
         data_dict = {}
         base_df_dict = {}
 
-        for column in self.data_df_columns:
-            data_dict[column] = self.data_df[column].to_numpy()
-
         for variable_name, record in self.symbol_table.iter_records():
-            if record.base_df is not None:
-                base_df_dict[variable_name] = record.base_df
+            if record.variable_type == VariableType.DATA:
+                data_dict[variable_name] = jax.numpy.array(self.data_df[variable_name].to_numpy())
             else:
-                base_df_dict[variable_name] = pd.DataFrame()
+                if record.base_df is not None:
+                    base_df_dict[variable_name] = record.base_df
+                else:
+                    base_df_dict[variable_name] = pd.DataFrame()
+
+        print(list(data_dict.keys()))
+        print(list(self.symbol_table.generated_subscript_dict.keys()))
+        print(list(self.symbol_table.first_in_group_indicator.keys()))
+        print(list(base_df_dict.keys()))
+
 
         return (data_dict, base_df_dict, self.symbol_table.generated_subscript_dict,
                self.symbol_table.first_in_group_indicator, self.generated_code)

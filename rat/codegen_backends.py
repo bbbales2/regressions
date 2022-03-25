@@ -10,11 +10,28 @@ if TYPE_CHECKING:
 from . import ast
 
 
+class IndentedString:
+    def __init__(self, indent_level = 0):
+        self.prefix = " " * indent_level
+        self.string = self.prefix
+
+    def __iadd__(self, other: str):
+        self.string += other.replace("\n", f"\n{self.prefix}")
+        return self
+
+    def __str__(self):
+        return self.string
+
+
 class BaseVisitor:
-    def __init__(self, symbol_table: "compiler_rewrite.SymbolTable", primary_variable=None):
-        self.expression_string = ""
+    def __init__(self, symbol_table: "compiler_rewrite.SymbolTable", primary_variable=None, indent=0):
+        self.expression_string = IndentedString(indent_level=indent)
         self.symbol_table = symbol_table
         self.primary_variable = primary_variable
+        self.indent = indent
+
+    def get_expression_string(self):
+        return self.expression_string.string
 
     def visit_IntegerConstant(self, integer_node: ast.IntegerConstant, *args, **kwargs):
         self.expression_string += str(integer_node.value)
@@ -197,8 +214,8 @@ class BaseVisitor:
 
 
 class EvaluateDensityVisitor(BaseVisitor):
-    def __init__(self, symbol_table, primary_variable):
-        super(EvaluateDensityVisitor, self).__init__(symbol_table, primary_variable)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.primary_variable_name = self.primary_variable.name
         if self.primary_variable.subscript:
             self.primary_variable_subscript_names = tuple(
@@ -217,9 +234,9 @@ class EvaluateDensityVisitor(BaseVisitor):
             param_node.subscript.accept(self, variable_name=param_node.name, *args, **kwargs)
             self.expression_string += "]"
 
-        # delete if not needed
-        else:
+            # delete if not needed
             if self.symbol_table.lookup(param_node.name).pad_needed:
+                # if padded: remove the zero-pad
                 self.expression_string += "[:-1]"
 
     def visit_Subscript(self, subscript_node: ast.Subscript, *args, **kwargs):
@@ -233,15 +250,47 @@ class EvaluateDensityVisitor(BaseVisitor):
 
 
 class TransformedParametersVisitor(EvaluateDensityVisitor):
-    def __init__(self, symbol_table, primary_variable):
-        super(TransformedParametersVisitor, self).__init__(symbol_table, primary_variable)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.lhs_used_in_rhs = False
         self.lhs_key = ""
+        self.at_rhs = False
 
     def visit_Subscript(self, subscript_node: ast.Subscript, *args, **kwargs):
         super().visit_Subscript(subscript_node, *args, **kwargs)
-        if "is_rhs" in kwargs:
+        if self.at_rhs:
             self.expression_string += "[index]"
+
+    def visit_Param(self, param_node: ast.Param, *args, **kwargs):
+        param_key = param_node.get_key()
+
+        if param_node.subscript:
+            if param_key == self.lhs_key:
+                if self.at_rhs:
+                    # scan function
+                    subscript_node = param_node.subscript
+                    subscript_names = tuple([x.name for x in subscript_node.names])
+                    subscript_shifts = tuple([x.value for x in subscript_node.shifts])
+                    subscript_key = self.symbol_table.get_subscript_key(
+                        self.primary_variable_name, self.primary_variable_subscript_names, param_key,
+                        subscript_names, subscript_shifts
+                    )
+
+                    shift = subscript_shifts[0]
+                    self.expression_string += f"carry{shift}"
+                else:
+                    self.expression_string += f"parameters['{param_key}']"
+                    # self.expression_string += "["
+                    # param_node.subscript.accept(self, variable_name=param_node.name, *args, **kwargs)
+                    # self.expression_string += "]"
+            elif param_key != self.lhs_key:
+                self.expression_string += f"parameters['{param_key}']"
+                self.expression_string += "["
+                param_node.subscript.accept(self, variable_name=param_node.name, *args, **kwargs)
+                self.expression_string += "]"
+
+        else:
+            self.expression_string += f"parameters['{param_key}']"
 
     def visit_Assignment(self, assignment_node: ast.Assignment, *args, **kwargs):
         lhs = assignment_node.lhs
@@ -250,22 +299,42 @@ class TransformedParametersVisitor(EvaluateDensityVisitor):
 
         carry_size = 0
 
-
         for symbol in ast.search_tree(rhs, ast.Param):
             if symbol.get_key() == self.lhs_key:
                 self.lhs_used_in_rhs = True
 
+                shifts = symbol.subscript.shifts
+                carry_size = max(carry_size, *[shift.value for shift in shifts])
+
+        self.expression_string += f"# Assigned param: {self.lhs_key}\n"
         if self.lhs_used_in_rhs:
-            self.expression_string += f"def scan_function_{self.symbol_table.get_unique_number()}(carry, index):\n"
+            lhs_record = self.symbol_table.lookup(self.lhs_key)
+            lhs_size = lhs_record.base_df.shape[0]
+
+            zero_tuple_string = f"({','.join(['0.0'] * carry_size)})"
+            carry_strings = [f"carry{n}" for n in range(carry_size)]
+            carry_tuple_string = f"({','.join(carry_strings)})"  # (carry0, carry1, ...)
+            next_carry_tuple_string = f"({','.join(['next_value'] + carry_strings[:-1])})"
+            scan_function_name = f"scan_function_{self.symbol_table.get_unique_number()}"
+
+            self.expression_string += f"def {scan_function_name}(carry, index):\n"
             if self.lhs_key in self.symbol_table.first_in_group_indicator:
-                self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'][index], lambda : (0.0), lambda : carry)\n"
-            self.expression_string += f"    (carry0) = carry\n"
-            self.expression_string += f"    next_value = carry0 + "
-            rhs.accept(self, *args, is_rhs=True, **kwargs)
+                self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'], lambda : {zero_tuple_string}, lambda : carry)\n"
+            self.expression_string += f"    {carry_tuple_string} = carry\n"
+            self.expression_string += f"    next_value = "
+            self.at_rhs = True
+            rhs.accept(self, *args, **kwargs)
+            self.at_rhs = False
             self.expression_string += "\n"
-            self.expression_string += f"    return (next_value), next_value\n"
+            self.expression_string += f"    return {next_carry_tuple_string}, next_value\n\n"
 
+            self.expression_string += "_, "
+            lhs.accept(self, *args, **kwargs)
+            self.expression_string += f" = jax.lax.scan({scan_function_name}, {zero_tuple_string}, jax.numpy.arange({lhs_size}))"
+            self.expression_string += "\n"
 
-        lhs.accept(self, *args, **kwargs)
-        self.expression_string += " = "
-        rhs.accept(self, *args, **kwargs)
+        else:
+            lhs.accept(self, *args, **kwargs)
+            self.expression_string += " = "
+            rhs.accept(self, *args, **kwargs)
+            self.expression_string += "\n"
