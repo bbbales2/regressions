@@ -103,7 +103,7 @@ offense_summary_df = (
 
 ## Basics
 
-Rat syntax is built for writing vectorized expressions across dataframes. The idea
+Rat syntax is built for writing vectorized calculations across dataframes. The idea
 is that this is a useful framework for conceptualizing multilevel regressions, and
 Rat tries to make it easy to do this in code.
 
@@ -240,7 +240,7 @@ be a parameter, not data). Transformed parameters are immutable, so once they ar
 they cannot be changed. All uses of a transformed parameter must preceed the definition. This
 may seem non-intuitive coming from other languages, but in Rat parameter use defines the
 parameters themselves -- the assignment will simply guarantee that the necessary values
-get set. Effectively Rat statements will be executed in reverse order as they are written.
+get set. Rat statements will effectively be executed in reverse order as they are written.
 
 In the final statement the prior for `skill_z` is defined. Because `skill_z` is the only variable
 in the statement, its dataframe will be the primary dataframe (and there is no need to prime it
@@ -265,131 +265,6 @@ Constraints can only be used on parameters.
 The constraint goes after the parameter name but before the subscripts. Rat
 supports a `lower`, `upper` and a combination of the two constraints.
 
-----
-
-
-## Priors
-
-Priors in Rat are sampling statements that are not likelihoods (the name on the
-left hand side does not appear in the input dataframe). Priors cannot reference
-columns of the input dataframe (it's an error).
-
-The above example can be extended to have a prior on `skill`:
-
-```
-score_diff ~ normal(skill[home_team], sigma);
-skill[home_team] ~ normal(0.0, tau);
-```
-
-The first line defines `skill` by its use (it is a parameter with as many entries
-as there are unique values of `home_team`). The second line says, for any entry of
-skill, use a normal with standard deviation `tau`. Because `tau` is not used
-anywhere yet, Rat will infer that it is a new scalar random variable.
-
-The `home_team` subscript on the second line *matches* the subscript in the original
-use. In the example above, this probably seems extraneous, but it is useful in more
-complex cases. First consider a two-sided skill model:
-
-```
-score_diff ~ normal(skill[home_team] - skill[away_team], sigma);
-skill[team] ~ normal(0.0, tau);
-```
-
-In this case, `skill` is subscripted both by `home_team` and `away_team` and
-there will be as many elements of `skill` as required in both cases (it's possible
-some teams only played away games -- perhaps we're running this regression early in the
-year). This leads to the question -- how should the first subscript of `skill` be
-referenced? It is not obvious, and so when the prior is defined, the subscripts
-are matched by position and we provide a new name. The first subscript to `skill`
-will be called `team` for the purposes of defining the prior and handling output. The
-subscript values themselves are defined by the use of the `skill` parameter.
-
-Naming the subscripts with the match is also useful for deeper parameter hierarchies.
-For instance, this model may extend over many years, in which case we could write:
-
-```
-score_diff ~ normal(skill[home_team, year] - skill[away_team, year], sigma);
-skill[team, year] ~ normal(all_time_skill[team], tau);
-```
-
-`skill` is now subscripted by two columns of the dataframe in two different ways,
-`[home_team, year]` and `[away_team, year]`. There will be an element of `skill`
-defined for every combination of home team and year, and away team and year.
-
-The prior for the `[team, year]` element of `skill` is now a normal with mean
-`all_time_skill[team]` and standard deviation `tau`. Because `all_time_skill`
-does not exist and is a subscripted variable, Rat will infer that it is a parameter
-with unique elements given by all possible values of teams.
-
-Matching is done by parameter position. If we had swapped the `year` and `team`
-subscripts in the prior we would still have a valid Rat model, but the elements of the `team`
-subscript would correspond to the unique values of year in the original dataframe!
-
-(Beware this:)
-
-```
-skill[year, team] ~ normal(all_time_skill[team], tau);
-```
-
-
-
-Rat may infer that a variable is a parameter by its use, but this parameter
-doesn't necessarily need to directly be a parameter of the distribution sampled
-with MCMC. Transformed parameters are immutable functions of other parameters
-that are set in assignment statements (statements where the left and right hand
-side is separated by an `=`).
-
-One of the basic things transformed parameters let us do is implement a
-non-centered parameterization. Internally Rat uses a NUTS sampler. It is useful to
-reparameterize hierarchical models for NUTS to avoid
-[divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html).
-
-The eight schools data is as follows:
-```
-    y  sigma  school
-0  28     15       1
-1   8     10       2
-2  -3     16       3
-3   7     11       4
-4  -1      9       5
-5   1     11       6
-6  18     10       7
-7  12     18       8
-```
-
-The rat code for the centered eight schools model is the following:
-
-```
-y ~ normal(theta[school], sigma);
-theta[school] ~ normal(mu, tau);
-mu ~ normal(0, 5);
-tau<lower = 0.0> ~ log_normal(0, 1);
-```
-
-`y` and `sigma` come from the dataframe. Rat infers `theta` is a parameter
-with one element for each school, and `mu` and `tau` are both scalar parameters.
-
-This model is difficult for NUTS to sample. The non-centered eight
-schools model is the following: 
-
-```
-y ~ normal(theta[school], sigma);
-theta[school] = mu + z[school] * tau;
-z[school] ~ normal(0, 1);
-mu ~ normal(0, 5);
-tau<lower = 0.0> ~ log_normal(0, 1);
-```
-
-The new line of code is the second -- in this case we say the elements of
-`theta` are equal to the expression on the right hand side. Transformed
-parameters are immutable, so once they are set they cannot be changed.
-Similarly, a transformed parameter cannot be used on the righthand side of
-its own assignment.
-
-Variables on the right hand side of an assignment that Rat does not recognize
-will be inferred as other parameters. In this case, `mu`, `tau`, and `z`,
-the untransformed versions of `theta`.
-
 ## Shift operator
 
 The elements of non-scalar Rat parameters are sorted with respect to the
@@ -401,27 +276,72 @@ Going back to the basketball model, we might be interested in how a team's
 skill changes year to year:
 
 ```
-score_diff ~ normal(skill[home_team, year] - skill[away_team, year], sigma);
-skill[team, year] ~ normal(skill[team, shift(year, 1)], tau);
+score_diff' ~ normal(skill[home_team, year] - skill[away_team, year], sigma);
+skill[team, year]' = skill[team, shift(year, 1)] + skill_z[team] * tau;
+skill_z ~ normal(0.0, 1.0);
+tau<lower = 0.0> ~ normal(0.0, 1.0);
 ```
 
-The shift of 1 on the `skill` year subscript means, for the given team, take
-the previous year's `skill` as the mean in the prior for the current year.
+The first line still determines what the dataframe for `skill` will look like,
+though now there will be two columns instead of one, with rows corresponding to
+the necessary team-year combinations.
 
-Positive shifts mean take previous values of the `skill` parameter; negative
-shifts mean take following values of the `skill` parameter. Any out of
-bounds access on the `skill` parameter is replaced with a zero.
+The second line is still an assignment, but it is different because the variable
+assigned on the left hand side is used on the right hand side. The notation,
+`skill[team, shift(year, 1)]` means, "take the skill corresponding to this
+team in the previous year" (that shift behaves like the pandas
+[shift](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.shift.html)
+operator).
 
-Multiple variables can be shifted different lengths (though each variable
-gets its own shift). The shifts are done only within groups defined by the
-unshifted parameters. That is a mouthful, but in terms of basketball example
-this looks like:
+This works because:
+1. Rat statements are scalar and are executed across rows of the primary dataframe
+2. The primary dataframe is sorted in ascending order according to its subscripts
+3. The primary dataframe is already defined -- there is not problem of terminating
+this statement
+4. Out-of-bounds accesses are mapped to zero (they do not throw errors)
+
+Because of rules 1 and 2, when assigning a variable, it is possible to reference
+the parts that have already been computed. Because of rules 3 and 4, there is no
+problem with infinite recursions or edge cases.
+
+For performance reasons when using recursive assignments:
+1. There can be at most one shifted subscript
+2. The shifted subscript must appear lasts
+
+Currently for programmatic reasons, negative shifts are not allowed in recursive
+assignments, though the goal is to allow this in the future.
+
+### Simpler ways to shift
+
+The shift operator used in a recursive assignment is the trickiest of the shifts.
+
+The above model can also be written with a centered parameterization:
+```
+score_diff' ~ normal(skill[home_team, year] - skill[away_team, year], sigma);
+skill[team, year]' ~ normal(skill[team, shift(year, 1)], tau);
+tau<lower = 0.0> ~ normal(0.0, 1.0);
+```
+
+The difference here is that a sampling statement is not an assignment -- the parameters
+here are parameters of the log density that the sampler explores. From a programmatic
+perspective there is no recursion needed because the values for the parameters come
+from somewhere else.
+
+In this case, it is possible to shift on multiple subscripts and the shift can appear
+on any subscript. These restrictions also aren't necessarys for non-recursive assignment.
+
+### Shifts and groups
+
+Shifts are done only within groups defined by the unshifted parameters. That is a mouthful,
+but in terms of basketball example this looks like:
 
 | `skill[team, year]` | `skill[team, shift(year, 1)]` |
 | --------------------------------------------------- |
 | `skill[CHA, 2016]`  | `0`                           |
 | `skill[CHA, 2017]`  | `skill[CHA, 2016]`            |
 | `skill[ATL, 2017]`  | `0`                           |
+
+[WARNING: Currently negative shifts are not allowed in recursive assignments]
 
 A negative shift produces a different result:
 
@@ -431,14 +351,20 @@ A negative shift produces a different result:
 | `skill[CHA, 2017]`  | `0`                           |
 | `skill[ATL, 2017]`  | `0`                           |
 
-## Shifts in transformed parameters
+## Sharp edges with renaming
 
-## Execution order
+Subscript values are determined by position, which means it is possible to rename variables
+in a very misleading way.
 
-Rat sorts statements to make sure they are evaluated in an order so that
-all transformed parameters are set before they are used. This means the user
-does not need to worry about statement order -- just that there are either priors
-or assignments for every parameter used in the program.
+```
+score ~ normal(skill[team, year], sigma);
+skill[year, team] ~ normal(all_time_skill[team], tau);
+...
+```
+
+In the second line, the subscript names are reversed, which means that the values of
+the `year` subscript on the second line will be the values of the `team` subscript on
+the first line!
 
 ## Distributions
 
