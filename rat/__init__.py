@@ -193,7 +193,7 @@ Execution for a sampling statement means evaluating and accumulating the log den
 given by the name of the distribution on the right hand side of the `~`.
 
 Execution of assignments is described in [Transformed Parameters](#transformed-parameters) and
-[Shifts in transformed Parameters](#shifts-in-transformed-parameters).
+[Shift operator](#shift-operator).
 
 Considering the data, it may seem useful to predict the score differential of an NBA game
 in terms of both teams' skills. A suitable model for this would be:
@@ -203,7 +203,7 @@ score_diff' ~ normal(skill[home_team] - skill[away_team], sigma);
 
 In this statement, there is an extra variable reference, `skill[away_team]`. Because of
 this, the `skill` dataframe will need to be extended to support all the away teams as well
-(adding all the teams but CLE [Cleveland], which is already there).
+(adding all the teams but `CLE`, which is already there).
 
 ## Transformed parameters
 
@@ -237,7 +237,7 @@ subscripted by the `skill` dataframe.
 The assignment itself works by evaluating the expression on the right hand side and writing
 the transformed parameter on the left (and the variable on the left hand side must
 be a parameter, not data). Transformed parameters are immutable, so once they are set
-they cannot be changed. All uses of a transformed parameter must preceed the definition. This
+they cannot be changed. All uses of a transformed parameter must preceed the assignment. This
 may seem non-intuitive coming from other languages, but in Rat parameter use defines the
 parameters themselves -- the assignment will simply guarantee that the necessary values
 get set. Rat statements will effectively be executed in reverse order as they are written.
@@ -267,12 +267,13 @@ supports a `lower`, `upper` and a combination of the two constraints.
 
 ## Shift operator
 
-The elements of non-scalar Rat parameters are sorted with respect to the
-values of the subscripts (in the order of the subscripts, so the rightmost
-subscript is sorted last). Because elements have an order, we can think
-about a previous and next element. This is useful for time series models.
+The elements of Rat parameters are sorted with respect to the values of the
+subscripts. The sorting is done by sorting the columns of the parameter
+dataframe. This sorting is done in the order of the subscripts, so the
+rightmost subscript is sorted last. The dataframes and parameter values having
+a sorted order is covenient for time series data.
 
-Going back to the basketball model, we might be interested in how a team's
+Going back to the basketball model, perhaps someone is interested in how a team's
 skill changes year to year:
 
 ```
@@ -289,15 +290,15 @@ the necessary team-year combinations.
 The second line is still an assignment, but it is different because the variable
 assigned on the left hand side is used on the right hand side. The notation,
 `skill[team, shift(year, 1)]` means, "take the skill corresponding to this
-team in the previous year" (that shift behaves like the pandas
-[shift](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.shift.html)
-operator).
+team in the previous year" (the shift behaves like the pandas
+[shift](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.shift.html),
+where a positive number means shift rows down the dataframe).
 
 This works because:
-1. Rat statements are scalar and are executed across rows of the primary dataframe
+1. Rat statements are executed across rows of the primary dataframe
 2. The primary dataframe is sorted in ascending order according to its subscripts
 3. The primary dataframe is already defined -- there is not problem of terminating
-this statement
+this recursive statement
 4. Out-of-bounds accesses are mapped to zero (they do not throw errors)
 
 Because of rules 1 and 2, when assigning a variable, it is possible to reference
