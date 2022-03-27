@@ -216,12 +216,12 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
                 subscript_names = tuple([x.name for x in ast_node.names])
                 subscript_shifts = tuple([x.value for x in ast_node.shifts])
                 subscript_key = self.symbol_table.get_subscript_key(
-                    self.primary_variable_name, self.primary_variable_subscript_names, self.variable_name, subscript_names,
-                    subscript_shifts
+                    self.primary_variable_name, self.primary_variable_subscript_names, self.variable_name, subscript_names, subscript_shifts
                 )
                 self.expression_string += f"subscripts['{subscript_key}']"
             case _:
                 super().generate(ast_node)
+
 
 class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
     def __init__(self, *args, **kwargs):
@@ -247,8 +247,11 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                             subscript_names = tuple([x.name for x in subscript_node.names])
                             subscript_shifts = tuple([x.value for x in subscript_node.shifts])
                             subscript_key = self.symbol_table.get_subscript_key(
-                                self.primary_variable_name, self.primary_variable_subscript_names, param_key, subscript_names,
-                                subscript_shifts
+                                self.primary_variable_name,
+                                self.primary_variable_subscript_names,
+                                param_key,
+                                subscript_names,
+                                subscript_shifts,
                             )
 
                             shift = [x for x in subscript_shifts if x != 0][0]

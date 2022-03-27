@@ -692,7 +692,9 @@ class Compiler:
             if not isinstance(top_expr, ast.Distr):
                 continue
 
-            code_generator = codegen_backends.EvaluateDensityCodeGenerator(self.symbol_table, self._get_primary_symbol_from_statement(top_expr))
+            code_generator = codegen_backends.EvaluateDensityCodeGenerator(
+                self.symbol_table, self._get_primary_symbol_from_statement(top_expr)
+            )
             code_generator.generate(top_expr)
             self.generated_code += f"    target += jax.numpy.sum({code_generator.get_expression_string()})\n"
 

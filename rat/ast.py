@@ -178,6 +178,7 @@ class Normal(Distr):
             (types.NumericType, types.NumericType): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
+
     def __str__(self):
         return f"Normal({self.variate}, {self.mean}, {self.std})"
 
