@@ -27,12 +27,6 @@ class Expr:
         """
         raise NotImplementedError()
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        """
-        accept()
-        """
-        raise NotImplementedError()
-
     def __str__(self):
         return "Expr()"
 
@@ -47,9 +41,6 @@ class RealConstant(Expr):
 
     def __post_init__(self):
         self.out_type = types.RealType
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_RealConstant(self, *args, **kwargs)
 
     def __str__(self):
         return f"RealConstant({self.value})"
@@ -68,9 +59,6 @@ class IntegerConstant(Expr):
 
     def __post_init__(self):
         self.out_type = types.IntegerType
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_IntegerConstant(self, *args, **kwargs)
 
     def __str__(self):
         return f"IntegerConstant({self.value})"
@@ -95,9 +83,6 @@ class Subscript(Expr):
         signatures = {(types.SubscriptSetType,) * len(self.shifts) + (types.IntegerType,) * len(self.shifts): types.SubscriptSetType}
         self.out_type = types.get_output_type(signatures, tuple(expr.out_type for expr in (*self.names, *self.shifts)))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Subscript(self, *args, **kwargs)
-
     def __str__(self):
         return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
 
@@ -112,9 +97,6 @@ class SubscriptColumn(Expr):
 
     def __post_init__(self):
         self.out_type = types.SubscriptSetType
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_SubscriptColumn(self, *args, **kwargs)
 
     def __str__(self):
         return f"SubscriptColumn({self.name})"
@@ -152,9 +134,6 @@ class Data(PrimeableExpr):
     def __post_init__(self):
         self.out_type = types.NumericType
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Data(self, *args, **kwargs)
-
     def __str__(self):
         return f"Data({self.name}, subscript={self.subscript}, prime={self.prime})"
 
@@ -176,9 +155,6 @@ class Param(PrimeableExpr):
 
     def __post_init__(self):
         self.out_type = types.NumericType
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Param(self, *args, **kwargs)
 
     def __str__(self):
         return f"Param({self.name}, subscript={self.subscript}, prime={self.prime}, lower={self.lower}, upper={self.upper}, assigned={self.assigned_by_scan})"
@@ -202,10 +178,6 @@ class Normal(Distr):
             (types.NumericType, types.NumericType): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Normal(self, *args, **kwargs)
-
     def __str__(self):
         return f"Normal({self.variate}, {self.mean}, {self.std})"
 
@@ -220,9 +192,6 @@ class BernoulliLogit(Distr):
     def __post_init__(self):
         signatures = {(types.NumericType,): types.IntegerType}
         self.out_type = types.get_output_type(signatures, (self.logit_p.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_BernoulliLogit(self, *args, **kwargs)
 
     def __str__(self):
         return f"BernoulliLogit({self.variate}, {self.logit_p})"
@@ -240,9 +209,6 @@ class LogNormal(Distr):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_LogNormal(self, *args, **kwargs)
-
     def __str__(self):
         return f"LogNormal({self.variate}, {self.mean}, {self.std})"
 
@@ -259,9 +225,6 @@ class Cauchy(Distr):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.location.out_type, self.scale.out_type))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Cauchy(self, *args, **kwargs)
-
     def __str__(self):
         return f"Cauchy({self.variate}, {self.location}, {self.scale})"
 
@@ -276,9 +239,6 @@ class Exponential(Distr):
     def __post_init__(self):
         signatures = {(types.NumericType,): types.RealType}
         self.out_type = types.get_output_type(signatures, (self.scale.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Exponential(self, *args, **kwargs)
 
     def __str__(self):
         return f"Exponential({self.variate}, {self.scale})"
@@ -299,9 +259,6 @@ class Diff(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Diff(self, *args, **kwargs)
-
     def __str__(self):
         return f"Diff({self.left}, {self.right})"
 
@@ -320,9 +277,6 @@ class Sum(Expr):
             (types.NumericType, types.NumericType): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Sum(self, *args, **kwargs)
 
     def __str__(self):
         return f"Sum({self.left}, {self.right})"
@@ -343,9 +297,6 @@ class Mul(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Mul(self, *args, **kwargs)
-
     def __str__(self):
         return f"Mul({self.left}, {self.right})"
 
@@ -365,9 +316,6 @@ class Pow(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.base.out_type, self.exponent.out_type))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Pow(self, *args, **kwargs)
-
     def __str__(self):
         return f"Pow({self.base}, {self.exponent})"
 
@@ -385,9 +333,6 @@ class Div(Expr):
             (types.NumericType, types.NumericType): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Div(self, *args, **kwargs)
 
     def __str__(self):
         return f"Div({self.left}, {self.right})"
@@ -408,9 +353,6 @@ class Mod(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Mod(self, *args, **kwargs)
-
     def __str__(self):
         return f"Mod({self.left, self.right})"
 
@@ -428,9 +370,6 @@ class PrefixNegation(Expr):
             (types.RealType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_PrefixNegation(self, *args, **kwargs)
 
     def __str__(self):
         return f"PrefixNegation({self.subexpr})"
@@ -451,9 +390,6 @@ class Assignment(Expr):
             (types.NumericType,): types.NumericType,
         }
         self.out_type = types.get_output_type(signatures, (self.rhs.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Assignment(self, *args, **kwargs)
 
     def __str__(self):
         return f"Assignment({self.lhs}, {self.rhs})"
@@ -485,9 +421,6 @@ class Sqrt(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Sqrt(self, *args, **kwargs)
-
     def __str__(self):
         return f"Sqrt({self.subexpr})"
 
@@ -505,9 +438,6 @@ class Log(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Log(self, *args, **kwargs)
-
     def __str__(self):
         return f"Log({self.subexpr})"
 
@@ -524,9 +454,6 @@ class Exp(Expr):
             (types.NumericType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Exp(self, *args, **kwargs)
 
     def __str__(self):
         return f"Exp({self.subexpr})"
@@ -546,9 +473,6 @@ class Abs(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Abs(self, *args, **kwargs)
-
     def __str__(self):
         return f"Abs({self.subexpr})"
 
@@ -565,9 +489,6 @@ class Floor(Expr):
             (types.NumericType,): types.IntegerType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Floor(self, *args, **kwargs)
 
     def __str__(self):
         return f"Floor({self.subexpr})"
@@ -586,9 +507,6 @@ class Ceil(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Ceil(self, *args, **kwargs)
-
     def __str__(self):
         return f"Ceil({self.subexpr})"
 
@@ -605,9 +523,6 @@ class Round(Expr):
             (types.NumericType,): types.IntegerType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Round(self, *args, **kwargs)
 
     def __str__(self):
         return f"Round({self.subexpr})"
@@ -626,9 +541,6 @@ class Sin(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Sin(self, *args, **kwargs)
-
     def __str__(self):
         return f"Sin({self.subexpr})"
 
@@ -645,9 +557,6 @@ class Cos(Expr):
             (types.NumericType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Cos(self, *args, **kwargs)
 
     def __str__(self):
         return f"Cos({self.subexpr})"
@@ -666,9 +575,6 @@ class Tan(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Tan(self, *args, **kwargs)
-
     def __str__(self):
         return f"Tan({self.subexpr})"
 
@@ -685,9 +591,6 @@ class Arcsin(Expr):
             (types.NumericType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Arcsin(self, *args, **kwargs)
 
     def __str__(self):
         return f"Arcsin({self.subexpr})"
@@ -706,9 +609,6 @@ class Arccos(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Arccos(self, *args, **kwargs)
-
     def __str__(self):
         return f"Arccos({self.subexpr})"
 
@@ -725,9 +625,6 @@ class Arctan(Expr):
             (types.NumericType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Arctan(self, *args, **kwargs)
 
     def __str__(self):
         return f"Arctan({self.subexpr})"
@@ -746,9 +643,6 @@ class Logit(Expr):
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_Logit(self, *args, **kwargs)
-
     def __str__(self):
         return f"Logit({self.subexpr})"
 
@@ -765,9 +659,6 @@ class InverseLogit(Expr):
             (types.RealType,): types.RealType,
         }
         self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def accept(self, visitor: "ir.BaseVisitor", *args, **kwargs):
-        visitor.visit_InverseLogit(self, *args, **kwargs)
 
     def __str__(self):
         return f"InverseLogit({self.subexpr})"

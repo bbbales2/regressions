@@ -466,15 +466,15 @@ class Compiler:
 
                 # If there are constraints, we evaluate their values and store them on the symbol table
                 try:
-                    lower_constraint_evaluator = codegen_backends.BaseVisitor(self.symbol_table)
-                    variable.lower.accept(lower_constraint_evaluator)
+                    lower_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                    lower_constraint_evaluator.generate(variable.lower)
                     lower_constraint_value = float(eval(lower_constraint_evaluator.get_expression_string()))
 
-                    upper_constraint_evaluator = codegen_backends.BaseVisitor(self.symbol_table)
-                    variable.upper.accept(upper_constraint_evaluator)
+                    upper_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                    upper_constraint_evaluator.generate(variable.upper)
                     upper_constraint_value = float(eval(upper_constraint_evaluator.get_expression_string()))
                 except Exception as e:
-                    error_msg = f"Failed evaluating constraints for parameter {variable_key}"
+                    error_msg = f"Failed evaluating constraints for parameter {variable_key}, ({e})"
                     raise CompileError(error_msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index) from e
                 else:
                     self.symbol_table.upsert(
@@ -493,9 +493,9 @@ class Compiler:
                         folded_shift_exprs.append(shift_expr)
                     else:
                         try:
-                            shift_code_visitor = codegen_backends.BaseVisitor(self.symbol_table)
-                            shift_expr.accept(shift_code_visitor)
-                            folded_integerconstant = ast.IntegerConstant(value=int(eval(shift_code_visitor.get_expression_string())))
+                            shift_code_generator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                            shift_code_generator.generate(shift_expr)
+                            folded_integerconstant = ast.IntegerConstant(value=int(eval(shift_code_generator.get_expression_string())))
                             folded_shift_exprs.append(folded_integerconstant)
 
                         except Exception as e:
@@ -673,12 +673,12 @@ class Compiler:
             if not isinstance(top_expr, ast.Assignment):
                 continue
 
-            codegen_visitor = codegen_backends.TransformedParametersVisitor(
+            code_generator = codegen_backends.TransformedParametersCodeGenerator(
                 self.symbol_table, self._get_primary_symbol_from_statement(top_expr), indent=4
             )
 
-            top_expr.accept(codegen_visitor)
-            self.generated_code += codegen_visitor.get_expression_string()
+            code_generator.generate(top_expr)
+            self.generated_code += code_generator.get_expression_string()
             self.generated_code += "\n"
 
         self.generated_code += "\n"
@@ -692,9 +692,9 @@ class Compiler:
             if not isinstance(top_expr, ast.Distr):
                 continue
 
-            codegen_visitor = codegen_backends.EvaluateDensityVisitor(self.symbol_table, self._get_primary_symbol_from_statement(top_expr))
-            top_expr.accept(codegen_visitor)
-            self.generated_code += f"    target += jax.numpy.sum({codegen_visitor.get_expression_string()})\n"
+            code_generator = codegen_backends.EvaluateDensityCodeGenerator(self.symbol_table, self._get_primary_symbol_from_statement(top_expr))
+            code_generator.generate(top_expr)
+            self.generated_code += f"    target += jax.numpy.sum({code_generator.get_expression_string()})\n"
 
         self.generated_code += "\n"
         self.generated_code += "    return target\n"
@@ -721,6 +721,8 @@ class Compiler:
                     base_df_dict[variable_name] = record.base_df
                 else:
                     base_df_dict[variable_name] = pd.DataFrame()
+
+        print(self.generated_code)
 
         return (
             data_dict,
