@@ -167,7 +167,6 @@ class BaseCodeGenerator:
                 raise NotImplementedError()
 
 
-
 class EvaluateDensityCodeGenerator(BaseCodeGenerator):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
