@@ -168,6 +168,8 @@ class BaseCodeGenerator:
 
 
 class EvaluateDensityCodeGenerator(BaseCodeGenerator):
+    variable_name : str = None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.primary_variable_name = self.primary_variable.name
@@ -178,15 +180,7 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
         else:
             self.primary_variable_subscript_names = tuple()
 
-    def generate_subscript(self, ast_node: ast.Subscript, variable_name: str):
-        subscript_names = tuple([x.name for x in ast_node.names])
-        subscript_shifts = tuple([x.value for x in ast_node.shifts])
-        subscript_key = self.symbol_table.get_subscript_key(
-            self.primary_variable_name, self.primary_variable_subscript_names, variable_name, subscript_names, subscript_shifts
-        )
-        self.expression_string += f"subscripts['{subscript_key}']"
-
-    def generate(self, ast_node: ast.Expr, *args):
+    def generate(self, ast_node: ast.Expr):
         match ast_node:
             case ast.Param():
                 self.expression_string += f"parameters['{ast_node.name}']"
@@ -196,10 +190,19 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
                         self.expression_string += "[:-1]"
 
                     self.expression_string += "["
-                    self.generate(ast_node.subscript, ast_node.name)
+                    self.variable_name = ast_node.name
+                    self.generate(ast_node.subscript)
+                    self.variable_name = None
                     self.expression_string += "]"
             case ast.Subscript():
-                self.generate_subscript(ast_node, *args)
+                if not self.variable_name:
+                    raise Exception("Internal compiler error -- Variable name must be passed for subscript codegen!")
+                subscript_names = tuple([x.name for x in ast_node.names])
+                subscript_shifts = tuple([x.value for x in ast_node.shifts])
+                subscript_key = self.symbol_table.get_subscript_key(
+                    self.primary_variable_name, self.primary_variable_subscript_names, self.variable_name, subscript_names, subscript_shifts
+                )
+                self.expression_string += f"subscripts['{subscript_key}']"
             case _:
                 super().generate(ast_node)
 
@@ -211,10 +214,10 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
         self.lhs_key = ""
         self.at_rhs = False
 
-    def generate(self, ast_node: ast.Expr, *args):
+    def generate(self, ast_node: ast.Expr):
         match ast_node:
             case ast.Subscript():
-                super().generate(ast_node, *args)
+                super().generate(ast_node)
                 if self.at_rhs:
                     self.expression_string += "[index]"
             case ast.Param():
@@ -242,7 +245,9 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                     elif param_key != self.lhs_key:
                         self.expression_string += f"parameters['{param_key}']"
                         self.expression_string += "["
-                        self.generate(ast_node.subscript, param_key)
+                        self.variable_name = param_key
+                        self.generate(ast_node.subscript)
+                        self.variable_name = None
                         self.expression_string += "]"
                 else:
                     self.expression_string += f"parameters['{param_key}']"
@@ -298,4 +303,4 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                     self.expression_string += "\n"
 
             case _:
-                super().generate(ast_node, *args)
+                super().generate(ast_node)
