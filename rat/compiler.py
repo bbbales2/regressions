@@ -305,6 +305,10 @@ class Compiler:
                                 msg = "Exactly one (no more, no less) subscripts can be shifted in a recursively assigned variable"
                                 raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
+                            if shifts[-1] <= 0:
+                                msg = "Only the right-most subscript of a recursively assigned variable can be shifted"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
                             if any(shift < 0 for shift in shifts):
                                 msg = "All nonzero shifts in a recursively assigned variable must be positive"
                                 raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
