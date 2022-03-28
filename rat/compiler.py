@@ -214,9 +214,9 @@ class Compiler:
                             error_msg = f"Failed evaluating shift amounts for parameter {variable_key}. Shift amount expressions must be an expression which can be evaluated at compile-time."
                             raise CompileError(error_msg, self.model_code_string, shift_expr.line_index, shift_expr.column_index) from e
 
-                # If there is shift, set pad needed to True
+                # If there is shift, and isn't a recursively set parameter, set pad needed to True
                 for integer_constant in folded_shift_exprs:
-                    if integer_constant.value != 0:
+                    if integer_constant.value != 0 and variable_key != lhs_variable_key:
                         self.symbol_table.lookup(variable_key).pad_needed = True
                         break
                 variable.subscript.shifts = folded_shift_exprs
