@@ -168,7 +168,7 @@ class BaseCodeGenerator:
 
 
 class EvaluateDensityCodeGenerator(BaseCodeGenerator):
-    variable_name : str = None
+    variable_name: str = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
