@@ -185,10 +185,6 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
             case ast.Param():
                 self.expression_string += f"parameters['{ast_node.name}']"
                 if ast_node.subscript:
-                    if self.symbol_table.lookup(ast_node.name).pad_needed:
-                        # if padded: remove the zero-pad
-                        self.expression_string += "[:-1]"
-
                     self.expression_string += "["
                     self.variable_name = ast_node.name
                     self.generate(ast_node.subscript)

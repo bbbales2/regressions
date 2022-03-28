@@ -215,9 +215,19 @@ class Compiler:
                             raise CompileError(error_msg, self.model_code_string, shift_expr.line_index, shift_expr.column_index) from e
 
                 # If there is shift, and isn't a recursively set parameter, set pad needed to True
+
+                # if lhs_variable_key == variable_key and isinstance(top_expr, ast.Assignment):
+                #     self.symbol_table.upsert(variable_name=variable_key, pad_needed=False)
+                # else:
+                #     for integer_constant in folded_shift_exprs:
+                #         if integer_constant.value != 0:
+                #             if not self.symbol_table.lookup(variable_key).pad_needed:
+                #                 self.symbol_table.upsert(variable_name=variable_key, pad_needed=True)
+                #             break
                 for integer_constant in folded_shift_exprs:
-                    if integer_constant.value != 0 and variable_key != lhs_variable_key:
-                        self.symbol_table.lookup(variable_key).pad_needed = True
+                    if integer_constant.value != 0:
+                        if not self.symbol_table.lookup(variable_key).pad_needed:
+                            self.symbol_table.upsert(variable_name=variable_key, pad_needed=True)
                         break
                 variable.subscript.shifts = folded_shift_exprs
                 ###########
@@ -435,6 +445,10 @@ class Compiler:
                     base_df_dict[variable_name] = record.base_df
                 else:
                     base_df_dict[variable_name] = pd.DataFrame()
+
+        print(self.generated_code)
+        print(self.symbol_table.generated_subscript_dict)
+        print(self.symbol_table.first_in_group_indicator)
 
         return (
             data_dict,
