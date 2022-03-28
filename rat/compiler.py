@@ -446,10 +446,6 @@ class Compiler:
                 else:
                     base_df_dict[variable_name] = pd.DataFrame()
 
-        print(self.generated_code)
-        print(self.symbol_table.generated_subscript_dict)
-        print(self.symbol_table.first_in_group_indicator)
-
         return (
             data_dict,
             base_df_dict,

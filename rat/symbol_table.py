@@ -264,7 +264,7 @@ class SymbolTable:
         # number of columns being subscripted
         n_shifts = len(target_shift_amounts)
         if n_shifts > 1 and target_record.variable_type == VariableType.ASSIGNED_PARAM:
-            self.first_in_group_indicator[target_variable_name] = (~output_df.duplicated(subset=grouping_subscripts)).to_numpy()
+            self.first_in_group_indicator[target_variable_name] = (~target_base_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
         output_df["__in_dataframe_index"] = output_df["__in_dataframe_index"].fillna(target_base_df.shape[0])
         self.generated_subscript_dict[key_name] = output_df["__in_dataframe_index"].to_numpy(dtype=int)
