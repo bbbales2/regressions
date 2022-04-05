@@ -13,7 +13,7 @@ pip install -e .
 in the root directory. This installs the package in editable mode (so can edit
 the files and then test without reinstalling).
 
-Code is all stored in the
+Base code is stored in `/rat`. The Rust extension for executing NUTS is stored in `/src`.
 
 ## Tests
 
