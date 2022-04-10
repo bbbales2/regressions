@@ -85,16 +85,16 @@ class VariableRecord:
 
 
 class VariableTable:
-    symbol_dict : Dict[str, VariableRecord]
-    unconstrained_parameter_size : int
-    data_df : pandas.DataFrame
+    symbol_dict: Dict[str, VariableRecord]
+    unconstrained_parameter_size: int
+    data_df: pandas.DataFrame
 
-    generated_subscript_dict : Dict[str, numpy.ndarray]
-    first_in_group_indicator : Dict[str, numpy.ndarray]
+    generated_subscript_dict: Dict[str, numpy.ndarray]
+    first_in_group_indicator: Dict[str, numpy.ndarray]
 
-    _unique_number : int
+    _unique_number: int
 
-    def __init__(self, data_df : pandas.DataFrame):
+    def __init__(self, data_df: pandas.DataFrame):
         self.symbol_dict = {}
         self.unconstrained_parameter_size = None
         self.data_df = data_df.copy()
@@ -166,9 +166,8 @@ class VariableTable:
                 record.unconstrained_vector_start_index = current_index
                 record.unconstrained_vector_end_index = current_index + nrows - 1
                 current_index += nrows
-        
-        self.unconstrained_parameter_size = current_index
 
+        self.unconstrained_parameter_size = current_index
 
     def get_subscript_key(
         self,
@@ -180,9 +179,7 @@ class VariableTable:
         primary_variable = self[primary_variable_name]
         target_variable = self[target_variable_name]
 
-        shifts_by_subscript_name = {
-            name: shift for name, shift in zip(target_variable_subscripts, shifts)
-        }
+        shifts_by_subscript_name = {name: shift for name, shift in zip(target_variable_subscripts, shifts)}
 
         target_variable.base_df
 
@@ -215,15 +212,13 @@ class VariableTable:
         target_base_df = target_variable.base_df.copy()
         target_base_df.columns = list(target_variable_subscripts)
 
-        target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]), dtype = pandas.Int64Dtype())
+        target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]), dtype=pandas.Int64Dtype())
 
         key_name = f"subscript__{self.get_unique_number()}"
 
         self.generated_subscript_dict[key_name] = (
-            primary_base_df
-            .merge(target_base_df, on=target_variable_subscripts, how="left")
-            ["__in_dataframe_index"]
-            # NAs correspond to out of bounds accesses -- those should map 
+            primary_base_df.merge(target_base_df, on=target_variable_subscripts, how="left")["__in_dataframe_index"]
+            # NAs correspond to out of bounds accesses -- those should map
             # to zero (and any parameter that needs to do out of bounds
             # accesses will have zeros allocated for the last element)
             .fillna(target_base_df.shape[0])
@@ -235,9 +230,9 @@ class VariableTable:
         # need to generate some special values for the jax.lax.scan recursive assignment
         # implementation
         if (
-            len(grouping_subscripts) > 0 and
-            (primary_variable_name == target_variable_name) and
-            (target_variable.variable_type == VariableType.ASSIGNED_PARAM)
+            len(grouping_subscripts) > 0
+            and (primary_variable_name == target_variable_name)
+            and (target_variable.variable_type == VariableType.ASSIGNED_PARAM)
         ):
             self.first_in_group_indicator[primary_variable_name] = (~primary_base_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
