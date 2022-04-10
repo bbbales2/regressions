@@ -196,9 +196,10 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
             case ast.Subscript():
                 if not self.variable_name:
                     raise Exception("Internal compiler error -- Variable name must be passed for subscript codegen!")
-                subscript_shifts = tuple([x.value for x in ast_node.shifts])
+                subscript_names = tuple(column.name for column in ast_node.names)
+                subscript_shifts = tuple(x.value for x in ast_node.shifts)
                 subscript_key = self.symbol_table.get_subscript_key(
-                    self.primary_variable_name, self.variable_name, subscript_shifts
+                    self.primary_variable_name, self.variable_name, subscript_names, subscript_shifts
                 )
                 self.expression_string += f"subscripts['{subscript_key}']"
             case _:
@@ -225,9 +226,16 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                     if param_key == self.lhs_key:
                         if self.at_rhs:
                             # scan function
-                            subscript = ast_node.subscript                            
-                            shift = next(x.value for x in subscript.shifts if x.value != 0)
-                            self.expression_string += f"carry{shift}"
+                            subscript = ast_node.subscript
+
+                            subscript_names = tuple(column.name for column in subscript.names)
+                            subscript_shifts = tuple(x.value for x in subscript.shifts)
+                            self.symbol_table.get_subscript_key(
+                                param_key, param_key, subscript_names, subscript_shifts
+                            )
+
+                            carry_shift = next(shift for shift in subscript_shifts if shift != 0)
+                            self.expression_string += f"carry{carry_shift}"
                         else:
                             self.expression_string += f"parameters['{param_key}']"
                     elif param_key != self.lhs_key:

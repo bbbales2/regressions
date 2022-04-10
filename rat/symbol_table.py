@@ -26,7 +26,6 @@ class TableRecord:
     of the variable. If the variable has 2 subscripts, it is stored as {(column_1, column_2), ...}
     shifts: set of shift combinations used for this parameter. For example, param[shift(sub_1, 1), sub_2] would be saved
     as (1, 0)
-    subscript_length: the length of the subscript, that is, how many subscripts are declared for the variable.
     subscript_alias: This is the "fake" subscript names, declared by the user for the variable. These values are used
     as column names of the base dataframe
     constraint_lower: value of the lower constraint
@@ -45,7 +44,6 @@ class TableRecord:
     base_df: pandas.DataFrame
 
     source_name: str = field(default=None)
-    subscript_length: int = field(default=0)
     subscripts_rename: Tuple[str] = field(default=None)
 
     constraint_lower: float = field(default=float("-inf"))
@@ -59,7 +57,7 @@ class TableRecord:
     def subscripts(self):
         if self.subscripts_rename is None:
             if self.base_df is None:
-                return None
+                return ()
             else:
                 return tuple(self.base_df.columns)
         else:
@@ -68,6 +66,7 @@ class TableRecord:
     def set_subscript_names(self, subscript_rename : Tuple[str]):
         if self.subscripts_rename is None:
             self.subscripts_rename = subscript_rename
+            self.base_df.columns = self.subscripts
         else:
             if subscript_rename != self.subscripts_rename:
                 raise AttributeError("Internal compiler error: If there are multiple renames, the rename values must match")
@@ -95,9 +94,9 @@ class TableRecord:
         if self.constraint_lower != float("-inf") or self.constraint_upper != float("inf"):
             if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
                 raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
-            else:
-                self.constraint_lower = constraint_lower
-                self.constraint_upper = constraint_upper
+        else:
+            self.constraint_lower = constraint_lower
+            self.constraint_upper = constraint_upper
 
 class SymbolTable:
     def __init__(self, data_df):
@@ -109,7 +108,13 @@ class SymbolTable:
         """
         self.symbol_dict: Dict[str, TableRecord] = {}
         self.unconstrained_param_count: int = 0  # length of the unconstrained parameter vector
-        self.data_df = data_df
+        self.data_df = data_df.copy()
+
+        # Convert all integer columns to a type that supports NA
+        for column in self.data_df.columns:
+            if pandas.api.types.is_integer_dtype(self.data_df[column].dtype):
+                self.data_df[column] = self.data_df[column].astype(pandas.Int64Dtype())
+
         self.generated_subscript_dict: Dict[str, numpy.ndarray] = {}
         self.generated_subscript_count = 0
         self.first_in_group_indicator: Dict[str, numpy.ndarray] = {}
@@ -135,34 +140,7 @@ class SymbolTable:
         fields of the record that the programmer should provide; other fields are generated automatically by
         `build_base_dataframes()`.
         """
-        if variable_name in self.symbol_dict:
-            # Update fields accordingly
-            record = self.symbol_dict[variable_name]
-            if variable_type:
-                record.variable_type = variable_type
-
-            if subscripts:
-                if record.subscript_length > 0:
-                    # check that the length of subscript operations all match
-                    for subscript_tuple in subscripts:
-                        if len(subscript_tuple) != record.subscript_length:
-                            raise ValueError(
-                                f"Internal error - symbol table update failed. Variable '{variable_name}' in table has {len(record.subscripts)} subscripts, but update request has {len(subscripts)}"
-                            )
-
-                record.subscript_length = len(tuple(subscripts)[0])
-                record.subscripts |= subscripts
-
-            if subscript_alias:
-                record.subscript_alias = subscript_alias
-
-            record.constraint_lower = max(record.constraint_lower, constraint_lower)
-            record.constraint_upper = min(record.constraint_upper, constraint_upper)
-
-            if pad_needed:
-                record.pad_needed = pad_needed
-
-        else:
+        if variable_name not in self.symbol_dict:
             if variable_type == VariableType.DATA:
                 base_df = self.data_df
             else:
@@ -204,7 +182,7 @@ class SymbolTable:
 
             # Allocate space on unconstrained parameter vector for parameters
             if record.variable_type == VariableType.PARAM:
-                if record.subscript_length > 0:
+                if len(record.subscripts) > 0:
                     nrows = record.base_df.shape[0]
                     # base_df["__index"] = pd.Series(range(current_index, current_index + nrows))
                 else:
@@ -220,13 +198,14 @@ class SymbolTable:
         self,
         primary_variable_name: str,
         target_variable_name: str,
+        target_variable_subscripts: Tuple[str],
         shifts: Tuple[int],
     ):
         primary_variable = self.lookup(primary_variable_name)
         target_variable = self.lookup(target_variable_name)
 
         shifts_by_subscript_name = {
-            name: shift for name, shift in zip(target_variable.subscripts, shifts)
+            name: shift for name, shift in zip(target_variable_subscripts, shifts)
         }
 
         target_variable.base_df
@@ -258,27 +237,30 @@ class SymbolTable:
             primary_base_df[column] = shifted_column
 
         target_base_df = target_variable.base_df.copy()
-        target_base_df.columns = list(target_variable.subscripts)
+        target_base_df.columns = list(target_variable_subscripts)
 
-        target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]))
+        target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]), dtype = pandas.Int64Dtype())
 
         key_name = f"subscript__{self.generated_subscript_count}"
         self.generated_subscript_count += 1
 
         self.generated_subscript_dict[key_name] = (
             primary_base_df
-            .merge(target_base_df, on=target_variable.subscripts, how="left")
+            .merge(target_base_df, on=target_variable_subscripts, how="left")
             ["__in_dataframe_index"]
             # NAs correspond to out of bounds accesses -- those should map 
             # to zero (and any parameter that needs to do out of bounds
             # accesses will have zeros allocated for the last element)
             .fillna(target_base_df.shape[0])
+            .astype(int)
             .to_numpy()
         )
 
-        # If this is a recursively assigned parameter we'll need to generate
-        # some special values for the jax.lax.scan recursive assignment implementation
+        # If this is a recursively assigned parameter and there are groupings then we'll
+        # need to generate some special values for the jax.lax.scan recursive assignment
+        # implementation
         if (
+            len(grouping_subscripts) > 0 and
             (primary_variable_name == target_variable_name) and
             (target_variable.variable_type == VariableType.ASSIGNED_PARAM)
         ):

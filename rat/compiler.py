@@ -198,13 +198,15 @@ class Compiler:
                 match symbol:
                     case ast.Param():
                         symbol_key = symbol.get_key()
-                        if symbol_key == primary_symbol_key:
-                            continue
 
                         variable = self.symbol_table.lookup(symbol_key)
 
-                        # If secondary variable has no subscript, it's a scalar and there's nothing to do
+                        # If variable has no subscript, it's a scalar and there's nothing to do
                         if symbol.subscript is not None:
+                            # Fold all the shift expressions to simple integers
+                            shifts, pad_needed = self._get_shifts_and_padding(symbol.subscript)
+                            variable.pad_needed = True
+
                             # Check that number/names of subscripts are compatible with primary variable
                             for column in symbol.subscript.names:
                                 if column.name not in primary_subscript_names:
@@ -213,27 +215,26 @@ class Compiler:
 
                             subscript_names = [column.name for column in symbol.subscript.names]
 
-                            # If variable is known to have subscripts yet then check that
+                            # If variable is known to have subscripts then check that
                             # the number of subscripts are compatible with existing
-                            # secondary variable
-                            if variable.subscripts is not None:
+                            # ones
+                            if len(variable.subscripts) > 0:
                                 if len(subscript_names) != len(variable.subscripts):
                                     msg = f"{len(subscript_names)} found, previously used with {len(variable.subscripts)}"
                                     raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
-                            # Fold all the shift expressions to simple integers
-                            shifts, pad_needed = self._get_shifts_and_padding(symbol.subscript)
+                            # Extra checks for secondary variables
+                            if symbol_key != primary_symbol_key:
+                                # TODO: This should probably be supported in the future
+                                # right now I'm leaving it off because I'm not quite sure
+                                # what the behavior should be and I don't have an example
+                                # model in mind (my guess is access should give zeros)
+                                if any(shift != 0 for shift in shifts):
+                                    msg = f"Shifted access on a secondary parameter is not allowed"
+                                    raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
-                            # TODO: This should probably be supported in the future
-                            # right now I'm leaving it off because I'm not quite sure
-                            # what the behavior should be and I don't have an example
-                            # model in mind (my guess is access should give zeros)
-                            if any(shift != 0 for shift in shifts):
-                                msg = f"Shifted access on a secondary parameter is not allowed"
-                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
-
-                            # Add to dataframe
-                            variable.add_rows_from_dataframe(primary_variable.base_df[subscript_names])
+                                # Add to dataframe
+                                variable.add_rows_from_dataframe(primary_variable.base_df[subscript_names])
 
 
         # Apply constraints to parameters
@@ -372,11 +373,11 @@ class Compiler:
             self.generated_code += f"    # Param: {variable_name}, lower: {record.constraint_lower}, upper: {record.constraint_upper}\n"
 
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
-            index_string = (
-                f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index + 1}"
-                if record.subscript_length > 0
-                else f"[{record.unconstrained_vector_start_index}]"
-            )
+            if len(record.subscripts) > 0:
+                index_string = f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index + 1}"
+            else:
+                index_string = f"[{record.unconstrained_vector_start_index}]"
+
             self.generated_code += f"    {unconstrained_reference} = unconstrained_parameter_vector[..., {index_string}]\n"
 
             if record.constraint_lower > float("-inf") or record.constraint_upper < float("inf"):
