@@ -197,9 +197,7 @@ class SymbolTable:
         primary_variable = self.lookup(primary_variable_name)
         target_variable = self.lookup(target_variable_name)
 
-        shifts_by_subscript_name = {
-            name: shift for name, shift in zip(target_variable_subscripts, shifts)
-        }
+        shifts_by_subscript_name = {name: shift for name, shift in zip(target_variable_subscripts, shifts)}
 
         target_variable.base_df
 
@@ -232,16 +230,14 @@ class SymbolTable:
         target_base_df = target_variable.base_df.copy()
         target_base_df.columns = list(target_variable_subscripts)
 
-        target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]), dtype = pandas.Int64Dtype())
+        target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]), dtype=pandas.Int64Dtype())
 
         key_name = f"subscript__{self.generated_subscript_count}"
         self.generated_subscript_count += 1
 
         self.generated_subscript_dict[key_name] = (
-            primary_base_df
-            .merge(target_base_df, on=target_variable_subscripts, how="left")
-            ["__in_dataframe_index"]
-            # NAs correspond to out of bounds accesses -- those should map 
+            primary_base_df.merge(target_base_df, on=target_variable_subscripts, how="left")["__in_dataframe_index"]
+            # NAs correspond to out of bounds accesses -- those should map
             # to zero (and any parameter that needs to do out of bounds
             # accesses will have zeros allocated for the last element)
             .fillna(target_base_df.shape[0])
@@ -253,9 +249,9 @@ class SymbolTable:
         # need to generate some special values for the jax.lax.scan recursive assignment
         # implementation
         if (
-            len(grouping_subscripts) > 0 and
-            (primary_variable_name == target_variable_name) and
-            (target_variable.variable_type == VariableType.ASSIGNED_PARAM)
+            len(grouping_subscripts) > 0
+            and (primary_variable_name == target_variable_name)
+            and (target_variable.variable_type == VariableType.ASSIGNED_PARAM)
         ):
             self.first_in_group_indicator[primary_variable_name] = (~primary_base_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
