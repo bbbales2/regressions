@@ -134,7 +134,7 @@ class Compiler:
 
         # Add entries to the symbol table for all data/params
         for top_expr in self.expr_tree_list:
-            for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
+            for symbol in top_expr:
                 match symbol:
                     case ast.Data():
                         self.variable_table.insert(variable_name=symbol.get_key(), variable_type=VariableType.DATA)
@@ -144,7 +144,7 @@ class Compiler:
         # TODO: I'm not sure it's a good pattern to modify the AST in place
         # Fold all shifts to constants
         for top_expr in self.expr_tree_list:
-            for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
+            for symbol in top_expr:
                 match symbol:
                     case ast.Data() | ast.Param():
                         if symbol.subscript is not None:
@@ -188,7 +188,7 @@ class Compiler:
             primary_subscript_names = primary_variable.subscripts
 
             # Find all secondary variables that are parameters
-            for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
+            for symbol in top_expr:
                 match symbol:
                     case ast.Param():
                         symbol_key = symbol.get_key()
@@ -232,7 +232,7 @@ class Compiler:
 
         # Apply constraints to parameters
         for top_expr in self.expr_tree_list:
-            for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
+            for symbol in top_expr:
                 match symbol:
                     case ast.Param():
                         symbol_key = symbol.get_key()
@@ -259,7 +259,7 @@ class Compiler:
 
         # Apply constraints to parameters
         for top_expr in self.expr_tree_list:
-            for symbol in ast.search_tree(top_expr, ast.Assignment):
+            for symbol in top_expr:
                 # If it's an assignment, we save the type of the LHS variable to be an assigned parameter
                 match top_expr:
                     case ast.Assignment(lhs):
