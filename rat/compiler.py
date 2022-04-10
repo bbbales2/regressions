@@ -11,8 +11,8 @@ import pandas as pd
 from . import ast
 from . import codegen_backends
 from .exceptions import CompileError
-from .symbol_table import SymbolTable, VariableType
-from rat import symbol_table
+from .variable_table import VariableTable, VariableType
+from rat import variable_table
 
 
 class Compiler:
@@ -25,7 +25,7 @@ class Compiler:
         self.data_df_columns = list(data_df.columns)
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
-        self.symbol_table: SymbolTable = None
+        self.variable_table: VariableTable = None
         self.generated_code = ""
 
     def _get_primary_symbol_from_statement(self, top_expr):
@@ -113,7 +113,7 @@ class Compiler:
                     integer_shifts.append(shift_expr.value)
                 case _:
                     try:
-                        shift_code_generator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                        shift_code_generator = codegen_backends.BaseCodeGenerator(self.variable_table)
                         shift_code_generator.generate(shift_expr)
                         folded_shift = int(eval(shift_code_generator.get_expression_string()))
                         integer_shifts.append(folded_shift)
@@ -126,20 +126,20 @@ class Compiler:
 
         return tuple(integer_shifts), pad_needed
 
-    def build_symbol_table(self):
+    def build_variable_table(self):
         """
         Builds the "symbol table", which holds information for all variables in the model.
         """
-        self.symbol_table = SymbolTable(self.data_df)
+        self.variable_table = VariableTable(self.data_df)
 
         # Add entries to the symbol table for all data/params
         for top_expr in self.expr_tree_list:
             for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
                 match symbol:
                     case ast.Data():
-                        self.symbol_table.upsert(variable_name=symbol.get_key(), variable_type=VariableType.DATA)
+                        self.variable_table.insert(variable_name=symbol.get_key(), variable_type=VariableType.DATA)
                     case ast.Param():
-                        self.symbol_table.upsert(variable_name=symbol.get_key(), variable_type=VariableType.PARAM)
+                        self.variable_table.insert(variable_name=symbol.get_key(), variable_type=VariableType.PARAM)
 
         # TODO: I'm not sure it's a good pattern to modify the AST in place
         # Fold all shifts to constants
@@ -169,7 +169,7 @@ class Compiler:
             primary_symbol_key = primary_symbol.get_key()
 
             try:
-                primary_variable = self.symbol_table.lookup(primary_symbol_key)
+                primary_variable = self.variable_table[primary_symbol_key]
             except KeyError:
                 msg = f"Parameter {primary_symbol_key} must be used as a secondary variable before it can be used as a primary variable"
                 raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
@@ -193,7 +193,7 @@ class Compiler:
                     case ast.Param():
                         symbol_key = symbol.get_key()
 
-                        variable = self.symbol_table.lookup(symbol_key)
+                        variable = self.variable_table[symbol_key]
 
                         # If variable has no subscript, it's a scalar and there's nothing to do
                         if symbol.subscript is not None:
@@ -239,18 +239,18 @@ class Compiler:
 
                         # Constraints should be evaluated at compile time
                         try:
-                            lower_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                            lower_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.variable_table)
                             lower_constraint_evaluator.generate(symbol.lower)
                             lower_constraint_value = float(eval(lower_constraint_evaluator.get_expression_string()))
 
-                            upper_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                            upper_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.variable_table)
                             upper_constraint_evaluator.generate(symbol.upper)
                             upper_constraint_value = float(eval(upper_constraint_evaluator.get_expression_string()))
                         except Exception as e:
                             error_msg = f"Failed evaluating constraints for parameter {symbol_key}, ({e})"
                             raise CompileError(error_msg, self.model_code_string, symbol.line_index, symbol.column_index) from e
 
-                        variable = self.symbol_table.lookup(symbol_key)
+                        variable = self.variable_table[symbol_key]
                         try:
                             variable.set_constraints(lower_constraint_value, upper_constraint_value)
                         except AttributeError:
@@ -260,15 +260,12 @@ class Compiler:
         # Apply constraints to parameters
         for top_expr in self.expr_tree_list:
             for symbol in ast.search_tree(top_expr, ast.Assignment):
-                primary_variable = self._get_primary_symbol_from_statement(top_expr)
-                primary_variable_key = primary_variable.get_key()
-
                 # If it's an assignment, we save the type of the LHS variable to be an assigned parameter
                 match top_expr:
                     case ast.Assignment(lhs):
                         match lhs:
                             case ast.Param():
-                                lhs_variable = self.symbol_table.lookup(lhs.get_key())
+                                lhs_variable = self.variable_table[lhs.get_key()]
                                 lhs_variable.variable_type = VariableType.ASSIGNED_PARAM
                             case _:
                                 msg = f"The left hand of an assignment must be a parameter"
@@ -341,7 +338,7 @@ class Compiler:
         self.generated_code += "import rat.math\n"
         self.generated_code += "import jax\n\n"
 
-        self.generated_code += f"unconstrained_parameter_size = {self.symbol_table.unconstrained_param_count}\n\n"
+        self.generated_code += f"unconstrained_parameter_size = {self.variable_table.unconstrained_parameter_size}\n\n"
 
         self.codegen_constrain_parameters()
 
@@ -355,7 +352,7 @@ class Compiler:
         self.generated_code += "    parameters = {}\n"
         self.generated_code += "    jacobian_adjustments = 0.0\n"
 
-        for variable_name, record in self.symbol_table.symbol_dict.items():
+        for variable_name, record in self.variable_table.symbol_dict.items():
             if record.variable_type != VariableType.PARAM:
                 continue
 
@@ -400,7 +397,7 @@ class Compiler:
                 continue
 
             code_generator = codegen_backends.TransformedParametersCodeGenerator(
-                self.symbol_table, self._get_primary_symbol_from_statement(top_expr), indent=4
+                self.variable_table, self._get_primary_symbol_from_statement(top_expr), indent=4
             )
 
             code_generator.generate(top_expr)
@@ -419,7 +416,7 @@ class Compiler:
                 continue
 
             code_generator = codegen_backends.EvaluateDensityCodeGenerator(
-                self.symbol_table, self._get_primary_symbol_from_statement(top_expr)
+                self.variable_table, self._get_primary_symbol_from_statement(top_expr)
             )
             code_generator.generate(top_expr)
             self.generated_code += f"    target += jax.numpy.sum({code_generator.get_expression_string()})\n"
@@ -430,9 +427,9 @@ class Compiler:
     def compile(self):
         self._identify_primary_symbols()
 
-        self.build_symbol_table()
+        self.build_variable_table()
 
-        self.symbol_table.build_base_dataframes(self.data_df)
+        self.variable_table.prepare_unconstrained_parameter_mapping()
 
         self.pre_codegen_checks()
 
@@ -441,7 +438,8 @@ class Compiler:
         data_dict = {}
         base_df_dict = {}
 
-        for variable_name, record in self.symbol_table.iter_records():
+        for variable_name in self.variable_table:
+            record = self.variable_table[variable_name]
             if record.variable_type == VariableType.DATA:
                 data_dict[variable_name] = jax.numpy.array(self.data_df[variable_name].to_numpy())
             else:
@@ -453,7 +451,7 @@ class Compiler:
         return (
             data_dict,
             base_df_dict,
-            self.symbol_table.generated_subscript_dict,
-            self.symbol_table.first_in_group_indicator,
+            self.variable_table.generated_subscript_dict,
+            self.variable_table.first_in_group_indicator,
             self.generated_code,
         )
