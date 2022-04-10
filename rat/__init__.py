@@ -299,7 +299,8 @@ This works because:
 2. The primary dataframe is sorted in ascending order according to its subscripts
 3. The primary dataframe is already defined -- there is not problem of terminating
 this recursive statement
-4. Out-of-bounds accesses are mapped to zero (they do not throw errors)
+4. Out-of-bounds accesses do not throw errors but instead return zero (the value
+zero itself, not the zeroth element of the array)
 
 Because of rules 1 and 2, when assigning a variable, it is possible to reference
 the parts that have already been computed. Because of rules 3 and 4, there is no
