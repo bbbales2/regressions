@@ -230,9 +230,7 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
 
                             subscript_names = tuple(column.name for column in subscript.names)
                             subscript_shifts = tuple(x.value for x in subscript.shifts)
-                            self.variable_table.get_subscript_key(
-                                param_key, param_key, subscript_names, subscript_shifts
-                            )
+                            self.variable_table.get_subscript_key(param_key, param_key, subscript_names, subscript_shifts)
 
                             carry_shift = next(shift for shift in subscript_shifts if shift != 0)
                             self.expression_string += f"carry{carry_shift}"

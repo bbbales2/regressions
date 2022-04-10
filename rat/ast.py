@@ -254,6 +254,7 @@ class Exponential(Distr):
     def __str__(self):
         return f"Exponential({self.variate}, {self.scale})"
 
+
 @dataclass
 class UnaryExpr(Expr):
     subexpr: Expr
@@ -262,6 +263,7 @@ class UnaryExpr(Expr):
         yield self
         for expr in self.subexpr:
             yield expr
+
 
 @dataclass
 class BinaryExpr(Expr):
@@ -272,6 +274,7 @@ class BinaryExpr(Expr):
         yield self
         for expr in itertools.chain(self.left, self.right):
             yield expr
+
 
 @dataclass
 class Diff(BinaryExpr):
