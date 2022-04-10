@@ -12,6 +12,7 @@ from . import ast
 from . import codegen_backends
 from .exceptions import CompileError
 from .symbol_table import SymbolTable, VariableType
+from rat import symbol_table
 
 
 class Compiler:
@@ -96,183 +97,188 @@ class Compiler:
             # Mark the primary symbol if it wasn't already
             primary_symbol.prime = True
 
+    def _get_shifts_and_padding(self, subscript : ast.Subscript):
+        """
+        Evaluate subscript expressions. These should all be reducible to integer shifts.
+
+        If any subscripts are non-zero, pad_needed will be true.
+
+        Return the integer shifts and pad_needed
+        """
+        # Fold shift values into integers if it's an expression instead of a constant
+        integer_shifts : List[int] = []
+        for shift_expr in subscript.shifts:
+            match shift_expr:
+                case ast.IntegerConstant():
+                    integer_shifts.append(shift_expr.value)
+                case _:
+                    try:
+                        shift_code_generator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                        shift_code_generator.generate(shift_expr)
+                        folded_shift = int(eval(shift_code_generator.get_expression_string()))
+                        integer_shifts.append(folded_shift)
+                    except Exception as e:
+                        error_msg = f"Failed evaluating shift. Shift amount expressions must be an expression which can be evaluated at compile-time."
+                        raise CompileError(error_msg, self.model_code_string, shift_expr.line_index, shift_expr.column_index) from e
+
+        # If there is a non-zero shift, set pad needed to True
+        pad_needed = any(shift != 0 for shift in integer_shifts)
+
+        return tuple(integer_shifts), pad_needed
+
     def build_symbol_table(self):
         """
         Builds the "symbol table", which holds information for all variables in the model.
         """
         self.symbol_table = SymbolTable(self.data_df)
 
+        # Add entries to the symbol table for all data/params
         for top_expr in self.expr_tree_list:
-            if isinstance(top_expr, ast.Distr):
-                lhs_variable_key = top_expr.variate.get_key()
-            elif isinstance(top_expr, ast.Assignment):
-                lhs_variable_key = top_expr.lhs.get_key()
+            for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
+                match symbol:
+                    case ast.Data():
+                        self.symbol_table.upsert(
+                            variable_name = symbol.get_key(),
+                            variable_type = VariableType.DATA
+                        )
+                    case ast.Param():
+                        self.symbol_table.upsert(
+                            variable_name = symbol.get_key(),
+                            variable_type = VariableType.PARAM
+                        )
 
-            primary_variable = self._get_primary_symbol_from_statement(top_expr)
-            primary_variable_key = primary_variable.get_key()
 
-            if isinstance(primary_variable, ast.Data):
-                self.symbol_table.upsert(variable_name=primary_variable.name, variable_type=VariableType.DATA)
-            elif isinstance(primary_variable, ast.Param):
-                self.symbol_table.upsert(variable_name=primary_variable.name, variable_type=VariableType.PARAM)
+        # TODO: I'm not sure it's a good pattern to modify the AST in place
+        # Fold all shifts to constants
+        for top_expr in self.expr_tree_list:
+            for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
+                match symbol:
+                    case ast.Data() | ast.Param():
+                        if symbol.subscript is not None:
+                            integer_shifts, padding_needed = self._get_shifts_and_padding(symbol.subscript)
 
-            subscript_aliases: Dict[str, Set] = {}
-            # this dict stores any subscript aliases of the primary dataframe.
+                            new_shift_expressions = []
+                            for shift_expression, integer_shift in zip(symbol.subscript.shifts, integer_shifts):
+                                new_shift_expressions.append(ast.IntegerConstant(
+                                    value = integer_shift,
+                                    line_index = shift_expression.line_index,
+                                    column_index = shift_expression.column_index
+                                ))
+                            
+                            symbol.subscript.shifts = tuple(new_shift_expressions)
 
-            # find the primary variable and its subscript aliases
-            match primary_variable:
-                case ast.Data():
-                    # these are the allowed subscript names in scope
-                    allowed_subscript_names = tuple(self.data_df.columns)
-                case ast.Param():
-                    try:
-                        primary_variable_record = self.symbol_table.lookup(primary_variable_key)
-                    except KeyError:
-                        msg = f"Primary variable {primary_variable_key} does not exist on the symbol table. Did you define the variable before using it as a primary variable?"
-                        raise CompileError(msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index)
-                    else:
-                        if primary_variable_record.subscript_length > 0:
-                            # these are the allowed subscript names in scope
 
-                            if primary_variable.subscript:
-                                for index, subscript_column in enumerate(primary_variable.subscript.names):
-                                    if subscript_column.name not in self.data_df_columns:
-                                        subscript_aliases[subscript_column.name] = {
-                                            subscript_tuple[index] for subscript_tuple in primary_variable_record.subscripts
-                                        }
+        # Resolve the dataframes
+        for top_expr in self.expr_tree_list:
+            # Find the primary variable
+            primary_symbol = self._get_primary_symbol_from_statement(top_expr)
+            primary_symbol_key = primary_symbol.get_key()
 
-                                self.symbol_table.upsert(
-                                    primary_variable_key, subscript_alias=tuple([x.name for x in primary_variable.subscript.names])
-                                )
+            try:
+                primary_variable = self.symbol_table.lookup(primary_symbol_key)
+            except KeyError:
+                msg = f"Parameter {primary_symbol_key} must be used as a secondary variable before it can be used as a primary variable"
+                raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
 
-                            else:
-                                for index, subscript_column in enumerate(primary_variable_record.subscript_alias):
-                                    if subscript_column not in self.data_df_columns:
-                                        # If there's a subscript name that's not present in the input dataframe, this means
-                                        # it's a subscript "alias", which points to the "true" subscripts that's already on
-                                        # the symbol table. We look up its "true" subscripts and keep them in the scope of
-                                        # this line
-                                        subscript_aliases[subscript_column] = {
-                                            subscript_tuple[index] for subscript_tuple in primary_variable_record.subscripts
-                                        }
-                            allowed_subscript_names = primary_variable_record.subscript_alias
-                        else:
-                            # these are the allowed subscript names in scope
-                            allowed_subscript_names = tuple()
+            # Rename the primary variable
+            if primary_symbol.subscript is not None:
+                primary_subscript_names = tuple(column.name for column in primary_symbol.subscript.names)
 
-                case _:
-                    msg = f"Expected a parameter or data primary variable but got type {primary_variable.__class__.__name__}"
+                # TODO: Make property?
+                try:
+                    primary_variable.set_subscript_names(primary_subscript_names)
+                except AttributeError:
+                    msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {variable.subscripts}"
                     raise CompileError(msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index)
 
-            # If it's an assignment, we save the type of the LHS variable to be an assigned parameter
-            if isinstance(top_expr, ast.Assignment):
-                self.symbol_table.upsert(variable_name=top_expr.lhs.name, variable_type=VariableType.ASSIGNED_PARAM)
+            primary_subscript_names = primary_variable.subscripts
 
-            # iterate through the remaining non-primary variables, resolving subscripts according to primary's subscripts
-            for variable in ast.search_tree(top_expr, ast.Param, ast.Data):
-                variable_key = variable.get_key()
+            # Find all secondary variables that are parameters
+            for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
+                match symbol:
+                    case ast.Param():
+                        symbol_key = symbol.get_key()
+                        if symbol_key == primary_symbol_key:
+                            continue
 
-                if isinstance(variable, ast.Data):
-                    self.symbol_table.upsert(variable_name=variable_key, variable_type=VariableType.DATA)
-                    continue
+                        variable = self.symbol_table.lookup(symbol_key)
 
-                # If there are constraints, we evaluate their values and store them on the symbol table
-                try:
-                    lower_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.symbol_table)
-                    lower_constraint_evaluator.generate(variable.lower)
-                    lower_constraint_value = float(eval(lower_constraint_evaluator.get_expression_string()))
+                        # If secondary variable has no subscript, it's a scalar and there's nothing to do
+                        if symbol.subscript is not None:
+                            # Check that number/names of subscripts are compatible with primary variable
+                            for column in symbol.subscript.names:
+                                if column.name not in primary_subscript_names:
+                                    msg = f"Subscript {column.name} not found in subscripts of primary variable {primary_symbol_key}"
+                                    raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
 
-                    upper_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.symbol_table)
-                    upper_constraint_evaluator.generate(variable.upper)
-                    upper_constraint_value = float(eval(upper_constraint_evaluator.get_expression_string()))
-                except Exception as e:
-                    error_msg = f"Failed evaluating constraints for parameter {variable_key}, ({e})"
-                    raise CompileError(error_msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index) from e
-                else:
-                    self.symbol_table.upsert(
-                        variable_name=variable_key, constraint_lower=lower_constraint_value, constraint_upper=upper_constraint_value
-                    )
-                ###########
+                            subscript_names = [column.name for column in symbol.subscript.names]
 
-                # The following operations are done for subscripts only
-                if not variable.subscript:
-                    continue
+                            # If variable is known to have subscripts yet then check that
+                            # the number of subscripts are compatible with existing
+                            # secondary variable
+                            if variable.subscripts is not None:
+                                if len(subscript_names) != len(variable.subscripts):
+                                    msg = f"{len(subscript_names)} found, previously used with {len(variable.subscripts)}"
+                                    raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
-                # fold shift values into IntegerConstant if it's an expression instead of a constant
-                folded_shift_exprs: List[ast.IntegerConstant] = []
-                for shift_expr in variable.subscript.shifts:
-                    if isinstance(shift_expr, ast.IntegerConstant):
-                        folded_shift_exprs.append(shift_expr)
-                    else:
+                            # Fold all the shift expressions to simple integers
+                            shifts, pad_needed = self._get_shifts_and_padding(symbol.subscript)
+
+                            # TODO: This should probably be supported in the future
+                            # right now I'm leaving it off because I'm not quite sure
+                            # what the behavior should be and I don't have an example
+                            # model in mind (my guess is access should give zeros)
+                            if any(shift != 0 for shift in shifts):
+                                msg = f"Shifted access on a secondary parameter is not allowed"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            # Add to dataframe
+                            variable.add_rows_from_dataframe(primary_variable.base_df[subscript_names])
+
+
+        # Apply constraints to parameters
+        for top_expr in self.expr_tree_list:
+            for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
+                match symbol:
+                    case ast.Param():
+                        symbol_key = symbol.get_key()
+
+                        # Constraints should be evaluated at compile time
                         try:
-                            shift_code_generator = codegen_backends.BaseCodeGenerator(self.symbol_table)
-                            shift_code_generator.generate(shift_expr)
-                            folded_integerconstant = ast.IntegerConstant(value=int(eval(shift_code_generator.get_expression_string())))
-                            folded_shift_exprs.append(folded_integerconstant)
+                            lower_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                            lower_constraint_evaluator.generate(symbol.lower)
+                            lower_constraint_value = float(eval(lower_constraint_evaluator.get_expression_string()))
 
+                            upper_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.symbol_table)
+                            upper_constraint_evaluator.generate(symbol.upper)
+                            upper_constraint_value = float(eval(upper_constraint_evaluator.get_expression_string()))
                         except Exception as e:
-                            error_msg = f"Failed evaluating shift amounts for parameter {variable_key}. Shift amount expressions must be an expression which can be evaluated at compile-time."
-                            raise CompileError(error_msg, self.model_code_string, shift_expr.line_index, shift_expr.column_index) from e
+                            error_msg = f"Failed evaluating constraints for parameter {symbol_key}, ({e})"
+                            raise CompileError(error_msg, self.model_code_string, symbol.line_index, symbol.column_index) from e
+                        
+                        variable = self.symbol_table.lookup(symbol_key)
+                        try:
+                            variable.set_constraints(lower_constraint_value, upper_constraint_value)
+                        except AttributeError:
+                            msg = f"Attempting to set constraints of {symbol_key} to ({lower_constraint_value}, {upper_constraint_value}) but they are already set to ({variable.constraint_lower}, {variable.constraint_upper})"
+                            raise CompileError(msg, self.model_code_string, symbol.subscript.line_index, symbol.subscript.column_index)
+            
+        # Apply constraints to parameters
+        for top_expr in self.expr_tree_list:
+            for symbol in ast.search_tree(top_expr, ast.Assignment):
+                primary_variable = self._get_primary_symbol_from_statement(top_expr)
+                primary_variable_key = primary_variable.get_key()
 
-                # If there is shift, and isn't a recursively set parameter, set pad needed to True
-
-                # if lhs_variable_key == variable_key and isinstance(top_expr, ast.Assignment):
-                #     self.symbol_table.upsert(variable_name=variable_key, pad_needed=False)
-                # else:
-                #     for integer_constant in folded_shift_exprs:
-                #         if integer_constant.value != 0:
-                #             if not self.symbol_table.lookup(variable_key).pad_needed:
-                #                 self.symbol_table.upsert(variable_name=variable_key, pad_needed=True)
-                #             break
-                for integer_constant in folded_shift_exprs:
-                    if integer_constant.value != 0:
-                        if not self.symbol_table.lookup(variable_key).pad_needed:
-                            self.symbol_table.upsert(variable_name=variable_key, pad_needed=True)
-                        break
-                variable.subscript.shifts = folded_shift_exprs
-                ###########
-
-                # Determine type of the variable. If its name exists in the input dataframe, it's a data variable.
-                # Param is the default value. Assigned params are upserted when the compiler identifies it being used on
-                # the LHS of an assignment.
-                try:
-                    var_type = self.symbol_table.lookup(variable_key).variable_type
-                except KeyError:
-                    var_type = VariableType.DATA if variable_key in self.data_df_columns else VariableType.PARAM
-                ###########
-
-                # We "resolve" subscripts, so every single parameters' subscripts can be described with only the input
-                # dataframe's columns. The symbol table holds the "true" subscript columns for each parameter.
-                n_subscripts = len(variable.subscript.names)
-                subscript_list = [[] for _ in range(n_subscripts)]
-
-                variable_subscript_alias: List[str] = []  # This list holds the actual column names of the base DF
-                for index in range(n_subscripts):
-                    subscript_column = variable.subscript.names[index]
-                    subscript_name = subscript_column.name
-
-                    if subscript_name in subscript_aliases:
-                        subscript_list[index].extend(subscript_aliases[subscript_name])
-                    elif subscript_name in allowed_subscript_names:
-                        subscript_list[index].append(subscript_name)
-                    else:
-                        raise CompileError(
-                            f"Subscript name '{subscript_name}' not in scope.",
-                            self.model_code_string,
-                            subscript_column.line_index,
-                            subscript_column.column_index,
-                        )
-                    variable_subscript_alias.append(subscript_name)
-
-                # store the "true" subscripts
-                # ex) let sub_1 := {sub_2, sub_3, sub_4}
-                # then the true subscripts of param[sub_1, x] is [(sub_2, x), (sub_3, x), (sub_4, x)],
-                # with subscript length 2
-                unrolled_subscripts = [tuple(x) for x in itertools.product(*subscript_list)]
-
-                self.symbol_table.upsert(
-                    variable_key, var_type, subscripts=set(unrolled_subscripts), subscript_alias=tuple(variable_subscript_alias)
-                )
+                # If it's an assignment, we save the type of the LHS variable to be an assigned parameter
+                match top_expr:
+                    case ast.Assignment(lhs):
+                        match lhs:
+                            case ast.Param():
+                                lhs_variable = self.symbol_table.lookup(lhs.get_key())
+                                lhs_variable.variable_type = VariableType.ASSIGNED_PARAM
+                            case _:
+                                msg = f"The left hand of an assignment must be a parameter"
+                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
     def pre_codegen_checks(self):
         N_lines = len(self.expr_tree_list)

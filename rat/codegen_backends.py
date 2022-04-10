@@ -1,4 +1,7 @@
+from typing import Tuple
+
 from . import ast
+from .exceptions import CompileError
 from .symbol_table import SymbolTable
 
 
@@ -193,10 +196,9 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
             case ast.Subscript():
                 if not self.variable_name:
                     raise Exception("Internal compiler error -- Variable name must be passed for subscript codegen!")
-                subscript_names = tuple([x.name for x in ast_node.names])
                 subscript_shifts = tuple([x.value for x in ast_node.shifts])
                 subscript_key = self.symbol_table.get_subscript_key(
-                    self.primary_variable_name, self.primary_variable_subscript_names, self.variable_name, subscript_names, subscript_shifts
+                    self.primary_variable_name, self.variable_name, subscript_shifts
                 )
                 self.expression_string += f"subscripts['{subscript_key}']"
             case _:
@@ -223,18 +225,8 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                     if param_key == self.lhs_key:
                         if self.at_rhs:
                             # scan function
-                            subscript_node = ast_node.subscript
-                            subscript_names = tuple([x.name for x in subscript_node.names])
-                            subscript_shifts = tuple([x.value for x in subscript_node.shifts])
-                            subscript_key = self.symbol_table.get_subscript_key(
-                                self.primary_variable_name,
-                                self.primary_variable_subscript_names,
-                                param_key,
-                                subscript_names,
-                                subscript_shifts,
-                            )
-
-                            shift = [x for x in subscript_shifts if x != 0][0]
+                            subscript = ast_node.subscript                            
+                            shift = next(x.value for x in subscript.shifts if x.value != 0)
                             self.expression_string += f"carry{shift}"
                         else:
                             self.expression_string += f"parameters['{param_key}']"

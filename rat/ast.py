@@ -65,12 +65,27 @@ class IntegerConstant(Expr):
 
 
 @dataclass
+class SubscriptColumn(Expr):
+    """
+    columns/names used as subscripts
+    """
+
+    name: str
+
+    def __post_init__(self):
+        self.out_type = types.SubscriptSetType
+
+    def __str__(self):
+        return f"SubscriptColumn({self.name})"
+
+
+@dataclass
 class Subscript(Expr):
     """
     Elementary value
     """
 
-    names: Tuple["SubscriptColumn"]
+    names: Tuple[SubscriptColumn]
     shifts: Tuple[Expr]
 
     def get_key(self):
@@ -85,21 +100,6 @@ class Subscript(Expr):
 
     def __str__(self):
         return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
-
-
-@dataclass
-class SubscriptColumn(Expr):
-    """
-    columns/names used as subscripts
-    """
-
-    name: str
-
-    def __post_init__(self):
-        self.out_type = types.SubscriptSetType
-
-    def __str__(self):
-        return f"SubscriptColumn({self.name})"
 
 
 @dataclass

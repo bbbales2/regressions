@@ -3,7 +3,7 @@ from enum import Enum
 import numpy
 import pandas
 import pprint
-from typing import Dict, Set, Tuple
+from typing import Dict, Set, Tuple, Iterable
 
 from .exceptions import CompileError
 
@@ -42,17 +42,62 @@ class TableRecord:
 
     name: str
     variable_type: VariableType
-    subscripts: Set[Tuple[str]]  # tuple of (subscript_name, subscript_name, ...)
-    # shifts: Set[Tuple[int]]
+    base_df: pandas.DataFrame
+
+    source_name: str = field(default=None)
     subscript_length: int = field(default=0)
-    subscript_alias: Tuple[str] = field(default=tuple())
+    subscripts_rename: Tuple[str] = field(default=None)
+
     constraint_lower: float = field(default=float("-inf"))
     constraint_upper: float = field(default=float("inf"))
     pad_needed: bool = field(default=False)
-    base_df: pandas.DataFrame = field(default=None, init=False, repr=False)
+
     unconstrained_vector_start_index: int = field(default=None, init=False)
     unconstrained_vector_end_index: int = field(default=None, init=False)
 
+    @property
+    def subscripts(self):
+        if self.subscripts_rename is None:
+            if self.base_df is None:
+                return None
+            else:
+                return tuple(self.base_df.columns)
+        else:
+            return self.subscripts_rename
+    
+    def set_subscript_names(self, subscript_rename : Tuple[str]):
+        if self.subscripts_rename is None:
+            self.subscripts_rename = subscript_rename
+        else:
+            if subscript_rename != self.subscripts_rename:
+                raise AttributeError("Internal compiler error: If there are multiple renames, the rename values must match")
+
+    def add_rows_from_dataframe(self, new_rows_df : pandas.DataFrame):
+        """
+        Add rows to the base_df
+        """
+        if self.base_df is None:
+            combined_df = new_rows_df
+        else:
+            combined_df = pandas.DataFrame(
+                numpy.concatenate([self.base_df.values, new_rows_df.values]),
+                columns = self.base_df.columns
+            )
+
+        self.base_df = (
+            combined_df
+            .drop_duplicates()
+            .sort_values(list(combined_df.columns))
+            .reset_index(drop=True)
+        )
+
+    def set_constraints(self, constraint_lower : float, constraint_upper : float):
+        if self.constraint_lower != float("-inf") or self.constraint_upper != float("inf"):
+            if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
+                raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
+            else:
+                self.constraint_lower = constraint_lower
+                self.constraint_upper = constraint_upper
 
 class SymbolTable:
     def __init__(self, data_df):
@@ -79,7 +124,7 @@ class SymbolTable:
         self,
         variable_name: str,
         variable_type: VariableType = None,
-        subscripts: Set[Tuple[str]] = None,
+        subscripts: Tuple[str] = None,
         subscript_alias: Tuple[str] = tuple(),
         constraint_lower: float = float("-inf"),
         constraint_upper: float = float("inf"),
@@ -118,17 +163,20 @@ class SymbolTable:
                 record.pad_needed = pad_needed
 
         else:
+            if variable_type == VariableType.DATA:
+                base_df = self.data_df
+            else:
+                base_df = None
+
             # Insert if new
             self.symbol_dict[variable_name] = TableRecord(
                 variable_name,
                 variable_type,
-                subscripts=subscripts if subscripts else set(),
-                subscript_length=len(tuple(subscripts)[0]) if subscripts else 0,
-                subscript_alias=subscript_alias,
-                constraint_lower=constraint_lower,
-                constraint_upper=constraint_upper,
-                pad_needed=pad_needed,
+                base_df,
             )
+
+    def __contains__(self, name : str) -> bool:
+        return name in self.symbol_dict
 
     def lookup(self, variable_name: str) -> TableRecord:
         """
@@ -154,94 +202,51 @@ class SymbolTable:
                 error_msg = f"Fatal internal error - variable type information for '{variable_name}' not present within the symbol table. Aborting compilation."
                 raise CompileError(error_msg)
 
-            # Data variables don't need a base df; the input df is its base dataframe.
-            if record.variable_type == VariableType.DATA:
-                continue
-
-            if record.subscript_length > 0:
-                base_df = pandas.DataFrame()
-
-                # Since the subscripts in the symbol table are all resolved to denote columns in the input dataframe,
-                # we can directly pull out columns from the input dataframe.
-                for subscript_tuple in record.subscripts:
-                    try:
-                        df = data_df.loc[:, subscript_tuple]
-                    except KeyError as e:
-                        raise CompileError(
-                            f"Internal Error - dataframe build failed. Could not index one or more columns in {subscript_tuple} from the data dataframe."
-                        ) from e
-
-                    # rename base dataframe's columns to use the subscript alias
-                    df.columns = tuple(record.subscript_alias)
-                    base_df = pandas.concat([base_df, df]).drop_duplicates().sort_values(list(df.columns)).reset_index(drop=True)
-
-                # For parameters, allocate space on the unconstrained parameter vector and record indices
-                if record.variable_type == VariableType.PARAM:
-                    nrows = base_df.shape[0]
+            # Allocate space on unconstrained parameter vector for parameters
+            if record.variable_type == VariableType.PARAM:
+                if record.subscript_length > 0:
+                    nrows = record.base_df.shape[0]
                     # base_df["__index"] = pd.Series(range(current_index, current_index + nrows))
-                    record.unconstrained_vector_start_index = current_index
-                    record.unconstrained_vector_end_index = current_index + nrows - 1
-                    current_index += nrows
+                else:
+                    nrows = 1
 
-                record.base_df = base_df
-
-            else:
-                if record.variable_type == VariableType.PARAM:
-                    record.unconstrained_vector_start_index = current_index
-                    record.unconstrained_vector_end_index = current_index
-                    current_index += 1
+                record.unconstrained_vector_start_index = current_index
+                record.unconstrained_vector_end_index = current_index + nrows - 1
+                current_index += nrows
 
         self.unconstrained_param_count = current_index
 
     def get_subscript_key(
         self,
         primary_variable_name: str,
-        primary_subscript_names: Tuple[str],
         target_variable_name: str,
-        target_subscript_names: Tuple[str],
-        target_shift_amounts: Tuple[int],
+        shifts: Tuple[int],
     ):
-        """
-        Find the subscript indices for (target variable, subscript, shift) given its primary variable and its declared subscript
-        For example:
-        param_a[s1, s2] = param_b[s1]
+        primary_variable = self.lookup(primary_variable_name)
+        target_variable = self.lookup(target_variable_name)
 
-        Procedure:
-        1. filter out base_df of param_a so that only rows containing s1 and s2 exists.
-        2. filter out base_df of param_b so that only rows containing s1 exists.
-        3. apply shifts to dataframe (1), creating new columns on dataframe 1
-        3. merge dataframe (1) with dataframe (2) along s1, keeping indices from dataframe (2)
+        shifts_by_subscript_name = {
+            name: shift for name, shift in zip(target_variable.subscripts, shifts)
+        }
 
-        """
-        primary_record = self.lookup(primary_variable_name)
-        target_record = self.lookup(target_variable_name)
-
-        if primary_record.variable_type == VariableType.DATA:
-            primary_base_df = self.data_df.copy()
-
-        else:
-            primary_base_df = primary_record.base_df.copy()
-
-            for index, subscript in enumerate(primary_subscript_names):
-                base_df_subscript_name = primary_record.subscript_alias[index]
-                if subscript == base_df_subscript_name:
-                    continue
-                else:
-                    subset_df = self.data_df.loc[:, [subscript]].drop_duplicates()
-                    subset_df.columns = (base_df_subscript_name,)
-                    primary_base_df = pandas.merge(primary_base_df, subset_df, on=base_df_subscript_name, how="inner")
-
-        primary_base_df = primary_base_df[list(target_subscript_names)]
+        target_variable.base_df
 
         shift_subscripts = []
         shift_values = []
         grouping_subscripts = []
-        for column, shift in zip(target_subscript_names, target_shift_amounts):
+        for column in primary_variable.base_df.columns:
+            if column in shifts_by_subscript_name:
+                shift = shifts_by_subscript_name[column]
+            else:
+                shift = 0
+
             if shift == 0:
                 grouping_subscripts.append(column)
             else:
                 shift_subscripts.append(column)
                 shift_values.append(shift)
+        
+        primary_base_df = primary_variable.base_df.copy()
 
         if len(grouping_subscripts) > 0:
             grouped_df = primary_base_df.groupby(grouping_subscripts)
@@ -252,22 +257,32 @@ class SymbolTable:
             shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
             primary_base_df[column] = shifted_column
 
-        target_base_df = target_record.base_df.copy()
-        target_base_df.columns = list(target_subscript_names)
+        target_base_df = target_variable.base_df.copy()
+        target_base_df.columns = list(target_variable.subscripts)
 
         target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]))
 
         key_name = f"subscript__{self.generated_subscript_count}"
         self.generated_subscript_count += 1
-        output_df = pandas.merge(primary_base_df[list(target_subscript_names)], target_base_df, on=target_subscript_names, how="left")
 
-        # number of columns being subscripted
-        n_shifts = len(target_shift_amounts)
-        if n_shifts > 1 and target_record.variable_type == VariableType.ASSIGNED_PARAM:
-            self.first_in_group_indicator[target_variable_name] = (~target_base_df.duplicated(subset=grouping_subscripts)).to_numpy()
+        self.generated_subscript_dict[key_name] = (
+            primary_base_df
+            .merge(target_base_df, on=target_variable.subscripts, how="left")
+            ["__in_dataframe_index"]
+            # NAs correspond to out of bounds accesses -- those should map 
+            # to zero (and any parameter that needs to do out of bounds
+            # accesses will have zeros allocated for the last element)
+            .fillna(target_base_df.shape[0])
+            .to_numpy()
+        )
 
-        output_df["__in_dataframe_index"] = output_df["__in_dataframe_index"].fillna(target_base_df.shape[0])
-        self.generated_subscript_dict[key_name] = output_df["__in_dataframe_index"].to_numpy(dtype=int)
+        # If this is a recursively assigned parameter we'll need to generate
+        # some special values for the jax.lax.scan recursive assignment implementation
+        if (
+            (primary_variable_name == target_variable_name) and
+            (target_variable.variable_type == VariableType.ASSIGNED_PARAM)
+        ):
+            self.first_in_group_indicator[primary_variable_name] = (~primary_base_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
         return key_name
 
