@@ -197,9 +197,7 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
                 if not self.variable_name:
                     raise Exception("Internal compiler error -- Variable name must be passed for subscript codegen!")
                 subscript_shifts = tuple([x.value for x in ast_node.shifts])
-                subscript_key = self.symbol_table.get_subscript_key(
-                    self.primary_variable_name, self.variable_name, subscript_shifts
-                )
+                subscript_key = self.symbol_table.get_subscript_key(self.primary_variable_name, self.variable_name, subscript_shifts)
                 self.expression_string += f"subscripts['{subscript_key}']"
             case _:
                 super().generate(ast_node)
@@ -225,7 +223,7 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                     if param_key == self.lhs_key:
                         if self.at_rhs:
                             # scan function
-                            subscript = ast_node.subscript                            
+                            subscript = ast_node.subscript
                             shift = next(x.value for x in subscript.shifts if x.value != 0)
                             self.expression_string += f"carry{shift}"
                         else:

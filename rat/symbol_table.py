@@ -64,40 +64,33 @@ class TableRecord:
                 return tuple(self.base_df.columns)
         else:
             return self.subscripts_rename
-    
-    def set_subscript_names(self, subscript_rename : Tuple[str]):
+
+    def set_subscript_names(self, subscript_rename: Tuple[str]):
         if self.subscripts_rename is None:
             self.subscripts_rename = subscript_rename
         else:
             if subscript_rename != self.subscripts_rename:
                 raise AttributeError("Internal compiler error: If there are multiple renames, the rename values must match")
 
-    def add_rows_from_dataframe(self, new_rows_df : pandas.DataFrame):
+    def add_rows_from_dataframe(self, new_rows_df: pandas.DataFrame):
         """
         Add rows to the base_df
         """
         if self.base_df is None:
             combined_df = new_rows_df
         else:
-            combined_df = pandas.DataFrame(
-                numpy.concatenate([self.base_df.values, new_rows_df.values]),
-                columns = self.base_df.columns
-            )
+            combined_df = pandas.DataFrame(numpy.concatenate([self.base_df.values, new_rows_df.values]), columns=self.base_df.columns)
 
-        self.base_df = (
-            combined_df
-            .drop_duplicates()
-            .sort_values(list(combined_df.columns))
-            .reset_index(drop=True)
-        )
+        self.base_df = combined_df.drop_duplicates().sort_values(list(combined_df.columns)).reset_index(drop=True)
 
-    def set_constraints(self, constraint_lower : float, constraint_upper : float):
+    def set_constraints(self, constraint_lower: float, constraint_upper: float):
         if self.constraint_lower != float("-inf") or self.constraint_upper != float("inf"):
             if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
                 raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
             else:
                 self.constraint_lower = constraint_lower
                 self.constraint_upper = constraint_upper
+
 
 class SymbolTable:
     def __init__(self, data_df):
@@ -175,7 +168,7 @@ class SymbolTable:
                 base_df,
             )
 
-    def __contains__(self, name : str) -> bool:
+    def __contains__(self, name: str) -> bool:
         return name in self.symbol_dict
 
     def lookup(self, variable_name: str) -> TableRecord:
@@ -225,9 +218,7 @@ class SymbolTable:
         primary_variable = self.lookup(primary_variable_name)
         target_variable = self.lookup(target_variable_name)
 
-        shifts_by_subscript_name = {
-            name: shift for name, shift in zip(target_variable.subscripts, shifts)
-        }
+        shifts_by_subscript_name = {name: shift for name, shift in zip(target_variable.subscripts, shifts)}
 
         target_variable.base_df
 
@@ -245,7 +236,7 @@ class SymbolTable:
             else:
                 shift_subscripts.append(column)
                 shift_values.append(shift)
-        
+
         primary_base_df = primary_variable.base_df.copy()
 
         if len(grouping_subscripts) > 0:
@@ -266,22 +257,16 @@ class SymbolTable:
         self.generated_subscript_count += 1
 
         self.generated_subscript_dict[key_name] = (
-            primary_base_df
-            .merge(target_base_df, on=target_variable.subscripts, how="left")
-            ["__in_dataframe_index"]
-            # NAs correspond to out of bounds accesses -- those should map 
+            primary_base_df.merge(target_base_df, on=target_variable.subscripts, how="left")["__in_dataframe_index"]
+            # NAs correspond to out of bounds accesses -- those should map
             # to zero (and any parameter that needs to do out of bounds
             # accesses will have zeros allocated for the last element)
-            .fillna(target_base_df.shape[0])
-            .to_numpy()
+            .fillna(target_base_df.shape[0]).to_numpy()
         )
 
         # If this is a recursively assigned parameter we'll need to generate
         # some special values for the jax.lax.scan recursive assignment implementation
-        if (
-            (primary_variable_name == target_variable_name) and
-            (target_variable.variable_type == VariableType.ASSIGNED_PARAM)
-        ):
+        if (primary_variable_name == target_variable_name) and (target_variable.variable_type == VariableType.ASSIGNED_PARAM):
             self.first_in_group_indicator[primary_variable_name] = (~primary_base_df.duplicated(subset=grouping_subscripts)).to_numpy()
 
         return key_name
