@@ -97,7 +97,7 @@ class Compiler:
             # Mark the primary symbol if it wasn't already
             primary_symbol.prime = True
 
-    def _get_shifts_and_padding(self, subscript : ast.Subscript):
+    def _get_shifts_and_padding(self, subscript: ast.Subscript):
         """
         Evaluate subscript expressions. These should all be reducible to integer shifts.
 
@@ -106,7 +106,7 @@ class Compiler:
         Return the integer shifts and pad_needed
         """
         # Fold shift values into integers if it's an expression instead of a constant
-        integer_shifts : List[int] = []
+        integer_shifts: List[int] = []
         for shift_expr in subscript.shifts:
             match shift_expr:
                 case ast.IntegerConstant():
@@ -137,16 +137,9 @@ class Compiler:
             for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
                 match symbol:
                     case ast.Data():
-                        self.symbol_table.upsert(
-                            variable_name = symbol.get_key(),
-                            variable_type = VariableType.DATA
-                        )
+                        self.symbol_table.upsert(variable_name=symbol.get_key(), variable_type=VariableType.DATA)
                     case ast.Param():
-                        self.symbol_table.upsert(
-                            variable_name = symbol.get_key(),
-                            variable_type = VariableType.PARAM
-                        )
-
+                        self.symbol_table.upsert(variable_name=symbol.get_key(), variable_type=VariableType.PARAM)
 
         # TODO: I'm not sure it's a good pattern to modify the AST in place
         # Fold all shifts to constants
@@ -159,14 +152,15 @@ class Compiler:
 
                             new_shift_expressions = []
                             for shift_expression, integer_shift in zip(symbol.subscript.shifts, integer_shifts):
-                                new_shift_expressions.append(ast.IntegerConstant(
-                                    value = integer_shift,
-                                    line_index = shift_expression.line_index,
-                                    column_index = shift_expression.column_index
-                                ))
-                            
-                            symbol.subscript.shifts = tuple(new_shift_expressions)
+                                new_shift_expressions.append(
+                                    ast.IntegerConstant(
+                                        value=integer_shift,
+                                        line_index=shift_expression.line_index,
+                                        column_index=shift_expression.column_index,
+                                    )
+                                )
 
+                            symbol.subscript.shifts = tuple(new_shift_expressions)
 
         # Resolve the dataframes
         for top_expr in self.expr_tree_list:
@@ -236,7 +230,6 @@ class Compiler:
                                 # Add to dataframe
                                 variable.add_rows_from_dataframe(primary_variable.base_df[subscript_names])
 
-
         # Apply constraints to parameters
         for top_expr in self.expr_tree_list:
             for symbol in ast.search_tree(top_expr, ast.Data, ast.Param):
@@ -256,14 +249,14 @@ class Compiler:
                         except Exception as e:
                             error_msg = f"Failed evaluating constraints for parameter {symbol_key}, ({e})"
                             raise CompileError(error_msg, self.model_code_string, symbol.line_index, symbol.column_index) from e
-                        
+
                         variable = self.symbol_table.lookup(symbol_key)
                         try:
                             variable.set_constraints(lower_constraint_value, upper_constraint_value)
                         except AttributeError:
                             msg = f"Attempting to set constraints of {symbol_key} to ({lower_constraint_value}, {upper_constraint_value}) but they are already set to ({variable.constraint_lower}, {variable.constraint_upper})"
                             raise CompileError(msg, self.model_code_string, symbol.subscript.line_index, symbol.subscript.column_index)
-            
+
         # Apply constraints to parameters
         for top_expr in self.expr_tree_list:
             for symbol in ast.search_tree(top_expr, ast.Assignment):

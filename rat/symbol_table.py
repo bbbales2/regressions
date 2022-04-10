@@ -62,8 +62,8 @@ class TableRecord:
                 return tuple(self.base_df.columns)
         else:
             return self.subscripts_rename
-    
-    def set_subscript_names(self, subscript_rename : Tuple[str]):
+
+    def set_subscript_names(self, subscript_rename: Tuple[str]):
         if self.subscripts_rename is None:
             self.subscripts_rename = subscript_rename
             self.base_df.columns = self.subscripts
@@ -71,32 +71,25 @@ class TableRecord:
             if subscript_rename != self.subscripts_rename:
                 raise AttributeError("Internal compiler error: If there are multiple renames, the rename values must match")
 
-    def add_rows_from_dataframe(self, new_rows_df : pandas.DataFrame):
+    def add_rows_from_dataframe(self, new_rows_df: pandas.DataFrame):
         """
         Add rows to the base_df
         """
         if self.base_df is None:
             combined_df = new_rows_df
         else:
-            combined_df = pandas.DataFrame(
-                numpy.concatenate([self.base_df.values, new_rows_df.values]),
-                columns = self.base_df.columns
-            )
+            combined_df = pandas.DataFrame(numpy.concatenate([self.base_df.values, new_rows_df.values]), columns=self.base_df.columns)
 
-        self.base_df = (
-            combined_df
-            .drop_duplicates()
-            .sort_values(list(combined_df.columns))
-            .reset_index(drop=True)
-        )
+        self.base_df = combined_df.drop_duplicates().sort_values(list(combined_df.columns)).reset_index(drop=True)
 
-    def set_constraints(self, constraint_lower : float, constraint_upper : float):
+    def set_constraints(self, constraint_lower: float, constraint_upper: float):
         if self.constraint_lower != float("-inf") or self.constraint_upper != float("inf"):
             if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
                 raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
         else:
             self.constraint_lower = constraint_lower
             self.constraint_upper = constraint_upper
+
 
 class SymbolTable:
     def __init__(self, data_df):
@@ -153,7 +146,7 @@ class SymbolTable:
                 base_df,
             )
 
-    def __contains__(self, name : str) -> bool:
+    def __contains__(self, name: str) -> bool:
         return name in self.symbol_dict
 
     def lookup(self, variable_name: str) -> TableRecord:
@@ -224,7 +217,7 @@ class SymbolTable:
             else:
                 shift_subscripts.append(column)
                 shift_values.append(shift)
-        
+
         primary_base_df = primary_variable.base_df.copy()
 
         if len(grouping_subscripts) > 0:
