@@ -3,14 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="pdoc 10.0.4"/>
+    <meta name="generator" content="pdoc 11.0.0"/>
     <title>rat API documentation</title>
 
     <style>/*! * Bootstrap Reboot v5.0.0 (https://getbootstrap.com/) * Copyright 2011-2021 The Bootstrap Authors * Copyright 2011-2021 Twitter, Inc. * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE) * Forked from Normalize.css, licensed MIT (https://github.com/necolas/normalize.css/blob/master/LICENSE.md) */*,::after,::before{box-sizing:border-box}@media (prefers-reduced-motion:no-preference){:root{scroll-behavior:smooth}}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Liberation Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";font-size:1rem;font-weight:400;line-height:1.5;color:#212529;background-color:#fff;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}hr{margin:1rem 0;color:inherit;background-color:currentColor;border:0;opacity:.25}hr:not([size]){height:1px}h1,h2,h3,h4,h5,h6{margin-top:0;margin-bottom:.5rem;font-weight:500;line-height:1.2}h1{font-size:calc(1.375rem + 1.5vw)}@media (min-width:1200px){h1{font-size:2.5rem}}h2{font-size:calc(1.325rem + .9vw)}@media (min-width:1200px){h2{font-size:2rem}}h3{font-size:calc(1.3rem + .6vw)}@media (min-width:1200px){h3{font-size:1.75rem}}h4{font-size:calc(1.275rem + .3vw)}@media (min-width:1200px){h4{font-size:1.5rem}}h5{font-size:1.25rem}h6{font-size:1rem}p{margin-top:0;margin-bottom:1rem}abbr[data-bs-original-title],abbr[title]{-webkit-text-decoration:underline dotted;text-decoration:underline dotted;cursor:help;-webkit-text-decoration-skip-ink:none;text-decoration-skip-ink:none}address{margin-bottom:1rem;font-style:normal;line-height:inherit}ol,ul{padding-left:2rem}dl,ol,ul{margin-top:0;margin-bottom:1rem}ol ol,ol ul,ul ol,ul ul{margin-bottom:0}dt{font-weight:700}dd{margin-bottom:.5rem;margin-left:0}blockquote{margin:0 0 1rem}b,strong{font-weight:bolder}small{font-size:.875em}mark{padding:.2em;background-color:#fcf8e3}sub,sup{position:relative;font-size:.75em;line-height:0;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}a{color:#0d6efd;text-decoration:underline}a:hover{color:#0a58ca}a:not([href]):not([class]),a:not([href]):not([class]):hover{color:inherit;text-decoration:none}code,kbd,pre,samp{font-family:SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:1em;direction:ltr;unicode-bidi:bidi-override}pre{display:block;margin-top:0;margin-bottom:1rem;overflow:auto;font-size:.875em}pre code{font-size:inherit;color:inherit;word-break:normal}code{font-size:.875em;color:#d63384;word-wrap:break-word}a>code{color:inherit}kbd{padding:.2rem .4rem;font-size:.875em;color:#fff;background-color:#212529;border-radius:.2rem}kbd kbd{padding:0;font-size:1em;font-weight:700}figure{margin:0 0 1rem}img,svg{vertical-align:middle}table{caption-side:bottom;border-collapse:collapse}caption{padding-top:.5rem;padding-bottom:.5rem;color:#6c757d;text-align:left}th{text-align:inherit;text-align:-webkit-match-parent}tbody,td,tfoot,th,thead,tr{border-color:inherit;border-style:solid;border-width:0}label{display:inline-block}button{border-radius:0}button:focus:not(:focus-visible){outline:0}button,input,optgroup,select,textarea{margin:0;font-family:inherit;font-size:inherit;line-height:inherit}button,select{text-transform:none}[role=button]{cursor:pointer}select{word-wrap:normal}select:disabled{opacity:1}[list]::-webkit-calendar-picker-indicator{display:none}[type=button],[type=reset],[type=submit],button{-webkit-appearance:button}[type=button]:not(:disabled),[type=reset]:not(:disabled),[type=submit]:not(:disabled),button:not(:disabled){cursor:pointer}::-moz-focus-inner{padding:0;border-style:none}textarea{resize:vertical}fieldset{min-width:0;padding:0;margin:0;border:0}legend{float:left;width:100%;padding:0;margin-bottom:.5rem;font-size:calc(1.275rem + .3vw);line-height:inherit}@media (min-width:1200px){legend{font-size:1.5rem}}legend+*{clear:left}::-webkit-datetime-edit-day-field,::-webkit-datetime-edit-fields-wrapper,::-webkit-datetime-edit-hour-field,::-webkit-datetime-edit-minute,::-webkit-datetime-edit-month-field,::-webkit-datetime-edit-text,::-webkit-datetime-edit-year-field{padding:0}::-webkit-inner-spin-button{height:auto}[type=search]{outline-offset:-2px;-webkit-appearance:textfield}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-color-swatch-wrapper{padding:0}::file-selector-button{font:inherit}::-webkit-file-upload-button{font:inherit;-webkit-appearance:button}output{display:inline-block}iframe{border:0}summary{display:list-item;cursor:pointer}progress{vertical-align:baseline}[hidden]{display:none!important}</style>
     <style>/*! syntax-highlighting.css */pre{line-height:125%;}span.linenos{color:inherit; background-color:transparent; padding-left:5px; padding-right:20px;}.pdoc-code .hll{background-color:#ffffcc}.pdoc-code{background:#f8f8f8;}.pdoc-code .c{color:#3D7B7B; font-style:italic}.pdoc-code .err{border:1px solid #FF0000}.pdoc-code .k{color:#008000; font-weight:bold}.pdoc-code .o{color:#666666}.pdoc-code .ch{color:#3D7B7B; font-style:italic}.pdoc-code .cm{color:#3D7B7B; font-style:italic}.pdoc-code .cp{color:#9C6500}.pdoc-code .cpf{color:#3D7B7B; font-style:italic}.pdoc-code .c1{color:#3D7B7B; font-style:italic}.pdoc-code .cs{color:#3D7B7B; font-style:italic}.pdoc-code .gd{color:#A00000}.pdoc-code .ge{font-style:italic}.pdoc-code .gr{color:#E40000}.pdoc-code .gh{color:#000080; font-weight:bold}.pdoc-code .gi{color:#008400}.pdoc-code .go{color:#717171}.pdoc-code .gp{color:#000080; font-weight:bold}.pdoc-code .gs{font-weight:bold}.pdoc-code .gu{color:#800080; font-weight:bold}.pdoc-code .gt{color:#0044DD}.pdoc-code .kc{color:#008000; font-weight:bold}.pdoc-code .kd{color:#008000; font-weight:bold}.pdoc-code .kn{color:#008000; font-weight:bold}.pdoc-code .kp{color:#008000}.pdoc-code .kr{color:#008000; font-weight:bold}.pdoc-code .kt{color:#B00040}.pdoc-code .m{color:#666666}.pdoc-code .s{color:#BA2121}.pdoc-code .na{color:#687822}.pdoc-code .nb{color:#008000}.pdoc-code .nc{color:#0000FF; font-weight:bold}.pdoc-code .no{color:#880000}.pdoc-code .nd{color:#AA22FF}.pdoc-code .ni{color:#717171; font-weight:bold}.pdoc-code .ne{color:#CB3F38; font-weight:bold}.pdoc-code .nf{color:#0000FF}.pdoc-code .nl{color:#767600}.pdoc-code .nn{color:#0000FF; font-weight:bold}.pdoc-code .nt{color:#008000; font-weight:bold}.pdoc-code .nv{color:#19177C}.pdoc-code .ow{color:#AA22FF; font-weight:bold}.pdoc-code .w{color:#bbbbbb}.pdoc-code .mb{color:#666666}.pdoc-code .mf{color:#666666}.pdoc-code .mh{color:#666666}.pdoc-code .mi{color:#666666}.pdoc-code .mo{color:#666666}.pdoc-code .sa{color:#BA2121}.pdoc-code .sb{color:#BA2121}.pdoc-code .sc{color:#BA2121}.pdoc-code .dl{color:#BA2121}.pdoc-code .sd{color:#BA2121; font-style:italic}.pdoc-code .s2{color:#BA2121}.pdoc-code .se{color:#AA5D1F; font-weight:bold}.pdoc-code .sh{color:#BA2121}.pdoc-code .si{color:#A45A77; font-weight:bold}.pdoc-code .sx{color:#008000}.pdoc-code .sr{color:#A45A77}.pdoc-code .s1{color:#BA2121}.pdoc-code .ss{color:#19177C}.pdoc-code .bp{color:#008000}.pdoc-code .fm{color:#0000FF}.pdoc-code .vc{color:#19177C}.pdoc-code .vg{color:#19177C}.pdoc-code .vi{color:#19177C}.pdoc-code .vm{color:#19177C}.pdoc-code .il{color:#666666}</style>
     <style>/*! theme.css */:root{--pdoc-background:#fff;}.pdoc{--text:#212529;--muted:#6c757d;--link:#3660a5;--link-hover:#1659c5;--code:#f8f8f8;--active:#fff598;--accent:#eee;--accent2:#c1c1c1;--nav-hover:rgba(255, 255, 255, 0.5);--name:#0066BB;--def:#008800;--annotation:#007020;}</style>
-    <style>/*! layout.css */html, body{width:100%;height:100%;}html, main{scroll-behavior:smooth;}body{background-color:var(--pdoc-background);}@media (max-width:769px){#navtoggle{cursor:pointer;position:absolute;width:50px;height:40px;top:1rem;right:1rem;border-color:var(--text);color:var(--text);display:flex;opacity:0.8;}#navtoggle:hover{opacity:1;}#togglestate + div{display:none;}#togglestate:checked + div{display:inherit;}main, header{padding:2rem 3vw;}header + main{margin-top:-3rem;}.git-button{display:none !important;}nav input[type="search"]{max-width:77%;}nav input[type="search"]:first-child{margin-top:-6px;}nav input[type="search"]:valid ~ *{display:none !important;}}@media (min-width:770px){:root{--sidebar-width:clamp(12.5rem, 28vw, 22rem);}nav{position:fixed;overflow:auto;height:100vh;width:var(--sidebar-width);}main, header{padding:3rem 2rem 3rem calc(var(--sidebar-width) + 3rem);width:calc(54rem + var(--sidebar-width));max-width:100%;}header + main{margin-top:-4rem;}#navtoggle{display:none;}}#togglestate{position:absolute;height:0;}nav.pdoc{--pad:1.75rem;--indent:1.5rem;background-color:var(--accent);border-right:1px solid var(--accent2);box-shadow:0 0 20px rgba(50, 50, 50, .2) inset;padding:0 0 0 var(--pad);overflow-wrap:anywhere;scrollbar-width:thin; scrollbar-color:var(--accent2) transparent }nav.pdoc::-webkit-scrollbar{width:.4rem; }nav.pdoc::-webkit-scrollbar-thumb{background-color:var(--accent2); }nav.pdoc > div{padding:var(--pad) 0;}nav.pdoc .module-list-button{display:inline-flex;align-items:center;color:var(--text);border-color:var(--muted);margin-bottom:1rem;}nav.pdoc .module-list-button:hover{border-color:var(--text);}nav.pdoc input[type=search]{display:block;outline-offset:0;width:calc(100% - var(--pad));}nav.pdoc .logo{max-width:calc(100% - var(--pad));max-height:35vh;display:block;margin:0 auto 1rem;transform:translate(calc(-.5 * var(--pad)), 0);}nav.pdoc ul{list-style:none;padding-left:0;}nav.pdoc li{display:block;margin:0;padding:.2rem 0 .2rem var(--indent);transition:all 100ms;}nav.pdoc > div > ul > li{padding-left:0;}nav.pdoc li:hover{background-color:var(--nav-hover);}nav.pdoc a, nav.pdoc a:hover{color:var(--text);}nav.pdoc a{display:block;}nav.pdoc > h2:first-of-type{margin-top:1.5rem;}nav.pdoc .class:before{content:"class ";color:var(--muted);}nav.pdoc .function:after{content:"()";color:var(--muted);}nav.pdoc footer:before{content:"";display:block;width:calc(100% - var(--pad));border-top:solid var(--accent2) 1px;margin-top:1.5rem;padding-top:.5rem;}nav.pdoc footer{font-size:small;}</style>
-    <style>/*! content.css */.pdoc{color:var(--text);box-sizing:border-box;line-height:1.5;background:none;}.pdoc .pdoc-button{display:inline-block;border:solid black 1px;border-radius:2px;font-size:.75rem;padding:calc(0.5em - 1px) 1em;transition:100ms all;}.pdoc .visually-hidden{position:absolute !important;width:1px !important;height:1px !important;padding:0 !important;margin:-1px !important;overflow:hidden !important;clip:rect(0, 0, 0, 0) !important;white-space:nowrap !important;border:0 !important;}.pdoc h1, .pdoc h2, .pdoc h3{font-weight:300;margin:.3em 0;padding:.2em 0;}.pdoc a{text-decoration:none;color:var(--link);}.pdoc a:hover{color:var(--link-hover);}.pdoc blockquote{margin-left:2rem;}.pdoc pre{border-top:1px solid var(--accent2);border-bottom:1px solid var(--accent2);margin-top:0;margin-bottom:1em;padding:.5rem 0 .5rem .5rem;overflow-x:auto;background-color:var(--code);}.pdoc code{color:var(--text);padding:.2em .4em;margin:0;font-size:85%;background-color:var(--code);border-radius:6px;}.pdoc a > code{color:inherit;}.pdoc pre > code{display:inline-block;font-size:inherit;background:none;border:none;padding:0;}.pdoc section{margin-bottom:1.5rem;}.pdoc .modulename{margin-top:0;font-weight:bold;}.pdoc .modulename a{color:var(--link);transition:100ms all;}.pdoc .git-button{float:right;border:solid var(--link) 1px;}.pdoc .git-button:hover{background-color:var(--link);color:var(--pdoc-background);}.pdoc details{filter:opacity(1);}.pdoc details:not([open]){height:0;}.pdoc details > summary{position:absolute;top:-35px;right:0;font-size:.75rem;color:var(--muted);padding:0 .7em;user-select:none;cursor:pointer;}.pdoc details > summary:focus{outline:0;}.pdoc .docstring{margin-bottom:1.5rem;}.pdoc > section:first-of-type > .docstring{margin-bottom:2.5rem;}.pdoc .docstring .pdoc-code{margin-left:1em;margin-right:1em;}.pdoc h1:target,.pdoc h2:target,.pdoc h3:target,.pdoc h4:target,.pdoc h5:target,.pdoc h6:target{background-color:var(--active);box-shadow:-1rem 0 0 0 var(--active);}.pdoc div:target > .attr,.pdoc section:target > .attr,.pdoc dd:target > a{background-color:var(--active);}.pdoc .attr:hover{filter:contrast(0.95);}.pdoc .headerlink{position:absolute;width:0;margin-left:-1.5rem;line-height:1.4rem;font-size:1.5rem;font-weight:normal;transition:all 100ms ease-in-out;opacity:0;user-select:none;}.pdoc .attr > .headerlink{margin-left:-2.5rem;}.pdoc *:hover > .headerlink,.pdoc *:target > .attr > .headerlink{opacity:1;}.pdoc .attr{display:block;color:var(--text);margin:.5rem 0 .5rem;padding:.4rem 5rem .4rem 1rem;background-color:var(--accent);}.pdoc .classattr{margin-left:2rem;}.pdoc .name{color:var(--name);font-weight:bold;}.pdoc .def{color:var(--def);font-weight:bold;}.pdoc .signature{white-space:pre-wrap;}.pdoc .annotation{color:var(--annotation);}.pdoc .inherited{margin-left:2rem;}.pdoc .inherited dt{font-weight:700;}.pdoc .inherited dt, .pdoc .inherited dd{display:inline;margin-left:0;margin-bottom:.5rem;}.pdoc .inherited dd:not(:last-child):after{content:", ";}.pdoc .inherited .class:before{content:"class ";}.pdoc .inherited .function a:after{content:"()";}.pdoc .search-result .docstring{overflow:auto;max-height:25vh;}.pdoc .search-result.focused > .attr{background-color:var(--active);}.pdoc .attribution{margin-top:2rem;display:block;opacity:0.5;transition:all 200ms;filter:grayscale(100%);}.pdoc .attribution:hover{opacity:1;filter:grayscale(0%);}.pdoc .attribution img{margin-left:5px;height:35px;vertical-align:middle;width:70px;transition:all 200ms;}.pdoc table{display:block;width:max-content;max-width:100%;overflow:auto;margin-bottom:1rem;}.pdoc table th{font-weight:600;}.pdoc table th, .pdoc table td{padding:6px 13px;border:1px solid var(--accent2);}</style>
+    <style>/*! layout.css */html, body{width:100%;height:100%;}html, main{scroll-behavior:smooth;}body{background-color:var(--pdoc-background);}@media (max-width:769px){#navtoggle{cursor:pointer;position:absolute;width:50px;height:40px;top:1rem;right:1rem;border-color:var(--text);color:var(--text);display:flex;opacity:0.8;}#navtoggle:hover{opacity:1;}#togglestate + div{display:none;}#togglestate:checked + div{display:inherit;}main, header{padding:2rem 3vw;}header + main{margin-top:-3rem;}.git-button{display:none !important;}nav input[type="search"]{max-width:77%;}nav input[type="search"]:first-child{margin-top:-6px;}nav input[type="search"]:valid ~ *{display:none !important;}}@media (min-width:770px){:root{--sidebar-width:clamp(12.5rem, 28vw, 22rem);}nav{position:fixed;overflow:auto;height:100vh;width:var(--sidebar-width);}main, header{padding:3rem 2rem 3rem calc(var(--sidebar-width) + 3rem);width:calc(54rem + var(--sidebar-width));max-width:100%;}header + main{margin-top:-4rem;}#navtoggle{display:none;}}#togglestate{position:absolute;height:0;}nav.pdoc{--pad:clamp(0.5rem, 2vw, 1.75rem);--indent:1.5rem;background-color:var(--accent);border-right:1px solid var(--accent2);box-shadow:0 0 20px rgba(50, 50, 50, .2) inset;padding:0 0 0 var(--pad);overflow-wrap:anywhere;scrollbar-width:thin; scrollbar-color:var(--accent2) transparent }nav.pdoc::-webkit-scrollbar{width:.4rem; }nav.pdoc::-webkit-scrollbar-thumb{background-color:var(--accent2); }nav.pdoc > div{padding:var(--pad) 0;}nav.pdoc .module-list-button{display:inline-flex;align-items:center;color:var(--text);border-color:var(--muted);margin-bottom:1rem;}nav.pdoc .module-list-button:hover{border-color:var(--text);}nav.pdoc input[type=search]{display:block;outline-offset:0;width:calc(100% - var(--pad));}nav.pdoc .logo{max-width:calc(100% - var(--pad));max-height:35vh;display:block;margin:0 auto 1rem;transform:translate(calc(-.5 * var(--pad)), 0);}nav.pdoc ul{list-style:none;padding-left:0;}nav.pdoc > div > ul{margin-left:calc(0px - var(--pad));}nav.pdoc li a{padding:.2rem 0 .2rem calc(var(--pad) + var(--indent));}nav.pdoc > div > ul > li > a{padding-left:var(--pad);}nav.pdoc li{transition:all 100ms;}nav.pdoc li:hover{background-color:var(--nav-hover);}nav.pdoc a, nav.pdoc a:hover{color:var(--text);}nav.pdoc a{display:block;}nav.pdoc > h2:first-of-type{margin-top:1.5rem;}nav.pdoc .class:before{content:"class ";color:var(--muted);}nav.pdoc .function:after{content:"()";color:var(--muted);}nav.pdoc footer:before{content:"";display:block;width:calc(100% - var(--pad));border-top:solid var(--accent2) 1px;margin-top:1.5rem;padding-top:.5rem;}nav.pdoc footer{font-size:small;}</style>
+    <style>/*! content.css */.pdoc{color:var(--text);box-sizing:border-box;line-height:1.5;background:none;}.pdoc .pdoc-button{display:inline-block;border:solid black 1px;border-radius:2px;font-size:.75rem;padding:calc(0.5em - 1px) 1em;transition:100ms all;}.pdoc .pdoc-alert{padding:1rem 1rem 1rem calc(1.5rem + 24px);border:1px solid transparent;border-radius:.25rem;background-repeat:no-repeat;background-position:1rem center;margin-bottom:1rem;}.pdoc .pdoc-alert > *:last-child{margin-bottom:0;}.pdoc .pdoc-alert-note {color:#084298;background-color:#cfe2ff;border-color:#b6d4fe;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%23084298%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M8%2016A8%208%200%201%200%208%200a8%208%200%200%200%200%2016zm.93-9.412-1%204.705c-.07.34.029.533.304.533.194%200%20.487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703%200-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381%202.29-.287zM8%205.5a1%201%200%201%201%200-2%201%201%200%200%201%200%202z%22/%3E%3C/svg%3E");}.pdoc .pdoc-alert-warning{color:#664d03;background-color:#fff3cd;border-color:#ffecb5;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%23664d03%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M8.982%201.566a1.13%201.13%200%200%200-1.96%200L.165%2013.233c-.457.778.091%201.767.98%201.767h13.713c.889%200%201.438-.99.98-1.767L8.982%201.566zM8%205c.535%200%20.954.462.9.995l-.35%203.507a.552.552%200%200%201-1.1%200L7.1%205.995A.905.905%200%200%201%208%205zm.002%206a1%201%200%201%201%200%202%201%201%200%200%201%200-2z%22/%3E%3C/svg%3E");}.pdoc .pdoc-alert-danger{color:#842029;background-color:#f8d7da;border-color:#f5c2c7;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%23842029%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M5.52.359A.5.5%200%200%201%206%200h4a.5.5%200%200%201%20.474.658L8.694%206H12.5a.5.5%200%200%201%20.395.807l-7%209a.5.5%200%200%201-.873-.454L6.823%209.5H3.5a.5.5%200%200%201-.48-.641l2.5-8.5z%22/%3E%3C/svg%3E");}.pdoc .visually-hidden{position:absolute !important;width:1px !important;height:1px !important;padding:0 !important;margin:-1px !important;overflow:hidden !important;clip:rect(0, 0, 0, 0) !important;white-space:nowrap !important;border:0 !important;}.pdoc h1, .pdoc h2, .pdoc h3{font-weight:300;margin:.3em 0;padding:.2em 0;}.pdoc a{text-decoration:none;color:var(--link);}.pdoc a:hover{color:var(--link-hover);}.pdoc blockquote{margin-left:2rem;}.pdoc pre{border-top:1px solid var(--accent2);border-bottom:1px solid var(--accent2);margin-top:0;margin-bottom:1em;padding:.5rem 0 .5rem .5rem;overflow-x:auto;background-color:var(--code);}.pdoc code{color:var(--text);padding:.2em .4em;margin:0;font-size:85%;background-color:var(--code);border-radius:6px;}.pdoc a > code{color:inherit;}.pdoc pre > code{display:inline-block;font-size:inherit;background:none;border:none;padding:0;}.pdoc > section:not(:first-of-type){margin-bottom:1.5rem;}.pdoc .modulename{margin-top:0;font-weight:bold;}.pdoc .modulename a{color:var(--link);transition:100ms all;}.pdoc .git-button{float:right;border:solid var(--link) 1px;}.pdoc .git-button:hover{background-color:var(--link);color:var(--pdoc-background);}.pdoc details{filter:opacity(1);}.pdoc details:not([open]){height:0;}.pdoc details > summary{position:absolute;top:-35px;right:0;font-size:.75rem;color:var(--muted);padding:0 .7em;user-select:none;cursor:pointer;}.pdoc details > summary:focus{outline:0;}.pdoc > section:first-of-type details > summary{top:-20px;}.pdoc .docstring{margin-bottom:1.5rem;}.pdoc .docstring .pdoc-code{margin-left:1em;margin-right:1em;}.pdoc h1:target,.pdoc h2:target,.pdoc h3:target,.pdoc h4:target,.pdoc h5:target,.pdoc h6:target{background-color:var(--active);box-shadow:-1rem 0 0 0 var(--active);}.pdoc div:target > .attr,.pdoc section:target > .attr,.pdoc dd:target > a{background-color:var(--active);}.pdoc .attr:hover{filter:contrast(0.95);}.pdoc .headerlink{position:absolute;width:0;margin-left:-1.5rem;line-height:1.4rem;font-size:1.5rem;font-weight:normal;transition:all 100ms ease-in-out;opacity:0;user-select:none;}.pdoc .attr > .headerlink{margin-left:-2.5rem;}.pdoc *:hover > .headerlink,.pdoc *:target > .attr > .headerlink{opacity:1;}.pdoc .attr{display:block;color:var(--text);margin:.5rem 0 .5rem;padding:.4rem 5rem .4rem 1rem;background-color:var(--accent);}.pdoc .classattr{margin-left:2rem;}.pdoc .name{color:var(--name);font-weight:bold;}.pdoc .def{color:var(--def);font-weight:bold;}.pdoc .signature{white-space:pre-wrap;}.pdoc .annotation{color:var(--annotation);}.pdoc .inherited{margin-left:2rem;}.pdoc .inherited dt{font-weight:700;}.pdoc .inherited dt, .pdoc .inherited dd{display:inline;margin-left:0;margin-bottom:.5rem;}.pdoc .inherited dd:not(:last-child):after{content:", ";}.pdoc .inherited .class:before{content:"class ";}.pdoc .inherited .function a:after{content:"()";}.pdoc .search-result .docstring{overflow:auto;max-height:25vh;}.pdoc .search-result.focused > .attr{background-color:var(--active);}.pdoc .attribution{margin-top:2rem;display:block;opacity:0.5;transition:all 200ms;filter:grayscale(100%);}.pdoc .attribution:hover{opacity:1;filter:grayscale(0%);}.pdoc .attribution img{margin-left:5px;height:35px;vertical-align:middle;width:70px;transition:all 200ms;}.pdoc table{display:block;width:max-content;max-width:100%;overflow:auto;margin-bottom:1rem;}.pdoc table th{font-weight:600;}.pdoc table th, .pdoc table td{padding:6px 13px;border:1px solid var(--accent2);}</style>
     <style>/*! custom.css */</style><script>
     window.MathJax = {
         tex: {
@@ -44,12 +44,11 @@
   <li><a href="#language">Language</a>
   <ul>
     <li><a href="#anatomy-of-a-rat-program">Anatomy of a Rat (program)</a></li>
-    <li><a href="#likelihood">Likelihood</a></li>
-    <li><a href="#priors">Priors</a></li>
-    <li><a href="#constraints">Constraints</a></li>
+    <li><a href="#basics">Basics</a></li>
     <li><a href="#transformed-parameters">Transformed parameters</a></li>
+    <li><a href="#constraints">Constraints</a></li>
     <li><a href="#shift-operator">Shift operator</a></li>
-    <li><a href="#execution-order">Execution order</a></li>
+    <li><a href="#sharp-edges-with-renaming">Sharp edges with renaming</a></li>
     <li><a href="#distributions">Distributions</a></li>
     <li><a href="#functions">Functions</a></li>
     <li><a href="#operator-precedence-table">Operator Precedence Table</a></li>
@@ -183,23 +182,66 @@ this sort of thing):</p>
 <span class="p">)</span>
 </code></pre></div>
 
-<h2 id="likelihood">Likelihood</h2>
+<h2 id="basics">Basics</h2>
 
-<p>Every Rat program comes with a dataframe. The dataframe defines the data which
-the Rat model fits itself to.</p>
+<p>Rat syntax is built for writing vectorized calculations across dataframes. The idea
+is that this is a useful framework for conceptualizing multilevel regressions, and
+Rat tries to make it easy to do this in code.</p>
 
-<p>Rat programs are broken up into statements separated by semicolons. There are
-two types of statements, sampling statements (those where the lefthand side
-and righthand side are separated by <code>~</code>) and assignments (the lefthand side
-and righthand side are separated by <code>=</code>).</p>
+<p>Rat is made of <em>statements</em>. A statement in Rat consists of two <em>expressions</em> (the left hand side
+and right hand side expressions) separated by either an <code>~</code> or an <code>=</code> and ending in <code>;</code>.
+Those where the lefthand side and righthand side are separated by <code>~</code> are called sampling statements,
+and those where the lefthand side and righthand side are separated by <code>=</code> are called assignments.
+Expressions are composed of <em>functions</em> and <em>variable references</em> and do not contain any intervening <code>~</code>, <code>=</code>, or
+<code>;</code> characters.</p>
 
-<p>Sampling statements come in two varieties, likelihoods and priors. Likelihoods
-are the sampling statements where the variable name on the left hand side of the
-<code>~</code> comes from the input dataframe (and priors are the other ones). This section
-discusses the basics of likelihood statements. Priors and assignments are discussed
-later (under section <a href="#priors">Priors</a> and <a href="#transformed-parameters">Transformed Parameters</a>).</p>
+<p>A statement can be multiple lines, and any line can end with a <em>comment</em> separated with <code>#</code>.
+There are no multiline comments.</p>
 
-<p>Assume we have the following dataframe:</p>
+<p>For example, this is a valid sampling statement in Rat:</p>
+
+<pre><code>score_diff' ~ normal( # It's a sampling statement!
+    skill[home_team], # It's a regression with one group-level intercept!
+    sigma);
+</code></pre>
+
+<p>Rat syntax vectorizes over dataframes. This means that each statement will produce code
+that runs for each row in a dataframe. The dataframe that a statement vectorizes across is
+called the <em>primary dataframe</em> -- there is exactly one primary dataframe per statement.</p>
+
+<p>Rat statements resolve their primary dataframes in a process called <em>primary variable deduction</em>.
+Every variable (a variable being a named symbol that is not a function) has exactly one dataframe
+attached to it. To identify the primary dataframe, rat must identify the primary variable.</p>
+
+<p>The rules for primary variable deduction are as follows (executed in order):</p>
+
+<ol>
+<li>There can only be one primary variable in a statement.</li>
+<li>If a variable reference is <em>primed</em>, then that variable is the primary variable.</li>
+<li>If there is no primed variable references, then all variables with non-empty dataframes are treated as prime.</li>
+<li>If there are no variables with non-empty dataframes, the leftmost one is the primary one.</li>
+<li>It is an error if anything other than one primary variable is identified.</li>
+<li>A <em>parameter</em> can only be used as the primary variable in one statement.</li>
+</ol>
+
+<p>A variable reference can be primed if it ends with a <code>'</code>. A variable reference itself
+is a variable name, an optional constraint, an optional sequence of <em>subscripts</em>, and an
+followed by the optional prime symbol. In the example above, <code>score_diff</code>, <code>skill</code>, and
+<code>sigma</code> are variable names. <code>home_team</code> is a subscript. <code>score_diff'</code>, <code>skill[home_team]</code>,
+and <code>sigma</code> are the variable references, and <code>score_diff</code> is the primary variable.</p>
+
+<p>Variables are associated with dataframes with the process of <em>variable dataframe deduction</em> (executed in order):</p>
+
+<ol>
+<li>Variables with names that match columns in the <em>input dataframe</em> take the input dataframe</li>
+<li>Otherwise, variables references are associated with parameters. The dataframe of the parameter is the minimum
+dataframe required to execute all statements it is used in.</li>
+</ol>
+
+<p>For the purposes of both dataframe deductions, Rat programs are understood top to bottom.</p>
+
+<p>The input dataframe is a single dataframe passed to a Rat program. For the regression above, a
+suitable example might be (the point differentials for a number of NBA games from the 2016 season):</p>
 
 <pre><code>    game_id  home_score  away_score home_team away_team  score_diff  year
 0         1         117          88       CLE       NYK        29.0  2016
@@ -215,93 +257,80 @@ later (under section <a href="#priors">Priors</a> and <a href="#transformed-para
 10       11          97         103       PHI       CLE        -6.0  2016
 </code></pre>
 
-<p>The first line of a Rat program modeling this data might be:</p>
+<p>Because <code>score_diff</code> matches a column in the input dataframe, the input dataframe
+is the primary dataframe for this datement. Because <code>skill</code> and <code>sigma</code> do not appear
+as columns in this dataframe, they will be parameters.</p>
 
-<pre><code>score_diff ~ normal(skill[home_team], sigma);
+<p>The statement will <em>execute</em> once for each line of this dataframe. As the statement runs,
+it will substitute values from this dataframe into variables and subscripts that match
+column names.</p>
+
+<p>In this case, that means there must be a value in <code>skill</code> corresponding to each
+of the home teams (<code>CLE, POR, GSW, ORL, IND, BOS, TOR, MIL, MEM, PHI</code>). Because there
+is one subscript, the <code>skill</code> dataframe will have one column. The values in that column
+will be extended as necessary to allow all the <code>home_team</code> references.</p>
+
+<p>Because <code>sigma</code> has no subscripts, the minimum dataframe necessary to support it is
+the empty dataframe.</p>
+
+<p>Execution for a sampling statement means evaluating and accumulating the log density
+given by the name of the distribution on the right hand side of the <code>~</code>.</p>
+
+<p>Execution of assignments is described in <a href="#transformed-parameters">Transformed Parameters</a> and
+<a href="#shift-operator">Shift operator</a>.</p>
+
+<p>Considering the data, it may seem useful to predict the score differential of an NBA game
+in terms of both teams' skills. A suitable model for this would be:</p>
+
+<pre><code>score_diff' ~ normal(skill[home_team] - skill[away_team], sigma);
 </code></pre>
 
-<p>Because this is a sampling statement (the <code>~</code>) and name on the lefthand side
-is in the dataframe, this is a likelihood statement.</p>
+<p>In this statement, there is an extra variable reference, <code>skill[away_team]</code>. Because of
+this, the <code>skill</code> dataframe will need to be extended to support all the away teams as well
+(adding all the teams but <code>CLE</code>, which is already there).</p>
 
-<p>This says model <code>score_diff</code> (the score difference between the home and away teams for a
-handful of games in the 2016 NBA season) as a normally distributed random variable given
-a mean <code>skill[home_team]</code> and standard deviation <code>sigma</code>. There will be one
-term in the likelihood for every row in the dataframe (so each row corresponds
-to a conditionally independent term).</p>
+<h2 id="transformed-parameters">Transformed parameters</h2>
 
-<p>The other column of the dataframe that is being used is <code>home_team</code>. If we
-look back at the dataframe, <code>home_team</code> is a string identifying which NBA
-team was playing at home in each game. In the model it appears in brackets
-after the variable <code>skill</code> -- in Rat terms <code>home_team</code> <em>subscripts</em> <code>skill</code>.
-This means for each row of the input dataframe, take the entry of the variable
-skill that corresponds to the value of <code>home_team</code>.</p>
+<p>Modeling the <code>skill</code> parameter in the model above hierarchically with a non-centered
+parameterization will be a good demonstration of assignment statements in Rat. As a reminder,
+this sort of parameterization is useful for avoiding <a href="https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html">divergences</a>,
+when doing MCMC using NUTS on multilevel models.</p>
 
-<p>Because <code>skill</code> is subscripted (and is not a column in the dataframe), Rat
-infers that it is a parameter in the model. There will be as many unique
-elements of <code>skill</code> as there are unique elements of <code>home_team</code>, because
-this is exactly how many parameters need to exist to evaluate the likelihood.</p>
+<p>The non-centered parameterization takes the form:</p>
 
-<p>Because <code>sigma</code> is not a column in the dataframe, Rat infers it is a parameter.
-Because it is not subscripted, Rat infers it is a scalar parameter.</p>
-
-<h2 id="priors">Priors</h2>
-
-<p>Priors in Rat are sampling statements that are not likelihoods (the name on the
-left hand side does not appear in the input dataframe). Priors cannot reference
-columns of the input dataframe (it's an error).</p>
-
-<p>The above example can be extended to have a prior on <code>skill</code>:</p>
-
-<pre><code>score_diff ~ normal(skill[home_team], sigma);
-skill[home_team] ~ normal(0.0, tau);
+<pre><code>score_diff' ~ normal(skill[home_team] - skill[away_team], sigma);
+skill[team]' = skill_z[team] * tau;
+skill_z ~ normal(0.0, 1.0);
 </code></pre>
 
-<p>The first line defines <code>skill</code> by its use (it is a parameter with as many entries
-as there are unique values of <code>home_team</code>). The second line says, for any entry of
-skill, use a normal with standard deviation <code>tau</code>. Because <code>tau</code> is not used
-anywhere yet, Rat will infer that it is a new scalar random variable.</p>
+<p>For the second statement <code>skill</code> is the primary variable, so the dataframe defined implicitly
+in the first statement will be the primary dataframe for the second line. Because of the subscript,
+the parameter <code>skill_z</code> will be created with a non-empty dataframe. Because it has no subscript,
+the parameter <code>tau</code> is created using the empty dataframe.</p>
 
-<p>The <code>home_team</code> subscript on the second line <em>matches</em> the subscript in the original
-use. In the example above, this probably seems extraneous, but it is useful in more
-complex cases. First consider a two-sided skill model:</p>
+<p>The subscript of <code>skill</code> is <em>renamed</em> to <code>team</code> by use as a primary variable. Because the subscript
+is referenced by two names in the first statement, its name is ambiguous. Subscripts in a
+primary variable reference are <em>renaming subscripts</em>. Because a parameter can only be used
+as a primary variable once, this renaming only happens once. The renaming is necessary
+for two reasons:</p>
 
-<pre><code>score_diff ~ normal(skill[home_team] - skill[away_team], sigma);
-skill[team] ~ normal(0.0, tau);
-</code></pre>
+<ol>
+<li>Rat needs the subscript to be named for output to work</li>
+<li>Creating an underlying parameter <code>skill_z</code> for each <code>skill</code> requires that <code>skill_z</code> be
+subscripted by the <code>skill</code> dataframe.</li>
+</ol>
 
-<p>In this case, <code>skill</code> is subscripted both by <code>home_team</code> and <code>away_team</code> and
-there will be as many elements of <code>skill</code> as required in both cases (it's possible
-some teams only played away games -- perhaps we're running this regression early in the
-year). This leads to the question -- how should the first subscript of <code>skill</code> be
-referenced? It is not obvious, and so when the prior is defined, the subscripts
-are matched by position and we provide a new name. The first subscript to <code>skill</code>
-will be called <code>team</code> for the purposes of defining the prior and handling output. The
-subscript values themselves are defined by the use of the <code>skill</code> parameter.</p>
+<p>The assignment itself works by evaluating the expression on the right hand side and writing
+the transformed parameter on the left (and the variable on the left hand side must
+be a parameter, not data). Transformed parameters are immutable, so once they are set
+they cannot be changed. All uses of a transformed parameter must preceed the assignment. This
+may seem non-intuitive coming from other languages, but in Rat parameter use defines the
+parameters themselves -- the assignment will simply guarantee that the necessary values
+get set. Rat statements will effectively be executed in reverse order as they are written.</p>
 
-<p>Naming the subscripts with the match is also useful for deeper parameter hierarchies.
-For instance, this model may extend over many years, in which case we could write:</p>
-
-<pre><code>score_diff ~ normal(skill[home_team, year] - skill[away_team, year], sigma);
-skill[team, year] ~ normal(all_time_skill[team], tau);
-</code></pre>
-
-<p><code>skill</code> is now subscripted by two columns of the dataframe in two different ways,
-<code>[home_team, year]</code> and <code>[away_team, year]</code>. There will be an element of <code>skill</code>
-defined for every combination of home team and year, and away team and year.</p>
-
-<p>The prior for the <code>[team, year]</code> element of <code>skill</code> is now a normal with mean
-<code>all_time_skill[team]</code> and standard deviation <code>tau</code>. Because <code>all_time_skill</code>
-does not exist and is a subscripted variable, Rat will infer that it is a parameter
-with unique elements given by all possible values of teams.</p>
-
-<p>Matching is done by parameter position. If we had swapped the <code>year</code> and <code>team</code>
-subscripts in the prior we would still have a valid Rat model, but the elements of the <code>team</code>
-subscript would correspond to the unique values of year in the original dataframe!</p>
-
-<p>(Beware this:)</p>
-
-<pre><code>skill[year, team] ~ normal(all_time_skill[team], tau);
-</code></pre>
+<p>In the final statement the prior for <code>skill_z</code> is defined. Because <code>skill_z</code> is the only variable
+in the statement, its dataframe will be the primary dataframe (and there is no need to prime it
+manually). Because the use uniquely defines a name for the subscript, there is no need to rename it.</p>
 
 <h2 id="constraints">Constraints</h2>
 
@@ -310,96 +339,93 @@ standard deviation, it must be constrained to be positive.</p>
 
 <p>Rat adopts a similar constraint syntax to Stan:</p>
 
-<pre><code>score_diff ~ normal(skill[home_team], sigma);
-skill[home_team] ~ normal(0.0, tau);
+<pre><code>score_diff' ~ normal(skill[home_team] - skill[away_team], sigma);
+skill[team]' = skill_z[team] * tau;
+skill_z ~ normal(0.0, 1.0);
 tau&lt;lower = 0.0&gt; ~ normal(0.0, 1.0);
 </code></pre>
+
+<p>Constraints can only be used on parameters.</p>
 
 <p>The constraint goes after the parameter name but before the subscripts. Rat
 supports a <code>lower</code>, <code>upper</code> and a combination of the two constraints.</p>
 
-<h2 id="transformed-parameters">Transformed parameters</h2>
-
-<p>Rat may infer that a variable is a parameter by its use, but this parameter
-doesn't necessarily need to be a parameter of the joint distribution sampled
-with MCMC. Transformed parameters are immutable functions of other parameters
-that are set in assignment statements (statements where the left and right hand
-side is separated by an <code>=</code>).</p>
-
-<p>One of the basic things transformed parameters let us do is implement a
-non-centered parameterization. Internally Rat uses a NUTS sampler. It is useful to
-reparameterize hierarchical models for NUTS to avoid
-<a href="https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html">divergences</a>.</p>
-
-<p>The eight schools data is as follows:</p>
-
-<pre><code>    y  sigma  school
-0  28     15       1
-1   8     10       2
-2  -3     16       3
-3   7     11       4
-4  -1      9       5
-5   1     11       6
-6  18     10       7
-7  12     18       8
-</code></pre>
-
-<p>The rat code for the centered eight schools model is the following:</p>
-
-<pre><code>y ~ normal(theta[school], sigma);
-theta[school] ~ normal(mu, tau);
-mu ~ normal(0, 5);
-tau&lt;lower = 0.0&gt; ~ log_normal(0, 1);
-</code></pre>
-
-<p><code>y</code> and <code>sigma</code> come from the dataframe. Rat infers <code>theta</code> is a parameter
-with one element for each school, and <code>mu</code> and <code>tau</code> are both scalar parameters.</p>
-
-<p>This model is difficult for NUTS to sample. The non-centered eight
-schools model is the following: </p>
-
-<pre><code>y ~ normal(theta[school], sigma);
-theta[school] = mu + z[school] * tau;
-z[school] ~ normal(0, 1);
-mu ~ normal(0, 5);
-tau&lt;lower = 0.0&gt; ~ log_normal(0, 1);
-</code></pre>
-
-<p>The new line of code is the second -- in this case we say the elements of
-<code>theta</code> are equal to the expression on the right hand side. Transformed
-parameters are immutable, so once they are set they cannot be changed.
-Similarly, a transformed parameter cannot be used on the righthand side of
-its own assignment.</p>
-
-<p>Variables on the right hand side of an assignment that Rat does not recognize
-will be inferred as other parameters. In this case, <code>mu</code>, <code>tau</code>, and <code>z</code>,
-the untransformed versions of <code>theta</code>.</p>
-
 <h2 id="shift-operator">Shift operator</h2>
 
-<p>The elements of non-scalar Rat parameters are sorted with respect to the
-values of the subscripts (in the order of the subscripts, so the rightmost
-subscript is sorted last). Because elements have an order, we can think
-about a previous and next element. This is useful for time series models.</p>
+<p>The elements of Rat parameters are sorted with respect to the values of the
+subscripts. The sorting is done by sorting the columns of the parameter
+dataframe. This sorting is done in the order of the subscripts, so the
+rightmost subscript is sorted last. The dataframes and parameter values having
+a sorted order is covenient for time series data.</p>
 
-<p>Going back to the basketball model, we might be interested in how a team's
+<p>Going back to the basketball model, perhaps someone is interested in how a team's
 skill changes year to year:</p>
 
-<pre><code>score_diff ~ normal(skill[home_team, year] - skill[away_team, year], sigma);
-skill[team, year] ~ normal(skill[team, shift(year, 1)], tau);
+<pre><code>score_diff' ~ normal(skill[home_team, year] - skill[away_team, year], sigma);
+skill[team, year]' = skill[team, shift(year, 1)] + skill_z[team] * tau;
+skill_z ~ normal(0.0, 1.0);
+tau&lt;lower = 0.0&gt; ~ normal(0.0, 1.0);
 </code></pre>
 
-<p>The shift of 1 on the <code>skill</code> year subscript means, for the given team, take
-the previous year's <code>skill</code> as the mean in the prior for the current year.</p>
+<p>The first line still determines what the dataframe for <code>skill</code> will look like,
+though now there will be two columns instead of one, with rows corresponding to
+the necessary team-year combinations.</p>
 
-<p>Positive shifts mean take previous values of the <code>skill</code> parameter; negative
-shifts mean take following values of the <code>skill</code> parameter. Any out of
-bounds access on the <code>skill</code> parameter is replaced with a zero.</p>
+<p>The second line is still an assignment, but it is different because the variable
+assigned on the left hand side is used on the right hand side. The notation,
+<code>skill[team, shift(year, 1)]</code> means, "take the skill corresponding to this
+team in the previous year" (the shift behaves like the pandas
+<a href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.shift.html">shift</a>,
+where a positive number means shift rows down the dataframe).</p>
 
-<p>Multiple variables can be shifted different lengths (though each variable
-gets its own shift). The shifts are done only within groups defined by the
-unshifted parameters. That is a mouthful, but in terms of basketball example
-this looks like:</p>
+<p>This works because:</p>
+
+<ol>
+<li>Rat statements are executed across rows of the primary dataframe</li>
+<li>The primary dataframe is sorted in ascending order according to its subscripts</li>
+<li>The primary dataframe is already defined -- there is not problem of terminating
+this recursive statement</li>
+<li>Out-of-bounds accesses do not throw errors but instead return zero (the value
+zero itself, not the zeroth element of the array)</li>
+</ol>
+
+<p>Because of rules 1 and 2, when assigning a variable, it is possible to reference
+the parts that have already been computed. Because of rules 3 and 4, there is no
+problem with infinite recursions or edge cases.</p>
+
+<p>For performance reasons when using recursive assignments:</p>
+
+<ol>
+<li>There can be at most one shifted subscript</li>
+<li>The shifted subscript must appear lasts</li>
+</ol>
+
+<p>Currently for programmatic reasons, negative shifts are not allowed in recursive
+assignments, though the goal is to allow this in the future.</p>
+
+<h3 id="simpler-ways-to-shift">Simpler ways to shift</h3>
+
+<p>The shift operator used in a recursive assignment is the trickiest of the shifts.</p>
+
+<p>The above model can also be written with a centered parameterization:</p>
+
+<pre><code>score_diff' ~ normal(skill[home_team, year] - skill[away_team, year], sigma);
+skill[team, year]' ~ normal(skill[team, shift(year, 1)], tau);
+tau&lt;lower = 0.0&gt; ~ normal(0.0, 1.0);
+</code></pre>
+
+<p>The difference here is that a sampling statement is not an assignment -- the parameters
+here are parameters of the log density that the sampler explores. From a programmatic
+perspective there is no recursion needed because the values for the parameters come
+from somewhere else.</p>
+
+<p>In this case, it is possible to shift on multiple subscripts and the shift can appear
+on any subscript. These restrictions also aren't necessarys for non-recursive assignment.</p>
+
+<h3 id="shifts-and-groups">Shifts and groups</h3>
+
+<p>Shifts are done only within groups defined by the unshifted parameters. That is a mouthful,
+but in terms of basketball example this looks like:</p>
 
 <table>
 <thead>
@@ -423,6 +449,8 @@ this looks like:</p>
 </tr>
 </tbody>
 </table>
+
+<p>[WARNING: Currently negative shifts are not allowed in recursive assignments]</p>
 
 <p>A negative shift produces a different result:</p>
 
@@ -449,12 +477,19 @@ this looks like:</p>
 </tbody>
 </table>
 
-<h2 id="execution-order">Execution order</h2>
+<h2 id="sharp-edges-with-renaming">Sharp edges with renaming</h2>
 
-<p>Rat sorts statements to make sure they are evaluated in an order so that
-all transformed parameters are set before they are used. This means the user
-does not need to worry about statement order -- just that there are either priors
-or assignments for every parameter used in the program.</p>
+<p>Subscript values are determined by position, which means it is possible to rename variables
+in a very misleading way.</p>
+
+<pre><code>score ~ normal(skill[team, year], sigma);
+skill[year, team] ~ normal(all_time_skill[team], tau);
+...
+</code></pre>
+
+<p>In the second line, the subscript names are reversed, which means that the values of
+the <code>year</code> subscript on the second line will be the values of the <code>team</code> subscript on
+the first line!</p>
 
 <h2 id="distributions">Distributions</h2>
 
@@ -545,7 +580,12 @@ or assignments for every parameter used in the program.</p>
 
 <h1 id="installation-and-use">Installation and Use</h1>
 
-<p>Rat is only available from Github:</p>
+<p>Rat is only available from Github, and requires <a href="https://www.rust-lang.org/">Rust</a> to
+be installed to work.</p>
+
+<p>First, follow the <a href="https://www.rust-lang.org/tools/install">Rust installation directions</a>.</p>
+
+<p>Secondly, install rat from Github:</p>
 
 <pre><code>git clone https://github.com/bbbales2/regressions
 cd regressions
@@ -671,23 +711,62 @@ run models.</p>
 <span class="sd">)</span>
 <span class="sd">```</span>
 
-<span class="sd">## Likelihood</span>
+<span class="sd">## Basics</span>
 
-<span class="sd">Every Rat program comes with a dataframe. The dataframe defines the data which</span>
-<span class="sd">the Rat model fits itself to.</span>
+<span class="sd">Rat syntax is built for writing vectorized calculations across dataframes. The idea</span>
+<span class="sd">is that this is a useful framework for conceptualizing multilevel regressions, and</span>
+<span class="sd">Rat tries to make it easy to do this in code.</span>
 
-<span class="sd">Rat programs are broken up into statements separated by semicolons. There are</span>
-<span class="sd">two types of statements, sampling statements (those where the lefthand side</span>
-<span class="sd">and righthand side are separated by `~`) and assignments (the lefthand side</span>
-<span class="sd">and righthand side are separated by `=`).</span>
+<span class="sd">Rat is made of *statements*. A statement in Rat consists of two *expressions* (the left hand side</span>
+<span class="sd">and right hand side expressions) separated by either an `~` or an `=` and ending in `;`.</span>
+<span class="sd">Those where the lefthand side and righthand side are separated by `~` are called sampling statements,</span>
+<span class="sd">and those where the lefthand side and righthand side are separated by `=` are called assignments.</span>
+<span class="sd">Expressions are composed of *functions* and *variable references* and do not contain any intervening `~`, `=`, or</span>
+<span class="sd">`;` characters.</span>
 
-<span class="sd">Sampling statements come in two varieties, likelihoods and priors. Likelihoods</span>
-<span class="sd">are the sampling statements where the variable name on the left hand side of the</span>
-<span class="sd">`~` comes from the input dataframe (and priors are the other ones). This section</span>
-<span class="sd">discusses the basics of likelihood statements. Priors and assignments are discussed</span>
-<span class="sd">later (under section [Priors](#priors) and [Transformed Parameters](#transformed-parameters)).</span>
+<span class="sd">A statement can be multiple lines, and any line can end with a *comment* separated with `#`.</span>
+<span class="sd">There are no multiline comments.</span>
 
-<span class="sd">Assume we have the following dataframe:</span>
+<span class="sd">For example, this is a valid sampling statement in Rat:</span>
+<span class="sd">```</span>
+<span class="sd">score_diff&#39; ~ normal( # It&#39;s a sampling statement!</span>
+<span class="sd">    skill[home_team], # It&#39;s a regression with one group-level intercept!</span>
+<span class="sd">    sigma);</span>
+<span class="sd">```</span>
+
+<span class="sd">Rat syntax vectorizes over dataframes. This means that each statement will produce code</span>
+<span class="sd">that runs for each row in a dataframe. The dataframe that a statement vectorizes across is</span>
+<span class="sd">called the *primary dataframe* -- there is exactly one primary dataframe per statement.</span>
+
+<span class="sd">Rat statements resolve their primary dataframes in a process called *primary variable deduction*.</span>
+<span class="sd">Every variable (a variable being a named symbol that is not a function) has exactly one dataframe</span>
+<span class="sd">attached to it. To identify the primary dataframe, rat must identify the primary variable.</span>
+
+<span class="sd">The rules for primary variable deduction are as follows (executed in order):</span>
+
+<span class="sd">1. There can only be one primary variable in a statement.</span>
+<span class="sd">2. If a variable reference is *primed*, then that variable is the primary variable.</span>
+<span class="sd">3. If there is no primed variable references, then all variables with non-empty dataframes are treated as prime.</span>
+<span class="sd">4. If there are no variables with non-empty dataframes, the leftmost one is the primary one.</span>
+<span class="sd">5. It is an error if anything other than one primary variable is identified.</span>
+<span class="sd">6. A *parameter* can only be used as the primary variable in one statement.</span>
+
+<span class="sd">A variable reference can be primed if it ends with a `&#39;`. A variable reference itself</span>
+<span class="sd">is a variable name, an optional constraint, an optional sequence of *subscripts*, and an</span>
+<span class="sd">followed by the optional prime symbol. In the example above, `score_diff`, `skill`, and</span>
+<span class="sd">`sigma` are variable names. `home_team` is a subscript. `score_diff&#39;`, `skill[home_team]`,</span>
+<span class="sd">and `sigma` are the variable references, and `score_diff` is the primary variable.</span>
+
+<span class="sd">Variables are associated with dataframes with the process of *variable dataframe deduction* (executed in order):</span>
+
+<span class="sd">1. Variables with names that match columns in the *input dataframe* take the input dataframe</span>
+<span class="sd">2. Otherwise, variables references are associated with parameters. The dataframe of the parameter is the minimum</span>
+<span class="sd">dataframe required to execute all statements it is used in.</span>
+
+<span class="sd">For the purposes of both dataframe deductions, Rat programs are understood top to bottom.</span>
+
+<span class="sd">The input dataframe is a single dataframe passed to a Rat program. For the regression above, a</span>
+<span class="sd">suitable example might be (the point differentials for a number of NBA games from the 2016 season):</span>
 
 <span class="sd">```</span>
 <span class="sd">    game_id  home_score  away_score home_team away_team  score_diff  year</span>
@@ -704,98 +783,78 @@ run models.</p>
 <span class="sd">10       11          97         103       PHI       CLE        -6.0  2016</span>
 <span class="sd">```</span>
 
-<span class="sd">The first line of a Rat program modeling this data might be:</span>
+<span class="sd">Because `score_diff` matches a column in the input dataframe, the input dataframe</span>
+<span class="sd">is the primary dataframe for this datement. Because `skill` and `sigma` do not appear</span>
+<span class="sd">as columns in this dataframe, they will be parameters.</span>
 
+<span class="sd">The statement will *execute* once for each line of this dataframe. As the statement runs,</span>
+<span class="sd">it will substitute values from this dataframe into variables and subscripts that match</span>
+<span class="sd">column names.</span>
+
+<span class="sd">In this case, that means there must be a value in `skill` corresponding to each</span>
+<span class="sd">of the home teams (`CLE, POR, GSW, ORL, IND, BOS, TOR, MIL, MEM, PHI`). Because there</span>
+<span class="sd">is one subscript, the `skill` dataframe will have one column. The values in that column</span>
+<span class="sd">will be extended as necessary to allow all the `home_team` references.</span>
+
+<span class="sd">Because `sigma` has no subscripts, the minimum dataframe necessary to support it is</span>
+<span class="sd">the empty dataframe.</span>
+
+<span class="sd">Execution for a sampling statement means evaluating and accumulating the log density</span>
+<span class="sd">given by the name of the distribution on the right hand side of the `~`.</span>
+
+<span class="sd">Execution of assignments is described in [Transformed Parameters](#transformed-parameters) and</span>
+<span class="sd">[Shift operator](#shift-operator).</span>
+
+<span class="sd">Considering the data, it may seem useful to predict the score differential of an NBA game</span>
+<span class="sd">in terms of both teams&#39; skills. A suitable model for this would be:</span>
 <span class="sd">```</span>
-<span class="sd">score_diff ~ normal(skill[home_team], sigma);</span>
-<span class="sd">```</span>
-
-<span class="sd">Because this is a sampling statement (the `~`) and name on the lefthand side</span>
-<span class="sd">is in the dataframe, this is a likelihood statement.</span>
-
-<span class="sd">This says model `score_diff` (the score difference between the home and away teams for a</span>
-<span class="sd">handful of games in the 2016 NBA season) as a normally distributed random variable given</span>
-<span class="sd">a mean `skill[home_team]` and standard deviation `sigma`. There will be one</span>
-<span class="sd">term in the likelihood for every row in the dataframe (so each row corresponds</span>
-<span class="sd">to a conditionally independent term).</span>
-
-<span class="sd">The other column of the dataframe that is being used is `home_team`. If we</span>
-<span class="sd">look back at the dataframe, `home_team` is a string identifying which NBA</span>
-<span class="sd">team was playing at home in each game. In the model it appears in brackets</span>
-<span class="sd">after the variable `skill` -- in Rat terms `home_team` *subscripts* `skill`.</span>
-<span class="sd">This means for each row of the input dataframe, take the entry of the variable</span>
-<span class="sd">skill that corresponds to the value of `home_team`.</span>
-
-<span class="sd">Because `skill` is subscripted (and is not a column in the dataframe), Rat</span>
-<span class="sd">infers that it is a parameter in the model. There will be as many unique</span>
-<span class="sd">elements of `skill` as there are unique elements of `home_team`, because</span>
-<span class="sd">this is exactly how many parameters need to exist to evaluate the likelihood.</span>
-
-<span class="sd">Because `sigma` is not a column in the dataframe, Rat infers it is a parameter.</span>
-<span class="sd">Because it is not subscripted, Rat infers it is a scalar parameter.</span>
-
-<span class="sd">## Priors</span>
-
-<span class="sd">Priors in Rat are sampling statements that are not likelihoods (the name on the</span>
-<span class="sd">left hand side does not appear in the input dataframe). Priors cannot reference</span>
-<span class="sd">columns of the input dataframe (it&#39;s an error).</span>
-
-<span class="sd">The above example can be extended to have a prior on `skill`:</span>
-
-<span class="sd">```</span>
-<span class="sd">score_diff ~ normal(skill[home_team], sigma);</span>
-<span class="sd">skill[home_team] ~ normal(0.0, tau);</span>
+<span class="sd">score_diff&#39; ~ normal(skill[home_team] - skill[away_team], sigma);</span>
 <span class="sd">```</span>
 
-<span class="sd">The first line defines `skill` by its use (it is a parameter with as many entries</span>
-<span class="sd">as there are unique values of `home_team`). The second line says, for any entry of</span>
-<span class="sd">skill, use a normal with standard deviation `tau`. Because `tau` is not used</span>
-<span class="sd">anywhere yet, Rat will infer that it is a new scalar random variable.</span>
+<span class="sd">In this statement, there is an extra variable reference, `skill[away_team]`. Because of</span>
+<span class="sd">this, the `skill` dataframe will need to be extended to support all the away teams as well</span>
+<span class="sd">(adding all the teams but `CLE`, which is already there).</span>
 
-<span class="sd">The `home_team` subscript on the second line *matches* the subscript in the original</span>
-<span class="sd">use. In the example above, this probably seems extraneous, but it is useful in more</span>
-<span class="sd">complex cases. First consider a two-sided skill model:</span>
+<span class="sd">## Transformed parameters</span>
 
+<span class="sd">Modeling the `skill` parameter in the model above hierarchically with a non-centered</span>
+<span class="sd">parameterization will be a good demonstration of assignment statements in Rat. As a reminder,</span>
+<span class="sd">this sort of parameterization is useful for avoiding [divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html),</span>
+<span class="sd">when doing MCMC using NUTS on multilevel models.</span>
+
+<span class="sd">The non-centered parameterization takes the form:</span>
 <span class="sd">```</span>
-<span class="sd">score_diff ~ normal(skill[home_team] - skill[away_team], sigma);</span>
-<span class="sd">skill[team] ~ normal(0.0, tau);</span>
-<span class="sd">```</span>
-
-<span class="sd">In this case, `skill` is subscripted both by `home_team` and `away_team` and</span>
-<span class="sd">there will be as many elements of `skill` as required in both cases (it&#39;s possible</span>
-<span class="sd">some teams only played away games -- perhaps we&#39;re running this regression early in the</span>
-<span class="sd">year). This leads to the question -- how should the first subscript of `skill` be</span>
-<span class="sd">referenced? It is not obvious, and so when the prior is defined, the subscripts</span>
-<span class="sd">are matched by position and we provide a new name. The first subscript to `skill`</span>
-<span class="sd">will be called `team` for the purposes of defining the prior and handling output. The</span>
-<span class="sd">subscript values themselves are defined by the use of the `skill` parameter.</span>
-
-<span class="sd">Naming the subscripts with the match is also useful for deeper parameter hierarchies.</span>
-<span class="sd">For instance, this model may extend over many years, in which case we could write:</span>
-
-<span class="sd">```</span>
-<span class="sd">score_diff ~ normal(skill[home_team, year] - skill[away_team, year], sigma);</span>
-<span class="sd">skill[team, year] ~ normal(all_time_skill[team], tau);</span>
+<span class="sd">score_diff&#39; ~ normal(skill[home_team] - skill[away_team], sigma);</span>
+<span class="sd">skill[team]&#39; = skill_z[team] * tau;</span>
+<span class="sd">skill_z ~ normal(0.0, 1.0);</span>
 <span class="sd">```</span>
 
-<span class="sd">`skill` is now subscripted by two columns of the dataframe in two different ways,</span>
-<span class="sd">`[home_team, year]` and `[away_team, year]`. There will be an element of `skill`</span>
-<span class="sd">defined for every combination of home team and year, and away team and year.</span>
+<span class="sd">For the second statement `skill` is the primary variable, so the dataframe defined implicitly</span>
+<span class="sd">in the first statement will be the primary dataframe for the second line. Because of the subscript,</span>
+<span class="sd">the parameter `skill_z` will be created with a non-empty dataframe. Because it has no subscript,</span>
+<span class="sd">the parameter `tau` is created using the empty dataframe.</span>
 
-<span class="sd">The prior for the `[team, year]` element of `skill` is now a normal with mean</span>
-<span class="sd">`all_time_skill[team]` and standard deviation `tau`. Because `all_time_skill`</span>
-<span class="sd">does not exist and is a subscripted variable, Rat will infer that it is a parameter</span>
-<span class="sd">with unique elements given by all possible values of teams.</span>
+<span class="sd">The subscript of `skill` is *renamed* to `team` by use as a primary variable. Because the subscript</span>
+<span class="sd">is referenced by two names in the first statement, its name is ambiguous. Subscripts in a</span>
+<span class="sd">primary variable reference are *renaming subscripts*. Because a parameter can only be used</span>
+<span class="sd">as a primary variable once, this renaming only happens once. The renaming is necessary</span>
+<span class="sd">for two reasons:</span>
+<span class="sd">    </span>
+<span class="sd">1. Rat needs the subscript to be named for output to work</span>
+<span class="sd">2. Creating an underlying parameter `skill_z` for each `skill` requires that `skill_z` be</span>
+<span class="sd">subscripted by the `skill` dataframe.</span>
 
-<span class="sd">Matching is done by parameter position. If we had swapped the `year` and `team`</span>
-<span class="sd">subscripts in the prior we would still have a valid Rat model, but the elements of the `team`</span>
-<span class="sd">subscript would correspond to the unique values of year in the original dataframe!</span>
+<span class="sd">The assignment itself works by evaluating the expression on the right hand side and writing</span>
+<span class="sd">the transformed parameter on the left (and the variable on the left hand side must</span>
+<span class="sd">be a parameter, not data). Transformed parameters are immutable, so once they are set</span>
+<span class="sd">they cannot be changed. All uses of a transformed parameter must preceed the assignment. This</span>
+<span class="sd">may seem non-intuitive coming from other languages, but in Rat parameter use defines the</span>
+<span class="sd">parameters themselves -- the assignment will simply guarantee that the necessary values</span>
+<span class="sd">get set. Rat statements will effectively be executed in reverse order as they are written.</span>
 
-<span class="sd">(Beware this:)</span>
-
-<span class="sd">```</span>
-<span class="sd">skill[year, team] ~ normal(all_time_skill[team], tau);</span>
-<span class="sd">```</span>
+<span class="sd">In the final statement the prior for `skill_z` is defined. Because `skill_z` is the only variable</span>
+<span class="sd">in the statement, its dataframe will be the primary dataframe (and there is no need to prime it</span>
+<span class="sd">manually). Because the use uniquely defines a name for the subscript, there is no need to rename it.</span>
 
 <span class="sd">## Constraints</span>
 
@@ -805,105 +864,96 @@ run models.</p>
 <span class="sd">Rat adopts a similar constraint syntax to Stan:</span>
 
 <span class="sd">```</span>
-<span class="sd">score_diff ~ normal(skill[home_team], sigma);</span>
-<span class="sd">skill[home_team] ~ normal(0.0, tau);</span>
+<span class="sd">score_diff&#39; ~ normal(skill[home_team] - skill[away_team], sigma);</span>
+<span class="sd">skill[team]&#39; = skill_z[team] * tau;</span>
+<span class="sd">skill_z ~ normal(0.0, 1.0);</span>
 <span class="sd">tau&lt;lower = 0.0&gt; ~ normal(0.0, 1.0);</span>
 <span class="sd">```</span>
+
+<span class="sd">Constraints can only be used on parameters.</span>
 
 <span class="sd">The constraint goes after the parameter name but before the subscripts. Rat</span>
 <span class="sd">supports a `lower`, `upper` and a combination of the two constraints.</span>
 
-<span class="sd">## Transformed parameters</span>
-
-<span class="sd">Rat may infer that a variable is a parameter by its use, but this parameter</span>
-<span class="sd">doesn&#39;t necessarily need to be a parameter of the joint distribution sampled</span>
-<span class="sd">with MCMC. Transformed parameters are immutable functions of other parameters</span>
-<span class="sd">that are set in assignment statements (statements where the left and right hand</span>
-<span class="sd">side is separated by an `=`).</span>
-
-<span class="sd">One of the basic things transformed parameters let us do is implement a</span>
-<span class="sd">non-centered parameterization. Internally Rat uses a NUTS sampler. It is useful to</span>
-<span class="sd">reparameterize hierarchical models for NUTS to avoid</span>
-<span class="sd">[divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html).</span>
-
-<span class="sd">The eight schools data is as follows:</span>
-<span class="sd">```</span>
-<span class="sd">    y  sigma  school</span>
-<span class="sd">0  28     15       1</span>
-<span class="sd">1   8     10       2</span>
-<span class="sd">2  -3     16       3</span>
-<span class="sd">3   7     11       4</span>
-<span class="sd">4  -1      9       5</span>
-<span class="sd">5   1     11       6</span>
-<span class="sd">6  18     10       7</span>
-<span class="sd">7  12     18       8</span>
-<span class="sd">```</span>
-
-<span class="sd">The rat code for the centered eight schools model is the following:</span>
-
-<span class="sd">```</span>
-<span class="sd">y ~ normal(theta[school], sigma);</span>
-<span class="sd">theta[school] ~ normal(mu, tau);</span>
-<span class="sd">mu ~ normal(0, 5);</span>
-<span class="sd">tau&lt;lower = 0.0&gt; ~ log_normal(0, 1);</span>
-<span class="sd">```</span>
-
-<span class="sd">`y` and `sigma` come from the dataframe. Rat infers `theta` is a parameter</span>
-<span class="sd">with one element for each school, and `mu` and `tau` are both scalar parameters.</span>
-
-<span class="sd">This model is difficult for NUTS to sample. The non-centered eight</span>
-<span class="sd">schools model is the following: </span>
-
-<span class="sd">```</span>
-<span class="sd">y ~ normal(theta[school], sigma);</span>
-<span class="sd">theta[school] = mu + z[school] * tau;</span>
-<span class="sd">z[school] ~ normal(0, 1);</span>
-<span class="sd">mu ~ normal(0, 5);</span>
-<span class="sd">tau&lt;lower = 0.0&gt; ~ log_normal(0, 1);</span>
-<span class="sd">```</span>
-
-<span class="sd">The new line of code is the second -- in this case we say the elements of</span>
-<span class="sd">`theta` are equal to the expression on the right hand side. Transformed</span>
-<span class="sd">parameters are immutable, so once they are set they cannot be changed.</span>
-<span class="sd">Similarly, a transformed parameter cannot be used on the righthand side of</span>
-<span class="sd">its own assignment.</span>
-
-<span class="sd">Variables on the right hand side of an assignment that Rat does not recognize</span>
-<span class="sd">will be inferred as other parameters. In this case, `mu`, `tau`, and `z`,</span>
-<span class="sd">the untransformed versions of `theta`.</span>
-
 <span class="sd">## Shift operator</span>
 
-<span class="sd">The elements of non-scalar Rat parameters are sorted with respect to the</span>
-<span class="sd">values of the subscripts (in the order of the subscripts, so the rightmost</span>
-<span class="sd">subscript is sorted last). Because elements have an order, we can think</span>
-<span class="sd">about a previous and next element. This is useful for time series models.</span>
+<span class="sd">The elements of Rat parameters are sorted with respect to the values of the</span>
+<span class="sd">subscripts. The sorting is done by sorting the columns of the parameter</span>
+<span class="sd">dataframe. This sorting is done in the order of the subscripts, so the</span>
+<span class="sd">rightmost subscript is sorted last. The dataframes and parameter values having</span>
+<span class="sd">a sorted order is covenient for time series data.</span>
 
-<span class="sd">Going back to the basketball model, we might be interested in how a team&#39;s</span>
+<span class="sd">Going back to the basketball model, perhaps someone is interested in how a team&#39;s</span>
 <span class="sd">skill changes year to year:</span>
 
 <span class="sd">```</span>
-<span class="sd">score_diff ~ normal(skill[home_team, year] - skill[away_team, year], sigma);</span>
-<span class="sd">skill[team, year] ~ normal(skill[team, shift(year, 1)], tau);</span>
+<span class="sd">score_diff&#39; ~ normal(skill[home_team, year] - skill[away_team, year], sigma);</span>
+<span class="sd">skill[team, year]&#39; = skill[team, shift(year, 1)] + skill_z[team] * tau;</span>
+<span class="sd">skill_z ~ normal(0.0, 1.0);</span>
+<span class="sd">tau&lt;lower = 0.0&gt; ~ normal(0.0, 1.0);</span>
 <span class="sd">```</span>
 
-<span class="sd">The shift of 1 on the `skill` year subscript means, for the given team, take</span>
-<span class="sd">the previous year&#39;s `skill` as the mean in the prior for the current year.</span>
+<span class="sd">The first line still determines what the dataframe for `skill` will look like,</span>
+<span class="sd">though now there will be two columns instead of one, with rows corresponding to</span>
+<span class="sd">the necessary team-year combinations.</span>
 
-<span class="sd">Positive shifts mean take previous values of the `skill` parameter; negative</span>
-<span class="sd">shifts mean take following values of the `skill` parameter. Any out of</span>
-<span class="sd">bounds access on the `skill` parameter is replaced with a zero.</span>
+<span class="sd">The second line is still an assignment, but it is different because the variable</span>
+<span class="sd">assigned on the left hand side is used on the right hand side. The notation,</span>
+<span class="sd">`skill[team, shift(year, 1)]` means, &quot;take the skill corresponding to this</span>
+<span class="sd">team in the previous year&quot; (the shift behaves like the pandas</span>
+<span class="sd">[shift](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.shift.html),</span>
+<span class="sd">where a positive number means shift rows down the dataframe).</span>
 
-<span class="sd">Multiple variables can be shifted different lengths (though each variable</span>
-<span class="sd">gets its own shift). The shifts are done only within groups defined by the</span>
-<span class="sd">unshifted parameters. That is a mouthful, but in terms of basketball example</span>
-<span class="sd">this looks like:</span>
+<span class="sd">This works because:</span>
+<span class="sd">1. Rat statements are executed across rows of the primary dataframe</span>
+<span class="sd">2. The primary dataframe is sorted in ascending order according to its subscripts</span>
+<span class="sd">3. The primary dataframe is already defined -- there is not problem of terminating</span>
+<span class="sd">this recursive statement</span>
+<span class="sd">4. Out-of-bounds accesses do not throw errors but instead return zero (the value</span>
+<span class="sd">zero itself, not the zeroth element of the array)</span>
+
+<span class="sd">Because of rules 1 and 2, when assigning a variable, it is possible to reference</span>
+<span class="sd">the parts that have already been computed. Because of rules 3 and 4, there is no</span>
+<span class="sd">problem with infinite recursions or edge cases.</span>
+
+<span class="sd">For performance reasons when using recursive assignments:</span>
+<span class="sd">1. There can be at most one shifted subscript</span>
+<span class="sd">2. The shifted subscript must appear lasts</span>
+
+<span class="sd">Currently for programmatic reasons, negative shifts are not allowed in recursive</span>
+<span class="sd">assignments, though the goal is to allow this in the future.</span>
+
+<span class="sd">### Simpler ways to shift</span>
+
+<span class="sd">The shift operator used in a recursive assignment is the trickiest of the shifts.</span>
+
+<span class="sd">The above model can also be written with a centered parameterization:</span>
+<span class="sd">```</span>
+<span class="sd">score_diff&#39; ~ normal(skill[home_team, year] - skill[away_team, year], sigma);</span>
+<span class="sd">skill[team, year]&#39; ~ normal(skill[team, shift(year, 1)], tau);</span>
+<span class="sd">tau&lt;lower = 0.0&gt; ~ normal(0.0, 1.0);</span>
+<span class="sd">```</span>
+
+<span class="sd">The difference here is that a sampling statement is not an assignment -- the parameters</span>
+<span class="sd">here are parameters of the log density that the sampler explores. From a programmatic</span>
+<span class="sd">perspective there is no recursion needed because the values for the parameters come</span>
+<span class="sd">from somewhere else.</span>
+
+<span class="sd">In this case, it is possible to shift on multiple subscripts and the shift can appear</span>
+<span class="sd">on any subscript. These restrictions also aren&#39;t necessarys for non-recursive assignment.</span>
+
+<span class="sd">### Shifts and groups</span>
+
+<span class="sd">Shifts are done only within groups defined by the unshifted parameters. That is a mouthful,</span>
+<span class="sd">but in terms of basketball example this looks like:</span>
 
 <span class="sd">| `skill[team, year]` | `skill[team, shift(year, 1)]` |</span>
 <span class="sd">| --------------------------------------------------- |</span>
 <span class="sd">| `skill[CHA, 2016]`  | `0`                           |</span>
 <span class="sd">| `skill[CHA, 2017]`  | `skill[CHA, 2016]`            |</span>
 <span class="sd">| `skill[ATL, 2017]`  | `0`                           |</span>
+
+<span class="sd">[WARNING: Currently negative shifts are not allowed in recursive assignments]</span>
 
 <span class="sd">A negative shift produces a different result:</span>
 
@@ -913,12 +963,20 @@ run models.</p>
 <span class="sd">| `skill[CHA, 2017]`  | `0`                           |</span>
 <span class="sd">| `skill[ATL, 2017]`  | `0`                           |</span>
 
-<span class="sd">## Execution order</span>
+<span class="sd">## Sharp edges with renaming</span>
 
-<span class="sd">Rat sorts statements to make sure they are evaluated in an order so that</span>
-<span class="sd">all transformed parameters are set before they are used. This means the user</span>
-<span class="sd">does not need to worry about statement order -- just that there are either priors</span>
-<span class="sd">or assignments for every parameter used in the program.</span>
+<span class="sd">Subscript values are determined by position, which means it is possible to rename variables</span>
+<span class="sd">in a very misleading way.</span>
+
+<span class="sd">```</span>
+<span class="sd">score ~ normal(skill[team, year], sigma);</span>
+<span class="sd">skill[year, team] ~ normal(all_time_skill[team], tau);</span>
+<span class="sd">...</span>
+<span class="sd">```</span>
+
+<span class="sd">In the second line, the subscript names are reversed, which means that the values of</span>
+<span class="sd">the `year` subscript on the second line will be the values of the `team` subscript on</span>
+<span class="sd">the first line!</span>
 
 <span class="sd">## Distributions</span>
 
@@ -962,7 +1020,12 @@ run models.</p>
 
 <span class="sd"># Installation and Use</span>
 
-<span class="sd">Rat is only available from Github:</span>
+<span class="sd">Rat is only available from Github, and requires [Rust](https://www.rust-lang.org/) to</span>
+<span class="sd">be installed to work.</span>
+
+<span class="sd">First, follow the [Rust installation directions](https://www.rust-lang.org/tools/install).</span>
+
+<span class="sd">Secondly, install rat from Github:</span>
 
 <span class="sd">```</span>
 <span class="sd">git clone https://github.com/bbbales2/regressions</span>
