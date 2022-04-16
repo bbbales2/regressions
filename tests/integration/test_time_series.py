@@ -5,7 +5,7 @@ import pandas
 import pytest
 import time
 
-from rat import ops
+from rat import ast
 from rat.compiler import CompileError
 from rat.model import Model
 
@@ -159,7 +159,7 @@ def test_optimize_time_series_2_error():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    with pytest.raises(CompileError, match="must be renamed"):
+    with pytest.raises(CompileError, match="not found"):
         model = Model(data_df, model_string=model_string)
 
 

@@ -4,7 +4,7 @@ import pathlib
 import pandas
 import pytest
 
-from rat import ops
+from rat import ast
 from rat.model import Model
 
 test_dir = pathlib.Path(__file__).parent

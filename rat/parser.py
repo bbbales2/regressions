@@ -9,7 +9,7 @@ from .scanner import (
     NullToken,
     Terminate,
 )
-from .ops import *
+from .ast import *
 from .types import TypeCheckError
 import warnings
 import jax.numpy
@@ -188,8 +188,7 @@ class BinaryFunctions:
 
     @staticmethod
     def generate(arg1: Expr, arg2: Expr, func_type: Identifier):
-        if func_type.value == "shift":
-            return Shift(subscript=arg1, shift_expr=arg2, line_index=func_type.line_index, column_index=func_type.column_index)
+        return Shift(subscript_column=arg1, shift_expr=arg2, line_index=func_type.line_index, column_index=func_type.column_index)
 
 
 class Distributions:
@@ -398,6 +397,8 @@ class Parser:
                 exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
             except TypeCheckError as e:
                 raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+            except Exception as e:
+                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
             return exp
 
         elif isinstance(token, Identifier):  # parse data and param
@@ -405,7 +406,7 @@ class Parser:
                 if not is_subscript:
                     exp = Data(name=token.value, line_index=token.line_index, column_index=token.column_index)
                 else:
-                    exp = Subscript(names=(token.value,), line_index=token.line_index, column_index=token.column_index)
+                    exp = SubscriptColumn(name=token.value, line_index=token.line_index, column_index=token.column_index)
                 self.remove()  # identifier
 
             elif token.value in Distributions.names:
@@ -414,7 +415,7 @@ class Parser:
                 if not is_subscript:
                     exp = self.parse_param(is_lhs=is_lhs)
                 else:
-                    exp = Subscript(names=(token.value,), line_index=token.line_index, column_index=token.column_index)
+                    exp = SubscriptColumn(name=token.value, line_index=token.line_index, column_index=token.column_index)
                     self.remove()  # token identifier(subscript)
 
             next_token = self.peek()
@@ -426,8 +427,28 @@ class Parser:
                 self.expect_token(Special, "]")
                 self.remove()  # ]
                 try:
-                    exp.subscript = SubscriptOp(
-                        subscripts=subscript_expressions, line_index=next_token.line_index, column_index=next_token.column_index
+                    subscript_names, shift_amounts = [], []
+                    for subscript_expr in subscript_expressions:
+                        match subscript_expr:
+                            case Shift():
+                                subscript_names.append(subscript_expr.subscript_column)
+                                shift_amounts.append(subscript_expr.shift_expr)
+                            case SubscriptColumn():
+                                subscript_names.append(subscript_expr)
+                                shift_amounts.append(IntegerConstant(value=0))
+                            case _:
+                                raise ParseError(
+                                    f"Found unknown expression class {subscript_expr.__class__.__name__} when parsing subscripts",
+                                    self.model_string,
+                                    subscript_expr.line_index,
+                                    subscript_expr.column_index,
+                                )
+
+                    exp.subscript = Subscript(
+                        names=tuple(subscript_names),
+                        shifts=tuple(shift_amounts),
+                        line_index=next_token.line_index,
+                        column_index=next_token.column_index,
                     )
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, next_token.line_index, next_token.column_index)
@@ -611,7 +632,7 @@ class Parser:
 
         return left
 
-    def statement(self, fold=True):
+    def statement(self):
         """
         Evaluates a single statement. Statements in rat are either assignments or sampling statements. They will get
         resolved into an `ops.Assignment` or an `ops.Distr` object.
@@ -635,8 +656,6 @@ class Parser:
                     return_statement = AssignmentOps.generate(lhs, rhs, op)
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, op.line_index, op.column_index)
-                except ConstantFoldError as e:
-                    raise ParseError(str(e), self.model_string, e.line_index, e.column_index)
 
             elif isinstance(op, Special) and op.value == "~":
                 # distribution declaration
@@ -655,8 +674,6 @@ class Parser:
                     return_statement = Distributions.generate(lhs, expressions, distribution)
                 except TypeCheckError as e:
                     raise ParseError(str(e), self.model_string, distribution.line_index, distribution.column_index)
-                except ConstantFoldError as e:
-                    raise ParseError(str(e), self.model_string, e.line_index, e.column_index)
 
             else:
                 if op.value == "<":
@@ -667,8 +684,5 @@ class Parser:
                     raise ParseError(f"Unknown operator '{op.value}' in statement", self.model_string, op.line_index, op.column_index)
 
         if return_statement is not None:
-            if fold:
-                return return_statement.fold()
-            else:
-                return return_statement
+            return return_statement
         return Expr()

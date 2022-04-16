@@ -99,7 +99,7 @@
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">compiler</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">ops</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">ast</span>
 <span class="kn">from</span> <span class="nn">.scanner</span> <span class="kn">import</span> <span class="n">Scanner</span>
 <span class="kn">from</span> <span class="nn">.parser</span> <span class="kn">import</span> <span class="n">Parser</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">fit</span>
@@ -110,21 +110,22 @@
     <span class="n">log_density_jax</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span>
     <span class="n">log_density_jax_no_jac</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span>
     <span class="n">size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">base_df_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
     <span class="n">device_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
-    <span class="n">device_subscripts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
+    <span class="n">device_subscript_indices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
     <span class="n">device_first_in_group_indicators</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
     <span class="n">compiled_model</span><span class="p">:</span> <span class="n">types</span><span class="o">.</span><span class="n">ModuleType</span>
 
     <span class="k">def</span> <span class="nf">_constrain_and_transform_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span><span class="o">.</span><span class="n">constrain_parameters</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span><span class="o">.</span><span class="n">transform_parameters</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_first_in_group_indicators</span><span class="p">,</span> <span class="n">parameters</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_first_in_group_indicators</span><span class="p">,</span> <span class="n">parameters</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_log_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_jacobian</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
         <span class="c1"># Evaluate model log density given model, data, subscripts and unconstrained parameters</span>
         <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constrain_and_transform_parameters</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span><span class="o">.</span><span class="n">evaluate_densities</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span><span class="o">.</span><span class="n">evaluate_densities</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">target</span> <span class="o">+</span> <span class="p">(</span><span class="n">jacobian_adjustment</span> <span class="k">if</span> <span class="n">include_jacobian</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_unconstrained_draws</span><span class="p">):</span>
@@ -145,25 +146,14 @@
                         <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_draws</span><span class="p">,</span> <span class="n">num_chains</span><span class="p">)</span> <span class="o">+</span> <span class="n">device_constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
                     <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">device_constrained_variable</span><span class="p">)</span>
 
-        <span class="c1">## This is probably faster than above but uses more device memory</span>
-        <span class="c1"># jacobian_adjustment, device_constrained_variables = self._constrain(unconstrained_draws, pad=False)</span>
-        <span class="c1"># device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}</span>
-        <span class="c1"># target, device_constrained_variables = jax.vmap(jax.vmap(evaluate_program_with_data))(**device_constrained_variables)</span>
-
         <span class="c1"># Copy back to numpy arrays</span>
-        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">variable</span><span class="o">.</span><span class="n">subscript</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">subscript</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
+        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_df_dict</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">data_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
         <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ops</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">compile_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
@@ -190,10 +180,9 @@
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;At least one of model_string or parsed_lines must be non-None&quot;</span><span class="p">)</span>
 
         <span class="p">(</span>
-            <span class="n">data_variables</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="p">,</span>
-            <span class="n">subscript_use_variables</span><span class="p">,</span>
+            <span class="n">data_dict</span><span class="p">,</span>
+            <span class="n">base_df_dict</span><span class="p">,</span>
+            <span class="n">subscript_indices_dict</span><span class="p">,</span>
             <span class="n">first_in_group_indicators</span><span class="p">,</span>
             <span class="n">model_source_string</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data_df</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
@@ -221,15 +210,17 @@
         <span class="n">spec</span><span class="o">.</span><span class="n">loader</span><span class="o">.</span><span class="n">exec_module</span><span class="p">(</span><span class="n">compiled_model</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span> <span class="o">=</span> <span class="n">compiled_model</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_df_dict</span> <span class="o">=</span> <span class="n">base_df_dict</span>
+
         <span class="c1"># Copy data to jax device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
-        <span class="c1"># Copy subscripts to jax device</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">subscript_use</span> <span class="ow">in</span> <span class="n">subscript_use_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">subscript_use</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="c1"># Copy subscript indices to jax device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">index_arr</span> <span class="ow">in</span> <span class="n">subscript_indices_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">index_arr</span><span class="p">)</span>
 
         <span class="c1"># Copy first in group indicators to jax device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device_first_in_group_indicators</span> <span class="o">=</span> <span class="p">{}</span>
@@ -365,21 +356,22 @@
     <span class="n">log_density_jax</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span>
     <span class="n">log_density_jax_no_jac</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span>
     <span class="n">size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">base_df_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]</span>
     <span class="n">device_data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
-    <span class="n">device_subscripts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
+    <span class="n">device_subscript_indices</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
     <span class="n">device_first_in_group_indicators</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">]</span>
     <span class="n">compiled_model</span><span class="p">:</span> <span class="n">types</span><span class="o">.</span><span class="n">ModuleType</span>
 
     <span class="k">def</span> <span class="nf">_constrain_and_transform_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span><span class="o">.</span><span class="n">constrain_parameters</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span><span class="o">.</span><span class="n">transform_parameters</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_first_in_group_indicators</span><span class="p">,</span> <span class="n">parameters</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_first_in_group_indicators</span><span class="p">,</span> <span class="n">parameters</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_log_density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_jacobian</span><span class="p">,</span> <span class="n">unconstrained_parameter_vector</span><span class="p">):</span>
         <span class="c1"># Evaluate model log density given model, data, subscripts and unconstrained parameters</span>
         <span class="n">jacobian_adjustment</span><span class="p">,</span> <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constrain_and_transform_parameters</span><span class="p">(</span><span class="n">unconstrained_parameter_vector</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span><span class="o">.</span><span class="n">evaluate_densities</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span><span class="o">.</span><span class="n">evaluate_densities</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">target</span> <span class="o">+</span> <span class="p">(</span><span class="n">jacobian_adjustment</span> <span class="k">if</span> <span class="n">include_jacobian</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_prepare_draws_and_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_unconstrained_draws</span><span class="p">):</span>
@@ -400,25 +392,14 @@
                         <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_draws</span><span class="p">,</span> <span class="n">num_chains</span><span class="p">)</span> <span class="o">+</span> <span class="n">device_constrained_variable</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
                     <span class="n">constrained_draws</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">draw</span><span class="p">,</span> <span class="n">chain</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">device_constrained_variable</span><span class="p">)</span>
 
-        <span class="c1">## This is probably faster than above but uses more device memory</span>
-        <span class="c1"># jacobian_adjustment, device_constrained_variables = self._constrain(unconstrained_draws, pad=False)</span>
-        <span class="c1"># device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}</span>
-        <span class="c1"># target, device_constrained_variables = jax.vmap(jax.vmap(evaluate_program_with_data))(**device_constrained_variables)</span>
-
         <span class="c1"># Copy back to numpy arrays</span>
-        <span class="n">base_dfs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">variable</span><span class="o">.</span><span class="n">subscript</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">variable</span><span class="o">.</span><span class="n">subscript</span><span class="o">.</span><span class="n">base_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">base_dfs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="n">base_dfs</span>
+        <span class="k">return</span> <span class="n">constrained_draws</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_df_dict</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">data_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
         <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ops</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">compile_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
@@ -445,10 +426,9 @@
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;At least one of model_string or parsed_lines must be non-None&quot;</span><span class="p">)</span>
 
         <span class="p">(</span>
-            <span class="n">data_variables</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="p">,</span>
-            <span class="n">subscript_use_variables</span><span class="p">,</span>
+            <span class="n">data_dict</span><span class="p">,</span>
+            <span class="n">base_df_dict</span><span class="p">,</span>
+            <span class="n">subscript_indices_dict</span><span class="p">,</span>
             <span class="n">first_in_group_indicators</span><span class="p">,</span>
             <span class="n">model_source_string</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data_df</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
@@ -476,15 +456,17 @@
         <span class="n">spec</span><span class="o">.</span><span class="n">loader</span><span class="o">.</span><span class="n">exec_module</span><span class="p">(</span><span class="n">compiled_model</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span> <span class="o">=</span> <span class="n">compiled_model</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_df_dict</span> <span class="o">=</span> <span class="n">base_df_dict</span>
+
         <span class="c1"># Copy data to jax device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
-        <span class="c1"># Copy subscripts to jax device</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">subscript_use</span> <span class="ow">in</span> <span class="n">subscript_use_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">subscript_use</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="c1"># Copy subscript indices to jax device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">index_arr</span> <span class="ow">in</span> <span class="n">subscript_indices_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">index_arr</span><span class="p">)</span>
 
         <span class="c1"># Copy first in group indicators to jax device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device_first_in_group_indicators</span> <span class="o">=</span> <span class="p">{}</span>
@@ -613,7 +595,7 @@
             <span class="name">Model</span><span class="signature">(
     data_df: pandas.core.frame.DataFrame,
     model_string: str = None,
-    parsed_lines: List[rat.ops.Expr] = None,
+    parsed_lines: List[rat.ast.Expr] = None,
     compile_path: str = None,
     overwrite: bool = False
 )</span>
@@ -625,7 +607,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">data_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
         <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ops</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">compile_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
@@ -652,10 +634,9 @@
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;At least one of model_string or parsed_lines must be non-None&quot;</span><span class="p">)</span>
 
         <span class="p">(</span>
-            <span class="n">data_variables</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">parameter_variables</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assigned_parameter_variables</span><span class="p">,</span>
-            <span class="n">subscript_use_variables</span><span class="p">,</span>
+            <span class="n">data_dict</span><span class="p">,</span>
+            <span class="n">base_df_dict</span><span class="p">,</span>
+            <span class="n">subscript_indices_dict</span><span class="p">,</span>
             <span class="n">first_in_group_indicators</span><span class="p">,</span>
             <span class="n">model_source_string</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data_df</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
@@ -683,15 +664,17 @@
         <span class="n">spec</span><span class="o">.</span><span class="n">loader</span><span class="o">.</span><span class="n">exec_module</span><span class="p">(</span><span class="n">compiled_model</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">compiled_model</span> <span class="o">=</span> <span class="n">compiled_model</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_df_dict</span> <span class="o">=</span> <span class="n">base_df_dict</span>
+
         <span class="c1"># Copy data to jax device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">data_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
-        <span class="c1"># Copy subscripts to jax device</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">subscript_use</span> <span class="ow">in</span> <span class="n">subscript_use_variables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_subscripts</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">subscript_use</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+        <span class="c1"># Copy subscript indices to jax device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">index_arr</span> <span class="ow">in</span> <span class="n">subscript_indices_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">device_subscript_indices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">device_put</span><span class="p">(</span><span class="n">index_arr</span><span class="p">)</span>
 
         <span class="c1"># Copy first in group indicators to jax device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device_first_in_group_indicators</span> <span class="o">=</span> <span class="p">{}</span>

@@ -15,7 +15,7 @@ from typing import Callable, List, Dict, Union
 from tqdm import tqdm
 
 from . import compiler
-from . import ops
+from . import ast
 from .scanner import Scanner
 from .parser import Parser
 from . import fit
@@ -26,21 +26,22 @@ class Model:
     log_density_jax: Callable[[numpy.array], float]
     log_density_jax_no_jac: Callable[[numpy.array], float]
     size: int
+    base_df_dict: Dict[str, pandas.DataFrame]
     device_data: Dict[str, jax.numpy.array]
-    device_subscripts: Dict[str, jax.numpy.array]
+    device_subscript_indices: Dict[str, jax.numpy.array]
     device_first_in_group_indicators: Dict[str, jax.numpy.array]
     compiled_model: types.ModuleType
 
     def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad=True):
         jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
         return jacobian_adjustment, self.compiled_model.transform_parameters(
-            self.device_data, self.device_subscripts, self.device_first_in_group_indicators, parameters
+            self.device_data, self.device_subscript_indices, self.device_first_in_group_indicators, parameters
         )
 
     def _log_density(self, include_jacobian, unconstrained_parameter_vector):
         # Evaluate model log density given model, data, subscripts and unconstrained parameters
         jacobian_adjustment, parameters = self._constrain_and_transform_parameters(unconstrained_parameter_vector, pad=True)
-        target = self.compiled_model.evaluate_densities(self.device_data, self.device_subscripts, parameters)
+        target = self.compiled_model.evaluate_densities(self.device_data, self.device_subscript_indices, parameters)
         return target + (jacobian_adjustment if include_jacobian else 0.0)
 
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
@@ -61,25 +62,14 @@ class Model:
                         constrained_draws[name] = numpy.zeros((num_draws, num_chains) + device_constrained_variable.shape)
                     constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
 
-        ## This is probably faster than above but uses more device memory
-        # jacobian_adjustment, device_constrained_variables = self._constrain(unconstrained_draws, pad=False)
-        # device_constrained_variables = {k : jax.numpy.array(v) for k, v in device_constrained_variables.items()}
-        # target, device_constrained_variables = jax.vmap(jax.vmap(evaluate_program_with_data))(**device_constrained_variables)
-
         # Copy back to numpy arrays
-        base_dfs = {}
-        for name, variable in itertools.chain(self.parameter_variables.items(), self.assigned_parameter_variables.items()):
-            if variable.subscript is not None:
-                base_dfs[name] = variable.subscript.base_df.copy()
-            else:
-                base_dfs[name] = pandas.DataFrame()
-        return constrained_draws, base_dfs
+        return constrained_draws, self.base_df_dict
 
     def __init__(
         self,
         data_df: pandas.DataFrame,
         model_string: str = None,
-        parsed_lines: List[ops.Expr] = None,
+        parsed_lines: List[ast.Expr] = None,
         compile_path: str = None,
         overwrite: bool = False,
     ):
@@ -106,10 +96,9 @@ class Model:
                 raise Exception("At least one of model_string or parsed_lines must be non-None")
 
         (
-            data_variables,
-            self.parameter_variables,
-            self.assigned_parameter_variables,
-            subscript_use_variables,
+            data_dict,
+            base_df_dict,
+            subscript_indices_dict,
             first_in_group_indicators,
             model_source_string,
         ) = compiler.Compiler(data_df, parsed_lines, model_string).compile()
@@ -137,15 +126,17 @@ class Model:
         spec.loader.exec_module(compiled_model)
         self.compiled_model = compiled_model
 
+        self.base_df_dict = base_df_dict
+
         # Copy data to jax device
         self.device_data = {}
-        for name, data in data_variables.items():
-            self.device_data[name] = jax.device_put(data.to_numpy())
+        for name, data in data_dict.items():
+            self.device_data[name] = jax.device_put(data)
 
-        # Copy subscripts to jax device
-        self.device_subscripts = {}
-        for name, subscript_use in subscript_use_variables.items():
-            self.device_subscripts[name] = jax.device_put(subscript_use.to_numpy())
+        # Copy subscript indices to jax device
+        self.device_subscript_indices = {}
+        for name, index_arr in subscript_indices_dict.items():
+            self.device_subscript_indices[name] = jax.device_put(index_arr)
 
         # Copy first in group indicators to jax device
         self.device_first_in_group_indicators = {}

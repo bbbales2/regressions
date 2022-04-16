@@ -6,7 +6,7 @@ import pandas
 import pytest
 import tempfile
 
-from rat import ops
+from rat import ast
 from rat import compiler
 from rat.model import Model
 from rat.parser import Parser
