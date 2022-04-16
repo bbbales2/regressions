@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from distutils.errors import CompileError
+import itertools
 from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ class Expr:
     out_type: Type[types.BaseType] = field(default=types.BaseType, kw_only=True)
 
     def __iter__(self):
-        return self
+        yield self
 
     def __next__(self):
         raise StopIteration
@@ -65,12 +66,27 @@ class IntegerConstant(Expr):
 
 
 @dataclass
+class SubscriptColumn(Expr):
+    """
+    columns/names used as subscripts
+    """
+
+    name: str
+
+    def __post_init__(self):
+        self.out_type = types.SubscriptSetType
+
+    def __str__(self):
+        return f"SubscriptColumn({self.name})"
+
+
+@dataclass
 class Subscript(Expr):
     """
     Elementary value
     """
 
-    names: Tuple["SubscriptColumn"]
+    names: Tuple[SubscriptColumn]
     shifts: Tuple[Expr]
 
     def get_key(self):
@@ -85,21 +101,6 @@ class Subscript(Expr):
 
     def __str__(self):
         return f"Subscript(names=({', '.join(x.__str__() for x in self.names)}), shift=({', '.join(x.__str__() for x in self.shifts)}))"
-
-
-@dataclass
-class SubscriptColumn(Expr):
-    """
-    columns/names used as subscripts
-    """
-
-    name: str
-
-    def __post_init__(self):
-        self.out_type = types.SubscriptSetType
-
-    def __str__(self):
-        return f"SubscriptColumn({self.name})"
 
 
 @dataclass
@@ -125,6 +126,11 @@ class PrimeableExpr(Expr):
     prime: bool = False
     subscript: Subscript = None
 
+    def __iter__(self):
+        yield self
+        if self.subscript is not None:
+            yield self.subscript
+
 
 @dataclass
 class Data(PrimeableExpr):
@@ -143,12 +149,6 @@ class Param(PrimeableExpr):
     lower: Expr = RealConstant(value=float("-inf"))
     upper: Expr = RealConstant(value=float("inf"))
     assigned_by_scan: bool = False
-
-    def __iter__(self):
-        if self.subscript is not None:
-            return iter([self.subscript])
-        else:
-            return iter([])
 
     def get_key(self):
         return self.name
@@ -171,7 +171,9 @@ class Normal(Distr):
     std: Expr
 
     def __iter__(self):
-        return iter([self.variate, self.mean, self.std])
+        yield self
+        for expr in itertools.chain(self.variate, self.mean, self.std):
+            yield expr
 
     def __post_init__(self):
         signatures = {
@@ -188,7 +190,9 @@ class BernoulliLogit(Distr):
     logit_p: Expr
 
     def __iter__(self):
-        return iter([self.variate, self.logit_p])
+        yield self
+        for expr in itertools.chain(self.variate, self.logit_p):
+            yield expr
 
     def __post_init__(self):
         signatures = {(types.NumericType,): types.IntegerType}
@@ -204,7 +208,9 @@ class LogNormal(Distr):
     std: Expr
 
     def __iter__(self):
-        return iter([self.variate, self.mean, self.std])
+        yield self
+        for expr in itertools.chain(self.variate, self.mean, self.std):
+            yield expr
 
     def __post_init__(self):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
@@ -220,7 +226,9 @@ class Cauchy(Distr):
     scale: Expr
 
     def __iter__(self):
-        return iter([self.variate, self.location, self.scale])
+        yield self
+        for expr in itertools.chain(self.variate, self.location, self.scale):
+            yield expr
 
     def __post_init__(self):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
@@ -235,7 +243,9 @@ class Exponential(Distr):
     scale: Expr
 
     def __iter__(self):
-        return iter([self.variate, self.scale])
+        yield self
+        for expr in itertools.chain(self.variate, self.scale):
+            yield expr
 
     def __post_init__(self):
         signatures = {(types.NumericType,): types.RealType}
@@ -246,13 +256,28 @@ class Exponential(Distr):
 
 
 @dataclass
-class Diff(Expr):
+class UnaryExpr(Expr):
+    subexpr: Expr
+
+    def __iter__(self):
+        yield self
+        for expr in self.subexpr:
+            yield expr
+
+
+@dataclass
+class BinaryExpr(Expr):
     left: Expr
     right: Expr
 
     def __iter__(self):
-        return iter([self.left, self.right])
+        yield self
+        for expr in itertools.chain(self.left, self.right):
+            yield expr
 
+
+@dataclass
+class Diff(BinaryExpr):
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,
@@ -265,13 +290,7 @@ class Diff(Expr):
 
 
 @dataclass
-class Sum(Expr):
-    left: Expr
-    right: Expr
-
-    def __iter__(self):
-        return iter([self.left, self.right])
-
+class Sum(BinaryExpr):
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,
@@ -284,13 +303,7 @@ class Sum(Expr):
 
 
 @dataclass
-class Mul(Expr):
-    left: Expr
-    right: Expr
-
-    def __iter__(self):
-        return iter([self.left, self.right])
-
+class Mul(BinaryExpr):
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,
@@ -303,32 +316,20 @@ class Mul(Expr):
 
 
 @dataclass
-class Pow(Expr):
-    base: Expr
-    exponent: Expr
-
-    def __iter__(self):
-        return iter([self.base, self.exponent])
-
+class Pow(BinaryExpr):
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,
             (types.NumericType, types.NumericType): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.base.out_type, self.exponent.out_type))
+        self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
 
     def __str__(self):
-        return f"Pow({self.base}, {self.exponent})"
+        return f"Pow({self.left}, {self.right})"
 
 
 @dataclass
-class Div(Expr):
-    left: Expr
-    right: Expr
-
-    def __iter__(self):
-        return iter([self.left, self.right])
-
+class Div(BinaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType, types.NumericType): types.RealType,
@@ -340,13 +341,7 @@ class Div(Expr):
 
 
 @dataclass
-class Mod(Expr):
-    left: Expr
-    right: Expr
-
-    def __iter__(self):
-        return iter([self.left, self.right])
-
+class Mod(BinaryExpr):
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,
@@ -359,30 +354,14 @@ class Mod(Expr):
 
 
 @dataclass
-class PrefixNegation(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
-    def __post_init__(self):
-        signatures = {
-            (types.IntegerType,): types.IntegerType,
-            (types.RealType,): types.RealType,
-        }
-        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
-
-    def __str__(self):
-        return f"PrefixNegation({self.subexpr})"
-
-
-@dataclass
 class Assignment(Expr):
     lhs: PrimeableExpr
     rhs: Expr
 
     def __iter__(self):
-        return iter([self.lhs, self.rhs])
+        yield self
+        for expr in itertools.chain(self.lhs, self.rhs):
+            yield expr
 
     def __post_init__(self):
         signatures = {
@@ -396,12 +375,21 @@ class Assignment(Expr):
         return f"Assignment({self.lhs}, {self.rhs})"
 
 
-class Prime(Expr):
-    subexpr: Expr
+@dataclass
+class PrefixNegation(UnaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.IntegerType,): types.IntegerType,
+            (types.RealType,): types.RealType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
 
-    def __iter__(self):
-        return iter([self.subexpr])
+    def __str__(self):
+        return f"PrefixNegation({self.subexpr})"
 
+
+@dataclass
+class Prime(UnaryExpr):
     def code(self, scalar=False):
         return f"{self.subexpr.code(scalar)}"
 
@@ -410,12 +398,7 @@ class Prime(Expr):
 
 
 @dataclass
-class Sqrt(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Sqrt(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -427,12 +410,7 @@ class Sqrt(Expr):
 
 
 @dataclass
-class Log(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Log(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -444,12 +422,7 @@ class Log(Expr):
 
 
 @dataclass
-class Exp(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Exp(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -461,12 +434,7 @@ class Exp(Expr):
 
 
 @dataclass
-class Abs(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Abs(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.IntegerType,): types.IntegerType,
@@ -479,12 +447,7 @@ class Abs(Expr):
 
 
 @dataclass
-class Floor(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Floor(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.IntegerType,
@@ -496,12 +459,7 @@ class Floor(Expr):
 
 
 @dataclass
-class Ceil(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Ceil(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.IntegerType,
@@ -513,12 +471,7 @@ class Ceil(Expr):
 
 
 @dataclass
-class Round(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Round(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.IntegerType,
@@ -530,12 +483,7 @@ class Round(Expr):
 
 
 @dataclass
-class Sin(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Sin(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -547,12 +495,7 @@ class Sin(Expr):
 
 
 @dataclass
-class Cos(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Cos(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -564,12 +507,7 @@ class Cos(Expr):
 
 
 @dataclass
-class Tan(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Tan(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -581,12 +519,7 @@ class Tan(Expr):
 
 
 @dataclass
-class Arcsin(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Arcsin(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -598,12 +531,7 @@ class Arcsin(Expr):
 
 
 @dataclass
-class Arccos(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Arccos(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -615,12 +543,7 @@ class Arccos(Expr):
 
 
 @dataclass
-class Arctan(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Arctan(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.NumericType,): types.RealType,
@@ -632,12 +555,7 @@ class Arctan(Expr):
 
 
 @dataclass
-class Logit(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class Logit(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.RealType,): types.RealType,
@@ -649,12 +567,7 @@ class Logit(Expr):
 
 
 @dataclass
-class InverseLogit(Expr):
-    subexpr: Expr
-
-    def __iter__(self):
-        return iter([self.subexpr])
-
+class InverseLogit(UnaryExpr):
     def __post_init__(self):
         signatures = {
             (types.RealType,): types.RealType,
@@ -666,10 +579,7 @@ class InverseLogit(Expr):
 
 
 def search_tree(expr: Expr, *types) -> Expr:
-    for _type in types:
-        if isinstance(expr, _type):
-            yield expr
-    else:
-        for child in expr:
-            for child_expr in search_tree(child, *types):
-                yield child_expr
+    for child in expr:
+        for _type in types:
+            if isinstance(child, _type):
+                yield child

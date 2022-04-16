@@ -1,5 +1,8 @@
+from typing import Tuple
+
 from . import ast
-from .symbol_table import SymbolTable
+from .exceptions import CompileError
+from .variable_table import VariableTable
 
 
 class IndentedString:
@@ -16,9 +19,9 @@ class IndentedString:
 
 
 class BaseCodeGenerator:
-    def __init__(self, symbol_table: SymbolTable, primary_variable=None, indent=0):
+    def __init__(self, variable_table: VariableTable, primary_variable=None, indent=0):
         self.expression_string = IndentedString(indent_level=indent)
-        self.symbol_table = symbol_table
+        self.variable_table = variable_table
         self.primary_variable = primary_variable
         self.indent = indent
 
@@ -193,10 +196,10 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
             case ast.Subscript():
                 if not self.variable_name:
                     raise Exception("Internal compiler error -- Variable name must be passed for subscript codegen!")
-                subscript_names = tuple([x.name for x in ast_node.names])
-                subscript_shifts = tuple([x.value for x in ast_node.shifts])
-                subscript_key = self.symbol_table.get_subscript_key(
-                    self.primary_variable_name, self.primary_variable_subscript_names, self.variable_name, subscript_names, subscript_shifts
+                subscript_names = tuple(column.name for column in ast_node.names)
+                subscript_shifts = tuple(x.value for x in ast_node.shifts)
+                subscript_key = self.variable_table.get_subscript_key(
+                    self.primary_variable_name, self.variable_name, subscript_names, subscript_shifts
                 )
                 self.expression_string += f"subscripts['{subscript_key}']"
             case _:
@@ -223,19 +226,14 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                     if param_key == self.lhs_key:
                         if self.at_rhs:
                             # scan function
-                            subscript_node = ast_node.subscript
-                            subscript_names = tuple([x.name for x in subscript_node.names])
-                            subscript_shifts = tuple([x.value for x in subscript_node.shifts])
-                            subscript_key = self.symbol_table.get_subscript_key(
-                                self.primary_variable_name,
-                                self.primary_variable_subscript_names,
-                                param_key,
-                                subscript_names,
-                                subscript_shifts,
-                            )
+                            subscript = ast_node.subscript
 
-                            shift = [x for x in subscript_shifts if x != 0][0]
-                            self.expression_string += f"carry{shift}"
+                            subscript_names = tuple(column.name for column in subscript.names)
+                            subscript_shifts = tuple(x.value for x in subscript.shifts)
+                            self.variable_table.get_subscript_key(param_key, param_key, subscript_names, subscript_shifts)
+
+                            carry_shift = next(shift for shift in subscript_shifts if shift != 0)
+                            self.expression_string += f"carry{carry_shift}"
                         else:
                             self.expression_string += f"parameters['{param_key}']"
                     elif param_key != self.lhs_key:
@@ -267,14 +265,14 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
 
                 self.expression_string += f"# Assigned param: {self.lhs_key}\n"
                 if self.lhs_used_in_rhs:
-                    lhs_record = self.symbol_table.lookup(self.lhs_key)
+                    lhs_record = self.variable_table[self.lhs_key]
                     lhs_size = lhs_record.base_df.shape[0]
 
                     zero_tuple_string = f"({','.join(['0.0'] * carry_size)})"
                     carry_strings = [f"carry{n}" for n in range(1, carry_size + 1)]
                     carry_tuple_string = f"({','.join(carry_strings)})"  # (carry0, carry1, ...)
                     next_carry_tuple_string = f"({','.join(['next_value'] + carry_strings[:-1])})"
-                    scan_function_name = f"scan_function_{self.symbol_table.get_unique_number()}"
+                    scan_function_name = f"scan_function_{self.variable_table.get_unique_number()}"
 
                     self.expression_string += f"def {scan_function_name}(carry, index):\n"
                     if need_first_in_group_indicator:
