@@ -114,8 +114,9 @@ def test_optimize_time_series_2_non_center():
 
     model_string = """
     score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
-    skills[team, year]' = skills[team, shift(year, 1)] + epsilon[team, year];
-    epsilon[team, year] ~ normal(0.0, 0.5);
+    skills[team, year]' = skills[team, shift(year, 1)] + epsilon[team, year] * tau;
+    epsilon[team, year] ~ normal(0.0, 1.0);
+    tau = 0.5;
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
@@ -148,6 +149,21 @@ def test_optimize_time_series_2_non_center():
 
     assert sigma_df["sigma"][0] == pytest.approx(3.51620000, rel=1e-2)
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
+
+
+def test_optimize_time_series_2_non_center_infer_tau():
+    data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
+
+    model_string = """
+    score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
+    skills[team, year]' = skills[team, shift(year, 1)] + epsilon[team, year] * tau;
+    epsilon[team, year] ~ normal(0.0, 1.0);
+    tau<lower = 0.0> ~ normal(0.0, 0.5);
+    sigma<lower = 0.0> ~ normal(0, 1.0);
+    """
+
+    model = Model(data_df, model_string=model_string)
+    fit = model.optimize(init=0.1, chains=1)
 
 
 def test_optimize_time_series_2_error():
