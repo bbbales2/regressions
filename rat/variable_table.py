@@ -37,7 +37,8 @@ class VariableRecord:
     variable_type: VariableType
     base_df: pandas.DataFrame
 
-    subscripts_rename: Tuple[str] = field(default=None)
+    names_set: bool = False
+    constraints_set: bool = False
 
     constraint_lower: float = field(default=float("-inf"))
     constraint_upper: float = field(default=float("inf"))
@@ -48,25 +49,33 @@ class VariableRecord:
 
     @property
     def subscripts(self):
-        if self.subscripts_rename is None:
-            if self.base_df is None:
-                return ()
-            else:
-                return tuple(self.base_df.columns)
+        if self.base_df is not None:
+            return tuple(self.base_df.columns)
         else:
-            return self.subscripts_rename
+            return ()
 
-    def set_subscript_names(self, subscript_rename: Tuple[str]):
-        if self.subscripts_rename is None:
-            self.subscripts_rename = subscript_rename
-            self.base_df.columns = self.subscripts
+    def set_subscript_names(self, subscript_names: Tuple[str]):
+        """
+        Set subscript names.
+        
+        This function should only be called once, it it is called more
+        than that it will raise an AttributeError
+
+        This function will raise a ValueError if called with the wrong
+        number of names
+        """
+        if not self.names_set:
+            if len(self.base_df.columns) != len(subscript_names):
+                raise ValueError("Internal compiler error: Number of subscript names must match number of dataframe columns")
+            self.base_df.columns = subscript_names
+            self.names_set = True
         else:
-            if subscript_rename != self.subscripts_rename:
-                raise AttributeError("Internal compiler error: If there are multiple renames, the rename values must match")
+            raise AttributeError("Internal compiler error: If there are multiple renames, the rename values must match")
 
     def add_rows_from_dataframe(self, new_rows_df: pandas.DataFrame):
         """
-        Add rows to the base_df
+        Add rows to the base_df, ensure there aren't any duplicates, and make
+        sure that the base_df is sorted by it's columns (in order left to right)
         """
         if self.base_df is None:
             combined_df = new_rows_df
@@ -76,16 +85,31 @@ class VariableRecord:
         self.base_df = combined_df.drop_duplicates().sort_values(list(combined_df.columns)).reset_index(drop=True)
 
     def set_constraints(self, constraint_lower: float, constraint_upper: float):
-        if self.constraint_lower != float("-inf") or self.constraint_upper != float("inf"):
-            if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
-                raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
-        else:
+        """
+        Set scalar constraints on a variable unless constraint_lower is negative
+        infinity and constraint upper is positive infinity -- in that case do nothing!
+
+        TODO: Should have the parser indicate no constraints in a different way so this
+        function is less weird.
+        
+        Once this function is called, it can
+        be called again but it will throw an AttributeError if on following calls
+        the arguments do not exactly match what was passed on the first call.
+        """
+        if constraint_lower == float("-inf") and constraint_upper == float("inf"):
+            return
+
+        if not self.constraints_set:
             self.constraint_lower = constraint_lower
             self.constraint_upper = constraint_upper
+            self.constraints_set = True
+        else:
+            if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
+                raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
 
 
 class VariableTable:
-    symbol_dict: Dict[str, VariableRecord]
+    variable_dict: Dict[str, VariableRecord]
     unconstrained_parameter_size: int
     data_df: pandas.DataFrame
 
@@ -95,7 +119,7 @@ class VariableTable:
     _unique_number: int
 
     def __init__(self, data_df: pandas.DataFrame):
-        self.symbol_dict = {}
+        self.variable_dict = {}
         self.unconstrained_parameter_size = None
         self.data_df = data_df.copy()
 
@@ -121,27 +145,27 @@ class VariableTable:
         """
         Insert a variable record. If it is data, attach the input dataframe to it
         """
-        if variable_name not in self.symbol_dict:
+        if variable_name not in self.variable_dict:
             if variable_type == VariableType.DATA:
                 base_df = self.data_df
             else:
                 base_df = None
 
             # Insert if new
-            self.symbol_dict[variable_name] = VariableRecord(
+            self.variable_dict[variable_name] = VariableRecord(
                 variable_name,
                 variable_type,
                 base_df,
             )
 
     def __contains__(self, name: str) -> bool:
-        return name in self.symbol_dict
+        return name in self.variable_dict
 
     def __getitem__(self, variable_name: str) -> VariableRecord:
-        return self.symbol_dict[variable_name]
+        return self.variable_dict[variable_name]
 
     def __iter__(self):
-        for name in self.symbol_dict:
+        for name in self.variable_dict:
             yield name
 
     def prepare_unconstrained_parameter_mapping(self):
@@ -151,7 +175,7 @@ class VariableTable:
         """
         current_index = 0
 
-        for variable_name, record in self.symbol_dict.items():
+        for variable_name, record in self.variable_dict.items():
             if not record.variable_type:
                 error_msg = f"Fatal internal error - variable type information for '{variable_name}' not present within the symbol table. Aborting compilation."
                 raise CompileError(error_msg)
@@ -239,4 +263,4 @@ class VariableTable:
         return key_name
 
     def __str__(self):
-        return pprint.pformat(self.symbol_dict)
+        return pprint.pformat(self.variable_dict)

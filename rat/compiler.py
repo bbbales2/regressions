@@ -22,7 +22,6 @@ class Compiler:
 
     def __init__(self, data_df: pandas.DataFrame, expr_tree_list: List[ast.Expr], model_code_string: str = ""):
         self.data_df = data_df
-        self.data_df_columns = list(data_df.columns)
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
         self.variable_table: VariableTable = None
@@ -255,7 +254,7 @@ class Compiler:
                             variable.set_constraints(lower_constraint_value, upper_constraint_value)
                         except AttributeError:
                             msg = f"Attempting to set constraints of {symbol_key} to ({lower_constraint_value}, {upper_constraint_value}) but they are already set to ({variable.constraint_lower}, {variable.constraint_upper})"
-                            raise CompileError(msg, self.model_code_string, symbol.subscript.line_index, symbol.subscript.column_index)
+                            raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
 
         # Apply constraints to parameters
         for top_expr in self.expr_tree_list:
@@ -352,7 +351,8 @@ class Compiler:
         self.generated_code += "    parameters = {}\n"
         self.generated_code += "    jacobian_adjustments = 0.0\n"
 
-        for variable_name, record in self.variable_table.symbol_dict.items():
+        for variable_name in self.variable_table:
+            record = self.variable_table[variable_name]
             if record.variable_type != VariableType.PARAM:
                 continue
 
