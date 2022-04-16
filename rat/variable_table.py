@@ -57,7 +57,7 @@ class VariableRecord:
     def set_subscript_names(self, subscript_names: Tuple[str]):
         """
         Set subscript names.
-        
+
         This function should only be called once, it it is called more
         than that it will raise an AttributeError
 
@@ -91,7 +91,7 @@ class VariableRecord:
 
         TODO: Should have the parser indicate no constraints in a different way so this
         function is less weird.
-        
+
         Once this function is called, it can
         be called again but it will throw an AttributeError if on following calls
         the arguments do not exactly match what was passed on the first call.
