@@ -47,6 +47,7 @@ def test_optimize_normal_mu_sigma():
     assert mu_df["mu"][0] == pytest.approx(-0.837757, rel=1e-2)
     assert sigma_df["sigma"][0] == pytest.approx(3.880730, rel=1e-2)
 
+
 def test_optimize_normal_mu_sigma_bounded():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
@@ -64,7 +65,7 @@ def test_optimize_normal_mu_sigma_bounded():
     # With different constraints, we would get solutions
     # outside these bounds
     assert mu_df["mu"][0] >= 0.0
-    assert sigma_df["sigma"][0] <= 0.1 + 1e-7 # not sure how solution is slightly above, guess some precision thing?
+    assert sigma_df["sigma"][0] <= 0.1 + 1e-7  # not sure how solution is slightly above, guess some precision thing?
 
 
 if __name__ == "__main__":
