@@ -366,7 +366,7 @@ class Compiler:
             if len(record.subscripts) > 0:
                 index_string = f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index + 1}"
             else:
-                index_string = f"[{record.unconstrained_vector_start_index}]"
+                index_string = f"{record.unconstrained_vector_start_index}"
 
             self.generated_code += f"    {unconstrained_reference} = unconstrained_parameter_vector[..., {index_string}]\n"
 
