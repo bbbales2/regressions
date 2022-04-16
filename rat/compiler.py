@@ -194,6 +194,7 @@ class Compiler:
             for symbol in top_expr:
                 match symbol:
                     case ast.Param():
+                        # TODO: I think a few of these checks should run for Params and Data too
                         symbol_key = symbol.get_key()
 
                         variable = self.variable_table[symbol_key]
