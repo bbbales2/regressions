@@ -88,6 +88,7 @@
 <span class="kn">import</span> <span class="nn">importlib.util</span>
 <span class="kn">import</span> <span class="nn">jax</span>
 <span class="kn">import</span> <span class="nn">jax.experimental.host_callback</span>
+<span class="kn">import</span> <span class="nn">numbers</span>
 <span class="kn">import</span> <span class="nn">numpy</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pandas</span>
@@ -151,14 +152,14 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">data_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]],</span>
         <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">compile_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Create a model from a dataframe (`data_df`) and a model (specified as a string, `model_string`).</span>
+<span class="sd">        Create a model from some data (`data`) and a model (specified as a string, `model_string`).</span>
 
 <span class="sd">        If compile_path is not None, then write the compiled model to the given path (will only overwrite</span>
 <span class="sd">        existing files if the overwrite flag is true)</span>
@@ -166,7 +167,25 @@
 <span class="sd">        The parsed_lines argument is for creating a model from an intermediate representation -- likely</span>
 <span class="sd">        deprecated soon.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">data_names</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">match</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">case</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">():</span>
+                <span class="n">data_names</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span>
+            <span class="k">case</span> <span class="nb">dict</span><span class="p">():</span>
+                <span class="n">data_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Keys of dictionary form of data must be of type `str`, found </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                    <span class="k">match</span> <span class="n">value</span><span class="p">:</span>
+                        <span class="k">case</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">():</span>
+                            <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                                <span class="n">data_names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">column</span><span class="p">)</span>
+                        <span class="k">case</span> <span class="k">_</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Values of dictionary form of data must be pandas DataFrames, found </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">case</span> <span class="k">_</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Data must be a pandas DataFrame or a dictionary&quot;</span><span class="p">)</span>
+
+
         <span class="k">if</span> <span class="n">model_string</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">parsed_lines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Only one of model_string and parsed_lines can be non-None&quot;</span><span class="p">)</span>
@@ -185,7 +204,7 @@
             <span class="n">subscript_indices_dict</span><span class="p">,</span>
             <span class="n">first_in_group_indicators</span><span class="p">,</span>
             <span class="n">model_source_string</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data_df</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">compile_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">working_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;rat.&quot;</span><span class="p">)</span>
@@ -397,14 +416,14 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">data_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]],</span>
         <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">compile_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Create a model from a dataframe (`data_df`) and a model (specified as a string, `model_string`).</span>
+<span class="sd">        Create a model from some data (`data`) and a model (specified as a string, `model_string`).</span>
 
 <span class="sd">        If compile_path is not None, then write the compiled model to the given path (will only overwrite</span>
 <span class="sd">        existing files if the overwrite flag is true)</span>
@@ -412,7 +431,25 @@
 <span class="sd">        The parsed_lines argument is for creating a model from an intermediate representation -- likely</span>
 <span class="sd">        deprecated soon.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">data_names</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">match</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">case</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">():</span>
+                <span class="n">data_names</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span>
+            <span class="k">case</span> <span class="nb">dict</span><span class="p">():</span>
+                <span class="n">data_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Keys of dictionary form of data must be of type `str`, found </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                    <span class="k">match</span> <span class="n">value</span><span class="p">:</span>
+                        <span class="k">case</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">():</span>
+                            <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                                <span class="n">data_names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">column</span><span class="p">)</span>
+                        <span class="k">case</span> <span class="k">_</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Values of dictionary form of data must be pandas DataFrames, found </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">case</span> <span class="k">_</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Data must be a pandas DataFrame or a dictionary&quot;</span><span class="p">)</span>
+
+
         <span class="k">if</span> <span class="n">model_string</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">parsed_lines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Only one of model_string and parsed_lines can be non-None&quot;</span><span class="p">)</span>
@@ -431,7 +468,7 @@
             <span class="n">subscript_indices_dict</span><span class="p">,</span>
             <span class="n">first_in_group_indicators</span><span class="p">,</span>
             <span class="n">model_source_string</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data_df</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">compile_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">working_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;rat.&quot;</span><span class="p">)</span>
@@ -593,7 +630,7 @@
 
         
             <span class="name">Model</span><span class="signature">(
-    data_df: pandas.core.frame.DataFrame,
+    data: Union[pandas.core.frame.DataFrame, Dict[str, pandas.core.frame.DataFrame]],
     model_string: str = None,
     parsed_lines: List[rat.ast.Expr] = None,
     compile_path: str = None,
@@ -605,14 +642,14 @@
             <summary>View Source</summary>
             <div class="pdoc-code codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">data_df</span><span class="p">:</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]],</span>
         <span class="n">model_string</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">parsed_lines</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ast</span><span class="o">.</span><span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">compile_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Create a model from a dataframe (`data_df`) and a model (specified as a string, `model_string`).</span>
+<span class="sd">        Create a model from some data (`data`) and a model (specified as a string, `model_string`).</span>
 
 <span class="sd">        If compile_path is not None, then write the compiled model to the given path (will only overwrite</span>
 <span class="sd">        existing files if the overwrite flag is true)</span>
@@ -620,7 +657,25 @@
 <span class="sd">        The parsed_lines argument is for creating a model from an intermediate representation -- likely</span>
 <span class="sd">        deprecated soon.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">data_names</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">match</span> <span class="n">data</span><span class="p">:</span>
+            <span class="k">case</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">():</span>
+                <span class="n">data_names</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span>
+            <span class="k">case</span> <span class="nb">dict</span><span class="p">():</span>
+                <span class="n">data_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Keys of dictionary form of data must be of type `str`, found </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                    <span class="k">match</span> <span class="n">value</span><span class="p">:</span>
+                        <span class="k">case</span> <span class="n">pandas</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">():</span>
+                            <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                                <span class="n">data_names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">column</span><span class="p">)</span>
+                        <span class="k">case</span> <span class="k">_</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Values of dictionary form of data must be pandas DataFrames, found </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">case</span> <span class="k">_</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Data must be a pandas DataFrame or a dictionary&quot;</span><span class="p">)</span>
+
+
         <span class="k">if</span> <span class="n">model_string</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">parsed_lines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Only one of model_string and parsed_lines can be non-None&quot;</span><span class="p">)</span>
@@ -639,7 +694,7 @@
             <span class="n">subscript_indices_dict</span><span class="p">,</span>
             <span class="n">first_in_group_indicators</span><span class="p">,</span>
             <span class="n">model_source_string</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data_df</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">parsed_lines</span><span class="p">,</span> <span class="n">model_string</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">compile_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">working_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;rat.&quot;</span><span class="p">)</span>
@@ -688,7 +743,7 @@
 
         </details>
 
-            <div class="docstring"><p>Create a model from a dataframe (<code>data_df</code>) and a model (specified as a string, <code>model_string</code>).</p>
+            <div class="docstring"><p>Create a model from some data (<code>data</code>) and a model (specified as a string, <code>model_string</code>).</p>
 
 <p>If compile_path is not None, then write the compiled model to the given path (will only overwrite
 existing files if the overwrite flag is true)</p>

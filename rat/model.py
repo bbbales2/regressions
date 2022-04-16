@@ -101,7 +101,6 @@ class Model:
             case _:
                 raise Exception("Data must be a pandas DataFrame or a dictionary")
 
-
         if model_string is not None:
             if parsed_lines is not None:
                 raise Exception("Only one of model_string and parsed_lines can be non-None")

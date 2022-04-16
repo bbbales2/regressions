@@ -158,7 +158,7 @@ class VariableTable:
     def get_unique_number(self):
         self._unique_number += 1
         return self._unique_number
-    
+
     def insert(
         self,
         variable_name: str,
@@ -175,12 +175,12 @@ class VariableTable:
                 for key, data_df in self.data.items():
                     if variable_name in data_df:
                         matching_dfs.append(key)
-                
+
                 if len(matching_dfs) == 0:
                     raise KeyError(f"Variable {variable_name} not found")
                 elif len(matching_dfs) > 1:
                     raise KeyError(f"Variable {variable_name} is ambiguous; it is found in dataframes {matching_dfs}")
-  
+
                 base_df = self.data[matching_dfs[0]]
             else:
                 base_df = None
@@ -273,13 +273,9 @@ class VariableTable:
 
         try:
             self.generated_subscript_dict[key_name] = (
-                primary_base_df
-                .merge(
-                    target_base_df,
-                    on=target_variable_subscripts,
-                    how="left",
-                    validate="many_to_one"
-                )["__in_dataframe_index"]
+                primary_base_df.merge(target_base_df, on=target_variable_subscripts, how="left", validate="many_to_one")[
+                    "__in_dataframe_index"
+                ]
                 # NAs correspond to out of bounds accesses -- those should map
                 # to zero (and any parameter that needs to do out of bounds
                 # accesses will have zeros allocated for the last element)
@@ -289,7 +285,11 @@ class VariableTable:
             )
         except pandas.errors.MergeError as e:
             base_msg = f"Unable to merge {target_variable_name} into {primary_variable_name} on subscripts {target_variable_subscripts}"
-            extended_msg = base_msg + f" because values of {target_variable_name} are not unique with given subscripts" if "many-to-one" in str(e) else ""
+            extended_msg = (
+                base_msg + f" because values of {target_variable_name} are not unique with given subscripts"
+                if "many-to-one" in str(e)
+                else ""
+            )
             raise MergeError(extended_msg)
 
         # If this is a recursively assigned parameter and there are groupings then we'll

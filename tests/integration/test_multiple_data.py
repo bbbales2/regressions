@@ -25,10 +25,7 @@ def test_multiple_dataframes_eight_schools_optimize():
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    eight_schools_model = Model({
-        "y_data" : y_data_df,
-        "sigma_data" : sigma_data_df
-    }, model_string=model_string)
+    eight_schools_model = Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
 
     optimization_fit = eight_schools_model.optimize(init=0.1)
 
@@ -53,15 +50,9 @@ def test_multiple_dataframes_eight_schools_optimize():
 
 
 def test_multiple_dataframes_eight_schools_optimize_2():
-    data1_df = (
-        pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
-        .rename(columns = { "y" : "y1", "sigma" : "sigma1"})
-    )
+    data1_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv")).rename(columns={"y": "y1", "sigma": "sigma1"})
 
-    data2_df = (
-        data1_df.copy()
-        .rename(columns = { "y1" : "y2", "sigma1" : "sigma2"})
-    )
+    data2_df = data1_df.copy().rename(columns={"y1": "y2", "sigma1": "sigma2"})
 
     model_string = """
     y1' ~ normal(theta1[school], sigma1);
@@ -77,10 +68,7 @@ def test_multiple_dataframes_eight_schools_optimize_2():
     tau2<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    eight_schools_model = Model({
-        "data1" : data1_df,
-        "data2" : data2_df
-    }, model_string=model_string)
+    eight_schools_model = Model({"data1": data1_df, "data2": data2_df}, model_string=model_string)
 
     optimization_fit = eight_schools_model.optimize(init=0.1)
 
@@ -116,10 +104,7 @@ def test_multiple_dataframes_eight_schools_error():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     y_data_df = data_df[["y", "school"]]
-    sigma_data_df = pandas.concat([
-        data_df[["school", "sigma"]],
-        data_df[["school", "sigma"]]
-    ])
+    sigma_data_df = pandas.concat([data_df[["school", "sigma"]], data_df[["school", "sigma"]]])
 
     model_string = """
     y' ~ normal(theta[school], sigma[school]);
@@ -130,7 +115,4 @@ def test_multiple_dataframes_eight_schools_error():
     """
 
     with pytest.raises(Exception, match="unique"):
-        Model({
-            "y_data" : y_data_df,
-            "sigma_data" : sigma_data_df
-        }, model_string=model_string)
+        Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)

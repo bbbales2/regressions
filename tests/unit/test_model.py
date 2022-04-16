@@ -28,9 +28,10 @@ def test_model_compile_path():
 
         assert not os.path.exists(model_path)
 
-        model = Model(data_df, model_string=model_string, compile_path = model_path)
+        model = Model(data_df, model_string=model_string, compile_path=model_path)
 
         assert os.path.exists(model_path)
+
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)
