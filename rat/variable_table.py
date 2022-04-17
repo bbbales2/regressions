@@ -158,7 +158,7 @@ class VariableTable:
     def get_unique_number(self):
         self._unique_number += 1
         return self._unique_number
-    
+
     def get_dataframe_name(self, variable_name):
         """
         Look up the dataframe associated with a given variable name

@@ -117,6 +117,7 @@ def test_multiple_dataframes_eight_schools_error():
     with pytest.raises(Exception, match="unique"):
         Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
 
+
 def test_multiple_dataframes_eight_schools_subscript_errors():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
