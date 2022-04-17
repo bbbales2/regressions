@@ -158,6 +158,24 @@ class VariableTable:
     def get_unique_number(self):
         self._unique_number += 1
         return self._unique_number
+    
+    def get_dataframe_name(self, variable_name):
+        """
+        Look up the dataframe associated with a given variable name
+
+        Exactly one dataframe must be found or a KeyError will be thrown
+        """
+        matching_dfs = []
+        for key, data_df in self.data.items():
+            if variable_name in data_df:
+                matching_dfs.append(key)
+
+        if len(matching_dfs) == 0:
+            raise KeyError(f"Variable {variable_name} not found")
+        elif len(matching_dfs) > 1:
+            raise KeyError(f"Variable {variable_name} is ambiguous; it is found in dataframes {matching_dfs}")
+
+        return matching_dfs[0]
 
     def insert(
         self,
@@ -166,22 +184,10 @@ class VariableTable:
     ):
         """
         Insert a variable record. If it is data, attach an input dataframe to it
-
-        Exactly one dataframe must be attached or a KeyError will be thrown
         """
         if variable_name not in self.variable_dict:
             if variable_type == VariableType.DATA:
-                matching_dfs = []
-                for key, data_df in self.data.items():
-                    if variable_name in data_df:
-                        matching_dfs.append(key)
-
-                if len(matching_dfs) == 0:
-                    raise KeyError(f"Variable {variable_name} not found")
-                elif len(matching_dfs) > 1:
-                    raise KeyError(f"Variable {variable_name} is ambiguous; it is found in dataframes {matching_dfs}")
-
-                base_df = self.data[matching_dfs[0]]
+                base_df = self.data[self.get_dataframe_name(variable_name)]
             else:
                 base_df = None
 
@@ -265,7 +271,16 @@ class VariableTable:
             shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
             primary_base_df[column] = shifted_column
 
-        target_base_df = target_variable.base_df[list(target_variable_subscripts)].copy()
+        # TODO: It would be nice if this logic weren't different for data and parameters
+        if target_variable.variable_type == VariableType.DATA:
+            # If the target variable is data, then assume the subscripts here are
+            # referencing columns of the dataframe by name
+            target_base_df = target_variable.base_df[list(target_variable_subscripts)].copy()
+        else:
+            # If the target variable is parameter, then assume the subscripts here are
+            # referencing columns of the dataframe by position
+            target_base_df = target_variable.base_df.copy()
+            target_base_df.columns = list(target_variable_subscripts)
 
         target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]), dtype=pandas.Int64Dtype())
 

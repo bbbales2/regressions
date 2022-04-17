@@ -116,3 +116,31 @@ def test_multiple_dataframes_eight_schools_error():
 
     with pytest.raises(Exception, match="unique"):
         Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
+
+def test_multiple_dataframes_eight_schools_subscript_errors():
+    data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
+
+    y_data_df = data_df[["y", "school"]]
+    sigma_data_df = pandas.concat([data_df[["school", "sigma"]], data_df[["school", "sigma"]]])
+
+    model_string = """
+    y' ~ normal(theta[school], sigma[y]);
+    theta' = mu + z[school] * tau;
+    z ~ normal(0, 1);
+    mu ~ normal(0, 5);
+    tau<lower = 0.0> ~ log_normal(0, 1);
+    """
+
+    with pytest.raises(Exception, match="Subscript y not found in dataframe sigma_data"):
+        Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
+
+    model_string = """
+    y' ~ normal(theta[school], sigma[school, rabbit]);
+    theta' = mu + z[school] * tau;
+    z ~ normal(0, 1);
+    mu ~ normal(0, 5);
+    tau<lower = 0.0> ~ log_normal(0, 1);
+    """
+
+    with pytest.raises(Exception, match="Subscript rabbit not found in dataframe y_data"):
+        Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)

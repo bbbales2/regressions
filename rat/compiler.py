@@ -193,8 +193,28 @@ class Compiler:
             # Find all secondary variables that are parameters
             for symbol in top_expr:
                 match symbol:
+                    # TODO: It would be nice if these code paths were closer for Data and Params
+                    case ast.Data():
+                        # If the target variable is data, then assume the subscripts here are
+                        # referencing columns of the dataframe by name
+                        symbol_key = symbol.get_key()
+
+                        variable = self.variable_table[symbol_key]
+
+                        if symbol.subscript is not None:
+                            # Check that number/names of subscripts are compatible with primary variable
+                            # and with the variable's own dataframe
+                            for column in symbol.subscript.names:
+                                if column.name not in primary_subscript_names:
+                                    dataframe_name = self.variable_table.get_dataframe_name(primary_symbol_key)
+                                    msg = f"Subscript {column.name} not found in dataframe {dataframe_name} (associated with primary variable {primary_symbol_key})"
+                                    raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
+
+                                if column.name not in variable.subscripts:
+                                    dataframe_name = self.variable_table.get_dataframe_name(symbol_key)
+                                    msg = f"Subscript {column.name} not found in dataframe {dataframe_name} (associated with variable {symbol_key})"
+                                    raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
                     case ast.Param():
-                        # TODO: I think a few of these checks should run for Params and Data too
                         symbol_key = symbol.get_key()
 
                         variable = self.variable_table[symbol_key]
@@ -204,7 +224,7 @@ class Compiler:
                             # Check that number/names of subscripts are compatible with primary variable
                             for column in symbol.subscript.names:
                                 if column.name not in primary_subscript_names:
-                                    msg = f"Subscript {column.name} not found in subscripts of primary variable {primary_symbol_key}"
+                                    msg = f"Subscript {column.name} not found in dataframe of primary variable {primary_symbol_key}"
                                     raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
 
                             subscript_names = [column.name for column in symbol.subscript.names]
