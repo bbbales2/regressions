@@ -287,16 +287,10 @@ class VariableTable:
         key_name = f"subscript__{self.get_unique_number()}"
 
         try:
-            self.generated_subscript_dict[key_name] = (
+            in_dataframe_index = (
                 primary_base_df.merge(target_base_df, on=target_variable_subscripts, how="left", validate="many_to_one")[
                     "__in_dataframe_index"
                 ]
-                # NAs correspond to out of bounds accesses -- those should map
-                # to zero (and any parameter that needs to do out of bounds
-                # accesses will have zeros allocated for the last element)
-                .fillna(target_base_df.shape[0])
-                .astype(int)
-                .to_numpy()
             )
         except pandas.errors.MergeError as e:
             base_msg = f"Unable to merge {target_variable_name} into {primary_variable_name} on subscripts {target_variable_subscripts}"
@@ -306,6 +300,37 @@ class VariableTable:
                 else ""
             )
             raise MergeError(extended_msg)
+
+        if target_variable.variable_type == VariableType.DATA:
+            # NAs in a data dataframe should not be ignored -- these
+            # all need to be defined
+            na_count = in_dataframe_index.isna().sum()
+            if na_count > 0:
+                for row in primary_base_df[in_dataframe_index.isna()].itertuples(index=False):
+                    dataframe_name = self.get_dataframe_name(target_variable_name)
+                    base_msg = f"Unable to merge {target_variable_name} into {primary_variable_name} on subscripts {target_variable_subscripts}"
+                    extended_msg = (
+                        base_msg + f" because there are {na_count} required values not found in {dataframe_name}"
+                        f" (associated with {target_variable_name}). For instance, there should be a value for"
+                        f" {row} but this is not there."
+                    )
+                    raise MergeError(extended_msg)
+
+            filled_in_dataframe_index = in_dataframe_index
+        else:
+            filled_in_dataframe_index = (
+                in_dataframe_index
+                # NAs correspond to out of bounds accesses -- those should map
+                # to zero (and any parameter that needs to do out of bounds
+                # accesses will have zeros allocated for the last element)
+                .fillna(target_base_df.shape[0])
+            )
+
+        self.generated_subscript_dict[key_name] = (
+            filled_in_dataframe_index
+            .astype(int)
+            .to_numpy()
+        )
 
         # If this is a recursively assigned parameter and there are groupings then we'll
         # need to generate some special values for the jax.lax.scan recursive assignment

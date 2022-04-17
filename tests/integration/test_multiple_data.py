@@ -100,7 +100,7 @@ def test_multiple_dataframes_eight_schools_optimize_2():
     assert theta2_df["theta2"].to_list() == pytest.approx(ref_theta, rel=1e-2)
 
 
-def test_multiple_dataframes_eight_schools_error():
+def test_multiple_dataframes_eight_schools_error_to_many_to_few_rows():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     y_data_df = data_df[["y", "school"]]
@@ -115,6 +115,11 @@ def test_multiple_dataframes_eight_schools_error():
     """
 
     with pytest.raises(Exception, match="unique"):
+        Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
+
+    sigma_data_df = data_df[["school", "sigma"]].iloc[:1,]
+
+    with pytest.raises(Exception, match = "because there are 7 required values"):
         Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
 
 
