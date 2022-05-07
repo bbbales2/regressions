@@ -8,3 +8,5 @@ pytest
 pyarrow
 scipy
 tqdm
+jsonrpcserver
+jsonrpcclient
