@@ -48,6 +48,7 @@
     <li><a href="#transformed-parameters">Transformed parameters</a></li>
     <li><a href="#constraints">Constraints</a></li>
     <li><a href="#shift-operator">Shift operator</a></li>
+    <li><a href="#multiple-input-dataframes">Multiple input dataframes</a></li>
     <li><a href="#sharp-edges-with-renaming">Sharp edges with renaming</a></li>
     <li><a href="#distributions">Distributions</a></li>
     <li><a href="#functions">Functions</a></li>
@@ -233,15 +234,16 @@ and <code>sigma</code> are the variable references, and <code>score_diff</code> 
 <p>Variables are associated with dataframes with the process of <em>variable dataframe deduction</em> (executed in order):</p>
 
 <ol>
-<li>Variables with names that match columns in the <em>input dataframe</em> take the input dataframe</li>
+<li>Variables with names that match columns in an <em>input dataframe</em> take that input dataframe</li>
+<li>If variable names match columns in multiple input dataframes, it is an error</li>
 <li>Otherwise, variables references are associated with parameters. The dataframe of the parameter is the minimum
 dataframe required to execute all statements it is used in.</li>
 </ol>
 
 <p>For the purposes of both dataframe deductions, Rat programs are understood top to bottom.</p>
 
-<p>The input dataframe is a single dataframe passed to a Rat program. For the regression above, a
-suitable example might be (the point differentials for a number of NBA games from the 2016 season):</p>
+<p>For the regression above, a suitable example of an input dataframe might be
+(the point differentials for a number of NBA games from the 2016 season):</p>
 
 <pre><code>    game_id  home_score  away_score home_team away_team  score_diff  year
 0         1         117          88       CLE       NYK        29.0  2016
@@ -257,9 +259,10 @@ suitable example might be (the point differentials for a number of NBA games fro
 10       11          97         103       PHI       CLE        -6.0  2016
 </code></pre>
 
-<p>Because <code>score_diff</code> matches a column in the input dataframe, the input dataframe
-is the primary dataframe for this datement. Because <code>skill</code> and <code>sigma</code> do not appear
-as columns in this dataframe, they will be parameters.</p>
+<p>Because <code>score_diff</code> matches a column in this dataframe, assuming there are no
+other dataframes, this dataframe becomes the primary dataframe for this statement.
+Because <code>skill</code> and <code>sigma</code> do not appear as columns in this dataframe, they
+will be parameters.</p>
 
 <p>The statement will <em>execute</em> once for each line of this dataframe. As the statement runs,
 it will substitute values from this dataframe into variables and subscripts that match
@@ -476,6 +479,71 @@ but in terms of basketball example this looks like:</p>
 </tr>
 </tbody>
 </table>
+
+<h2 id="multiple-input-dataframes">Multiple input dataframes</h2>
+
+<p>A Rat program can take in multiple input dataframes. As a part of variable dataframe
+deduction, every name will be associated with a dataframe (or an error will be thrown).</p>
+
+<p>In the same way that parameters are handled, non-primary variable values are joined to
+primary variables via subscripts. The major difference is that, because Rat allocates
+parameter dataframes, it can be careful to avoid duplicate entries. Because dataframes
+for data variables come from the outside, this must be verified by the user. It is an
+error if rows in a dataframe are referenced in a way that makes them not unique.</p>
+
+<p>As a simple example of using multiple dataframes, consider the eight schools data:</p>
+
+<pre><code>y,sigma,school
+28,15,1
+8,10,2
+-3,16,3
+7,11,4
+-1,9,5
+1,11,6
+18,10,7
+12,18,8
+</code></pre>
+
+<p>Along with the eight schools model:</p>
+
+<pre><code>y' ~ normal(theta[school], sigma);
+theta' = mu + z[school] * tau;
+z ~ normal(0, 1);
+mu ~ normal(0, 5);
+tau&lt;lower = 0.0&gt; ~ log_normal(0, 1);
+</code></pre>
+
+<p>In this case, it is possible to split the input dataframe in two, with one
+dataframe for the <code>y</code> variable and one for <code>sigma</code>.</p>
+
+<pre><code>y,school    sigma,school
+28,1        15,1
+8,2         10,2
+-3,3        16,3
+7,4         11,4
+-1,5        9,5
+1,6         11,6
+18,7        10,7
+12,8        18,8
+</code></pre>
+
+<p>In this case the two dataframes could be joined together on <code>school</code>.</p>
+
+<p>However, if instead these are passed as two separate dataframes to a Rat program, then
+they can be recombined in code by replacing:</p>
+
+<pre><code>y' ~ normal(theta[school], sigma);
+</code></pre>
+
+<p>with</p>
+
+<pre><code>y' ~ normal(theta[school], sigma[school]);
+</code></pre>
+
+<p>The variable <code>sigma</code> uses the second dataframe because there is no <code>sigma</code> in the first,
+and the subscript <code>school</code> allows the two sets of data to be joined together. It would be
+an error for the subscript <code>school</code> to not be there. In that case the join from <code>sigma</code>
+to <code>y</code> would not be unique.</p>
 
 <h2 id="sharp-edges-with-renaming">Sharp edges with renaming</h2>
 
@@ -759,14 +827,15 @@ run models.</p>
 
 <span class="sd">Variables are associated with dataframes with the process of *variable dataframe deduction* (executed in order):</span>
 
-<span class="sd">1. Variables with names that match columns in the *input dataframe* take the input dataframe</span>
-<span class="sd">2. Otherwise, variables references are associated with parameters. The dataframe of the parameter is the minimum</span>
+<span class="sd">1. Variables with names that match columns in an *input dataframe* take that input dataframe</span>
+<span class="sd">2. If variable names match columns in multiple input dataframes, it is an error</span>
+<span class="sd">3. Otherwise, variables references are associated with parameters. The dataframe of the parameter is the minimum</span>
 <span class="sd">dataframe required to execute all statements it is used in.</span>
 
 <span class="sd">For the purposes of both dataframe deductions, Rat programs are understood top to bottom.</span>
 
-<span class="sd">The input dataframe is a single dataframe passed to a Rat program. For the regression above, a</span>
-<span class="sd">suitable example might be (the point differentials for a number of NBA games from the 2016 season):</span>
+<span class="sd">For the regression above, a suitable example of an input dataframe might be</span>
+<span class="sd">(the point differentials for a number of NBA games from the 2016 season):</span>
 
 <span class="sd">```</span>
 <span class="sd">    game_id  home_score  away_score home_team away_team  score_diff  year</span>
@@ -783,9 +852,10 @@ run models.</p>
 <span class="sd">10       11          97         103       PHI       CLE        -6.0  2016</span>
 <span class="sd">```</span>
 
-<span class="sd">Because `score_diff` matches a column in the input dataframe, the input dataframe</span>
-<span class="sd">is the primary dataframe for this datement. Because `skill` and `sigma` do not appear</span>
-<span class="sd">as columns in this dataframe, they will be parameters.</span>
+<span class="sd">Because `score_diff` matches a column in this dataframe, assuming there are no</span>
+<span class="sd">other dataframes, this dataframe becomes the primary dataframe for this statement.</span>
+<span class="sd">Because `skill` and `sigma` do not appear as columns in this dataframe, they</span>
+<span class="sd">will be parameters.</span>
 
 <span class="sd">The statement will *execute* once for each line of this dataframe. As the statement runs,</span>
 <span class="sd">it will substitute values from this dataframe into variables and subscripts that match</span>
@@ -962,6 +1032,74 @@ run models.</p>
 <span class="sd">| `skill[CHA, 2016]`  | `skill[CHA, 2017]`            |</span>
 <span class="sd">| `skill[CHA, 2017]`  | `0`                           |</span>
 <span class="sd">| `skill[ATL, 2017]`  | `0`                           |</span>
+
+<span class="sd">## Multiple input dataframes</span>
+
+<span class="sd">A Rat program can take in multiple input dataframes. As a part of variable dataframe</span>
+<span class="sd">deduction, every name will be associated with a dataframe (or an error will be thrown).</span>
+
+<span class="sd">In the same way that parameters are handled, non-primary variable values are joined to</span>
+<span class="sd">primary variables via subscripts. The major difference is that, because Rat allocates</span>
+<span class="sd">parameter dataframes, it can be careful to avoid duplicate entries. Because dataframes</span>
+<span class="sd">for data variables come from the outside, this must be verified by the user. It is an</span>
+<span class="sd">error if rows in a dataframe are referenced in a way that makes them not unique.</span>
+
+<span class="sd">As a simple example of using multiple dataframes, consider the eight schools data:</span>
+<span class="sd">```</span>
+<span class="sd">y,sigma,school</span>
+<span class="sd">28,15,1</span>
+<span class="sd">8,10,2</span>
+<span class="sd">-3,16,3</span>
+<span class="sd">7,11,4</span>
+<span class="sd">-1,9,5</span>
+<span class="sd">1,11,6</span>
+<span class="sd">18,10,7</span>
+<span class="sd">12,18,8</span>
+<span class="sd">```</span>
+
+<span class="sd">Along with the eight schools model:</span>
+<span class="sd">```</span>
+<span class="sd">y&#39; ~ normal(theta[school], sigma);</span>
+<span class="sd">theta&#39; = mu + z[school] * tau;</span>
+<span class="sd">z ~ normal(0, 1);</span>
+<span class="sd">mu ~ normal(0, 5);</span>
+<span class="sd">tau&lt;lower = 0.0&gt; ~ log_normal(0, 1);</span>
+<span class="sd">```</span>
+
+<span class="sd">In this case, it is possible to split the input dataframe in two, with one</span>
+<span class="sd">dataframe for the `y` variable and one for `sigma`.</span>
+
+<span class="sd">```</span>
+<span class="sd">y,school    sigma,school</span>
+<span class="sd">28,1        15,1</span>
+<span class="sd">8,2         10,2</span>
+<span class="sd">-3,3        16,3</span>
+<span class="sd">7,4         11,4</span>
+<span class="sd">-1,5        9,5</span>
+<span class="sd">1,6         11,6</span>
+<span class="sd">18,7        10,7</span>
+<span class="sd">12,8        18,8</span>
+<span class="sd">```</span>
+
+<span class="sd">In this case the two dataframes could be joined together on `school`.</span>
+
+<span class="sd">However, if instead these are passed as two separate dataframes to a Rat program, then</span>
+<span class="sd">they can be recombined in code by replacing:</span>
+
+<span class="sd">```</span>
+<span class="sd">y&#39; ~ normal(theta[school], sigma);</span>
+<span class="sd">```</span>
+
+<span class="sd">with</span>
+
+<span class="sd">```</span>
+<span class="sd">y&#39; ~ normal(theta[school], sigma[school]);</span>
+<span class="sd">```</span>
+
+<span class="sd">The variable `sigma` uses the second dataframe because there is no `sigma` in the first,</span>
+<span class="sd">and the subscript `school` allows the two sets of data to be joined together. It would be</span>
+<span class="sd">an error for the subscript `school` to not be there. In that case the join from `sigma`</span>
+<span class="sd">to `y` would not be unique.</span>
 
 <span class="sd">## Sharp edges with renaming</span>
 

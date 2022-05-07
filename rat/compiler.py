@@ -1,27 +1,28 @@
+from codeop import Compile
 import itertools
 import pandas
 import jax
 import jax.numpy
 import jax.scipy.stats
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Union
 import itertools
 
 import pandas as pd
 
 from . import ast
 from . import codegen_backends
-from .exceptions import CompileError
+from .exceptions import CompileError, MergeError
 from .variable_table import VariableTable, VariableType
 from rat import variable_table
 
 
 class Compiler:
-    data_df: pandas.DataFrame
+    data: Union[pandas.DataFrame, Dict]
     expr_tree_list: List[ast.Expr]
     model_code_string: str
 
-    def __init__(self, data_df: pandas.DataFrame, expr_tree_list: List[ast.Expr], model_code_string: str = ""):
-        self.data_df = data_df
+    def __init__(self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List[ast.Expr], model_code_string: str = ""):
+        self.data = data
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
         self.variable_table: VariableTable = None
@@ -129,16 +130,19 @@ class Compiler:
         """
         Builds the "symbol table", which holds information for all variables in the model.
         """
-        self.variable_table = VariableTable(self.data_df)
+        self.variable_table = VariableTable(self.data)
 
         # Add entries to the symbol table for all data/params
         for top_expr in self.expr_tree_list:
             for symbol in top_expr:
-                match symbol:
-                    case ast.Data():
-                        self.variable_table.insert(variable_name=symbol.get_key(), variable_type=VariableType.DATA)
-                    case ast.Param():
-                        self.variable_table.insert(variable_name=symbol.get_key(), variable_type=VariableType.PARAM)
+                try:
+                    match symbol:
+                        case ast.Data():
+                            self.variable_table.insert(variable_name=symbol.get_key(), variable_type=VariableType.DATA)
+                        case ast.Param():
+                            self.variable_table.insert(variable_name=symbol.get_key(), variable_type=VariableType.PARAM)
+                except KeyError as e:
+                    raise CompileError(str(e), self.model_code_string, symbol.line_index, symbol.column_index)
 
         # TODO: I'm not sure it's a good pattern to modify the AST in place
         # Fold all shifts to constants
@@ -189,6 +193,27 @@ class Compiler:
             # Find all secondary variables that are parameters
             for symbol in top_expr:
                 match symbol:
+                    # TODO: It would be nice if these code paths were closer for Data and Params
+                    case ast.Data():
+                        # If the target variable is data, then assume the subscripts here are
+                        # referencing columns of the dataframe by name
+                        symbol_key = symbol.get_key()
+
+                        variable = self.variable_table[symbol_key]
+
+                        if symbol.subscript is not None:
+                            # Check that number/names of subscripts are compatible with primary variable
+                            # and with the variable's own dataframe
+                            for column in symbol.subscript.names:
+                                if column.name not in primary_subscript_names:
+                                    dataframe_name = self.variable_table.get_dataframe_name(primary_symbol_key)
+                                    msg = f"Subscript {column.name} not found in dataframe {dataframe_name} (associated with primary variable {primary_symbol_key})"
+                                    raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
+
+                                if column.name not in variable.subscripts:
+                                    dataframe_name = self.variable_table.get_dataframe_name(symbol_key)
+                                    msg = f"Subscript {column.name} not found in dataframe {dataframe_name} (associated with variable {symbol_key})"
+                                    raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
                     case ast.Param():
                         symbol_key = symbol.get_key()
 
@@ -196,14 +221,10 @@ class Compiler:
 
                         # If variable has no subscript, it's a scalar and there's nothing to do
                         if symbol.subscript is not None:
-                            # Fold all the shift expressions to simple integers
-                            shifts, pad_needed = self._get_shifts_and_padding(symbol.subscript)
-                            variable.pad_needed = True
-
                             # Check that number/names of subscripts are compatible with primary variable
                             for column in symbol.subscript.names:
                                 if column.name not in primary_subscript_names:
-                                    msg = f"Subscript {column.name} not found in subscripts of primary variable {primary_symbol_key}"
+                                    msg = f"Subscript {column.name} not found in dataframe of primary variable {primary_symbol_key}"
                                     raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
 
                             subscript_names = [column.name for column in symbol.subscript.names]
@@ -215,6 +236,10 @@ class Compiler:
                                 if len(subscript_names) != len(variable.subscripts):
                                     msg = f"{len(subscript_names)} found, previously used with {len(variable.subscripts)}"
                                     raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+
+                            # Fold all the shift expressions to simple integers
+                            shifts, pad_needed = self._get_shifts_and_padding(symbol.subscript)
+                            variable.pad_needed = pad_needed
 
                             # Extra checks for secondary variables
                             if symbol_key != primary_symbol_key:
@@ -418,7 +443,11 @@ class Compiler:
             code_generator = codegen_backends.EvaluateDensityCodeGenerator(
                 self.variable_table, self._get_primary_symbol_from_statement(top_expr)
             )
-            code_generator.generate(top_expr)
+            try:
+                code_generator.generate(top_expr)
+            except MergeError as e:
+                msg = str(e)
+                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
             self.generated_code += f"    target += jax.numpy.sum({code_generator.get_expression_string()})\n"
 
         self.generated_code += "\n"
@@ -441,7 +470,7 @@ class Compiler:
         for variable_name in self.variable_table:
             record = self.variable_table[variable_name]
             if record.variable_type == VariableType.DATA:
-                data_dict[variable_name] = jax.numpy.array(self.data_df[variable_name].to_numpy())
+                data_dict[variable_name] = jax.numpy.array(record.to_numpy())
             else:
                 if record.base_df is not None:
                     base_df_dict[variable_name] = record.base_df

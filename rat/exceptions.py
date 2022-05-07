@@ -16,3 +16,7 @@ class CompileWarning(UserWarning):
         else:
             warning_message = f"Compilation warning:\n{message}"
         super().__init__(warning_message)
+
+
+class MergeError(Exception):
+    pass

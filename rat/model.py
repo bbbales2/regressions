@@ -4,6 +4,7 @@ import itertools
 import importlib.util
 import jax
 import jax.experimental.host_callback
+import numbers
 import numpy
 import os
 import pandas
@@ -67,14 +68,14 @@ class Model:
 
     def __init__(
         self,
-        data_df: pandas.DataFrame,
+        data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
         model_string: str = None,
         parsed_lines: List[ast.Expr] = None,
         compile_path: str = None,
         overwrite: bool = False,
     ):
         """
-        Create a model from a dataframe (`data_df`) and a model (specified as a string, `model_string`).
+        Create a model from some data (`data`) and a model (specified as a string, `model_string`).
 
         If compile_path is not None, then write the compiled model to the given path (will only overwrite
         existing files if the overwrite flag is true)
@@ -82,7 +83,24 @@ class Model:
         The parsed_lines argument is for creating a model from an intermediate representation -- likely
         deprecated soon.
         """
-        data_names = data_df.columns
+        match data:
+            case pandas.DataFrame():
+                data_names = data.columns
+            case dict():
+                data_names = set()
+                for key, value in data.items():
+                    if not isinstance(key, str):
+                        raise Exception(f"Keys of dictionary form of data must be of type `str`, found {type(key)}")
+
+                    match value:
+                        case pandas.DataFrame():
+                            for column in value.columns:
+                                data_names.add(column)
+                        case _:
+                            raise Exception(f"Values of dictionary form of data must be pandas DataFrames, found {type(value)}")
+            case _:
+                raise Exception("Data must be a pandas DataFrame or a dictionary")
+
         if model_string is not None:
             if parsed_lines is not None:
                 raise Exception("Only one of model_string and parsed_lines can be non-None")
@@ -101,7 +119,7 @@ class Model:
             subscript_indices_dict,
             first_in_group_indicators,
             model_source_string,
-        ) = compiler.Compiler(data_df, parsed_lines, model_string).compile()
+        ) = compiler.Compiler(data, parsed_lines, model_string).compile()
 
         if compile_path is None:
             self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")
