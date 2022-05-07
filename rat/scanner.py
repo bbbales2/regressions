@@ -7,6 +7,7 @@ from .exceptions import TokenizeError
 
 realnum = re.compile("^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$")  # (negative or positive) + (integer, real, scientific)
 
+
 class Token:
     """
     A token denotes a sequence of input characters, typically demarcated by other characters that represent
@@ -15,7 +16,7 @@ class Token:
 
     value: str
     """A string containing the input characters"""
-    start : Position
+    start: Position
     """Position in file of start of token"""
     token_type: str
     """A string representing the type of token. Set by self.__class__.__name"""
@@ -24,11 +25,11 @@ class Token:
         self.value = value
         self.start = start
         self.token_type = self.__class__.__name__
-    
+
     @property
     def end(self) -> Position:
         """Position in file of end of token"""
-        return Position(self.start.line, self.start.col + len(self.value), document = self.start.document)
+        return Position(self.start.line, self.start.col + len(self.value), document=self.start.document)
 
     @property
     def range(self) -> Range:
@@ -41,6 +42,7 @@ class Identifier(Token):
     The Identifier token represents any alphanumeric string that isn't used as a standalone number.
     This includes function names, variables, distributions, etc.
     """
+
     pass
 
 
@@ -49,6 +51,7 @@ class Special(Token):
     The Special token represents any single characters that indicate change in semantics or control flow.
     Explicitly any single token that has the following values("(", ")", ",", "[", "]", "~") are set as Special
     """
+
     pass
 
 
@@ -56,6 +59,7 @@ class IntLiteral(Token):
     """
     The IntLiteral token represent integers.
     """
+
     pass
 
 
@@ -65,6 +69,7 @@ class RealLiteral(Token):
     ^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$ is being used to parse real numbers, which allows negative values as well as
     scientific notation.
     """
+
     pass
 
 
@@ -74,6 +79,7 @@ class Operator(Token):
     following values("=","+","-","*","/","^","%") are
     set as an Operator.
     """
+
     pass
 
 
@@ -81,6 +87,7 @@ class Terminate(Token):
     """
     In rat, all statements are terminated using with ; and not newline.
     """
+
     pass
 
 
@@ -88,6 +95,7 @@ class NullToken(Token):
     """
     NullToken doesn't represent anything. This is pretty much used in the same context as None.
     """
+
     def __init__(self):
         pass
 
@@ -172,9 +180,9 @@ class Scanner:
 
     def raise_error(self, msg):
         position = Position(self.line_index, self.column_index, self.model_code)
-        raise TokenizeError(msg, Range(position, length = len(self.register)))
+        raise TokenizeError(msg, Range(position, length=len(self.register)))
 
-    def reduce_register(self, offset : int = 1):
+    def reduce_register(self, offset: int = 1):
         """
         Resolve the current characters in the register into a token
         """
@@ -187,7 +195,7 @@ class Scanner:
             else:
                 return True
 
-        position = Position(self.line_index, self.column_index - len(self.register) - offset, document = self.model_code)
+        position = Position(self.line_index, self.column_index - len(self.register) - offset, document=self.model_code)
 
         if self.register == " " or not self.register:
             token = NullToken()
@@ -230,7 +238,7 @@ class Scanner:
                 self.raise_error(f"Found unmatching brackets {self.current_char}")
             elif self.bracket_stack.pop() != bracket_dict[self.current_char]:
                 self.raise_error(f"Found unmatching brackets {self.current_char}")
-        self.reduce_register(offset = 0)
+        self.reduce_register(offset=0)
         self.current_state = self.default_state
 
     def default_state(self):
@@ -423,5 +431,5 @@ class Scanner:
         # else:
         #     self.reduce_register()
         #     self.current_state = self.default_state
-        self.reduce_register(offset = 0)
+        self.reduce_register(offset=0)
         self.current_state = self.default_state

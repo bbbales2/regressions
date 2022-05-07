@@ -28,7 +28,7 @@ class Compiler:
         self.variable_table: VariableTable = None
         self.generated_code = ""
 
-    def _get_primary_symbol_from_statement(self, top_expr : ast.Expr):
+    def _get_primary_symbol_from_statement(self, top_expr: ast.Expr):
         """
         Get the primary symbol in a statement. This assumes that the statement has
         only one primary symbol
@@ -155,9 +155,7 @@ class Compiler:
 
                             new_shift_expressions = []
                             for shift_expression, integer_shift in zip(symbol.subscript.shifts, integer_shifts):
-                                new_shift_expressions.append(
-                                    ast.IntegerConstant(value=integer_shift, range=shift_expression.range)
-                                )
+                                new_shift_expressions.append(ast.IntegerConstant(value=integer_shift, range=shift_expression.range))
 
                             symbol.subscript.shifts = tuple(new_shift_expressions)
 

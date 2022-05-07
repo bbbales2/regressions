@@ -14,10 +14,10 @@ from .scanner import Range
 
 @dataclass
 class Expr:
-    range : Range = field(default = lambda : None, kw_only=True)
-    #line_index: int = field(default=-1, kw_only=True)  # line index of the original model code
-    #column_index: int = field(default=-1, kw_only=True)  # column index of the original model code
-    #end_index: int = field(default = -1, kw_only=True)  # end column index of the original model code
+    range: Range = field(default=lambda: None, kw_only=True)
+    # line_index: int = field(default=-1, kw_only=True)  # line index of the original model code
+    # column_index: int = field(default=-1, kw_only=True)  # column index of the original model code
+    # end_index: int = field(default = -1, kw_only=True)  # end column index of the original model code
     out_type: Type[types.BaseType] = field(default=types.BaseType, kw_only=True)
 
     def __iter__(self):
