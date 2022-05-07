@@ -1,5 +1,6 @@
 from typing import *
 from .scanner import (
+    Range,
     Token,
     Identifier,
     Operator,
@@ -11,6 +12,7 @@ from .scanner import (
 )
 from .ast import *
 from .types import TypeCheckError
+from .exceptions import ParseError
 import warnings
 import jax.numpy
 
@@ -34,10 +36,10 @@ class PrefixOps:
         return False
 
     @staticmethod
-    def generate(expr: Expr, tok: Operator):
+    def generate(expr: Expr, tok: Operator, range : Range):
         match tok.value:
             case "-":
-                return PrefixNegation(expr, line_index=tok.line_index, column_index=tok.column_index)
+                return PrefixNegation(expr, range = range)
 
 
 class PostfixOps:
@@ -67,19 +69,19 @@ class InfixOps:
         return False
 
     @staticmethod
-    def generate(left: Expr, right: Expr, operator: Type[Token]):
+    def generate(left: Expr, right: Expr, operator: Type[Token], range : Range):
         if operator.value == "+":
-            return Sum(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+            return Sum(left=left, right=right, range = range)
         elif operator.value == "-":
-            return Diff(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+            return Diff(left=left, right=right, range = range)
         elif operator.value == "*":
-            return Mul(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+            return Mul(left=left, right=right, range = range)
         elif operator.value == "/":
-            return Div(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+            return Div(left=left, right=right, range = range)
         elif operator.value == "^":
-            return Pow(base=left, exponent=right, line_index=operator.line_index, column_index=operator.column_index)
+            return Pow(base=left, exponent=right, range = range)
         elif operator.value == "%":
-            return Mod(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+            return Mod(left=left, right=right, range = range)
         else:
             raise Exception(f"InfixOps: Unknown operator type {operator.value}")
 
@@ -103,10 +105,10 @@ class AssignmentOps:
         return False
 
     @staticmethod
-    def generate(lhs: Expr, rhs: Expr, operator: Operator):
+    def generate(lhs: Expr, rhs: Expr, operator: Operator, range : Range):
         # check() has been ran for operator
         if operator.value == "=":
-            return Assignment(lhs=lhs, rhs=rhs, line_index=operator.line_index, column_index=operator.column_index)
+            return Assignment(lhs=lhs, rhs=rhs, range=range)
 
 
 class UnaryFunctions:
@@ -139,35 +141,35 @@ class UnaryFunctions:
         return False
 
     @staticmethod
-    def generate(subexpr: Expr, func_type: Identifier):
+    def generate(subexpr: Expr, func_type: Identifier, range : Range):
         if func_type.value == "exp":
-            return Exp(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Exp(subexpr=subexpr, range = range)
         elif func_type.value == "log":
-            return Log(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Log(subexpr=subexpr, range = range)
         elif func_type.value == "abs":
-            return Abs(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Abs(subexpr=subexpr, range = range)
         elif func_type.value == "floor":
-            return Floor(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Floor(subexpr=subexpr, range = range)
         elif func_type.value == "ceil":
-            return Ceil(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Ceil(subexpr=subexpr, range = range)
         elif func_type.value == "round":
-            return Round(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Round(subexpr=subexpr, range = range)
         elif func_type.value == "sin":
-            return Sin(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Sin(subexpr=subexpr, range = range)
         elif func_type.value == "cos":
-            return Cos(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Cos(subexpr=subexpr, range = range)
         elif func_type.value == "tan":
-            return Tan(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Tan(subexpr=subexpr, range = range)
         elif func_type.value == "arcsin":
-            return Arcsin(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Arcsin(subexpr=subexpr, range = range)
         elif func_type.value == "arccos":
-            return Arccos(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Arccos(subexpr=subexpr, range = range)
         elif func_type.value == "arctan":
-            return Arctan(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Arctan(subexpr=subexpr, range = range)
         elif func_type.value == "logit":
-            return Logit(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return Logit(subexpr=subexpr, range = range)
         elif func_type.value == "inverse_logit":
-            return InverseLogit(subexpr=subexpr, line_index=func_type.line_index, column_index=func_type.column_index)
+            return InverseLogit(subexpr=subexpr, range = range)
 
 
 class BinaryFunctions:
@@ -187,8 +189,8 @@ class BinaryFunctions:
         return False
 
     @staticmethod
-    def generate(arg1: Expr, arg2: Expr, func_type: Identifier):
-        return Shift(subscript_column=arg1, shift_expr=arg2, line_index=func_type.line_index, column_index=func_type.column_index)
+    def generate(arg1: Expr, arg2: Expr, func_type: Identifier, range : Range):
+        return Shift(subscript_column=arg1, shift_expr=arg2, range = range)
 
 
 class Distributions:
@@ -207,44 +209,27 @@ class Distributions:
         return False
 
     @staticmethod
-    def generate(lhs: Expr, expressions: List[Expr], dist_type: Identifier):
+    def generate(lhs: Expr, expressions: List[Expr], dist_type: Identifier, range : Range):
         if dist_type.value == "normal":
             if len(expressions) != 2:
                 raise Exception(f"normal distribution needs 2 parameters, but got {len(expressions)}!")
-            return Normal(
-                variate=lhs, mean=expressions[0], std=expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index
-            )
+            return Normal(variate=lhs, mean=expressions[0], std=expressions[1], range = range)
         elif dist_type.value == "bernoulli_logit":
             if len(expressions) != 1:
                 raise Exception(f"bernoulli_logit distribution needs 1 parameter, but got {len(expressions)}!")
-            return BernoulliLogit(variate=lhs, logit_p=expressions[0], line_index=dist_type.line_index, column_index=dist_type.column_index)
+            return BernoulliLogit(variate=lhs, logit_p=expressions[0], range = range)
         elif dist_type.value == "log_normal":
             if len(expressions) != 2:
                 raise Exception(f"log_normal distribution needs 2 parameters, but got {len(expressions)}!")
-            return LogNormal(
-                variate=lhs, mean=expressions[0], std=expressions[1], line_index=dist_type.line_index, column_index=dist_type.column_index
-            )
+            return LogNormal(variate=lhs, mean=expressions[0], std=expressions[1], range = range)
         elif dist_type.value == "cauchy":
             if len(expressions) != 2:
                 raise Exception(f"cauchy distribution needs 2 parameters, but got {len(expressions)}!")
-            return Cauchy(
-                variate=lhs,
-                location=expressions[0],
-                scale=expressions[1],
-                line_index=dist_type.line_index,
-                column_index=dist_type.column_index,
-            )
+            return Cauchy(variate=lhs, location=expressions[0], scale=expressions[1], range = range)
         elif dist_type.value == "exponential":
             if len(expressions) != 1:
                 raise Exception(f"exponential distribution needs 1 parameter, but got {len(expressions)}!")
-            return Exponential(variate=lhs, scale=expressions[0], line_index=dist_type.line_index, column_index=dist_type.column_index)
-
-
-class ParseError(Exception):
-    def __init__(self, message, code_string: str, line_num: int, column_num: int):
-        code_string = code_string.split("\n")[line_num]
-        exception_message = f"An error occured while parsing the following line({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
-        super().__init__(exception_message)
+            return Exponential(variate=lhs, scale=expressions[0], range = range)
 
 
 class Parser:
@@ -266,7 +251,7 @@ class Parser:
         self.data_names = data_names
         self.model_string = model_string
 
-    def peek(self, k=0) -> Type[Token]:
+    def peek(self, k=0) -> Token:
         """
         k-token lookahead. Returns `scanner.NullToken` if there are no tokens in the token stack.
         """
@@ -283,14 +268,16 @@ class Parser:
         token_value: Union[None, str, List[str]] = None,
         remove: bool = False,
         lookahead: int = 0,
-    ):
+    ) -> Token:
         """
-        Checks if the next token in the token stack is of designated type and value. If not, raise an Exception.
+        Checks if the next token in the token stack is of designated type and value and returns it if so.
+        If not, raise an exception.
+
         :param token_types: A list of `scanner.Token` types or a single `scanner.Token` type that's allowed.
         :param token_value: A single or a list of allowed token value strings
         :param remove: Boolean, whether to remove the token after checking or not. Defaults to False
-        :param lookahead: lookahead. Defaults to 0(immediate token)
-        :return: None
+        :param lookahead: lookahead. Defaults to 0 (immediate token)
+        :return: The token (if found)
         """
         next_token = self.peek(lookahead)
         if not token_value:
@@ -306,14 +293,11 @@ class Parser:
             if isinstance(next_token, token_type) and next_token.value in token_value:
                 if remove:
                     self.remove()
-                return True
+                return next_token
 
-        raise ParseError(
-            f"Expected token type(s) {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!",
-            self.model_string,
-            next_token.line_index,
-            next_token.column_index,
-        )
+        msg = f"Expected token type(s) {[x.__name__ for x in token_types]} with value in {token_value}, but received {next_token.__class__.__name__} with value '{next_token.value}'!",
+
+        raise ParseError(msg, next_token.range)
 
     def expressions(self, entry_token_value, is_subscript=False) -> List[Expr]:
         """
@@ -349,14 +333,14 @@ class Parser:
 
         return expressions
 
-    def parse_nud(self, is_lhs=False, is_subscript=False):
+    def parse_nud(self, is_lhs=False, is_subscript=False) -> Expr:
         token = self.peek()
         if isinstance(token, RealLiteral):  # if just a real number, return it
-            exp = RealConstant(value=float(token.value), line_index=token.line_index, column_index=token.column_index)
+            exp = RealConstant(value=float(token.value), range=token.range)
             self.remove()  # real
             return exp
         elif isinstance(token, IntLiteral):  # if just an integer, return it
-            exp = IntegerConstant(value=int(token.value), line_index=token.line_index, column_index=token.column_index)
+            exp = IntegerConstant(value=int(token.value), range=token.range)
             self.remove()  # integer
             return exp
 
@@ -365,10 +349,11 @@ class Parser:
             self.remove()
 
             next_expression = self.expression(PrefixOps.precedence[token.value], is_lhs=is_lhs, is_subscript=is_subscript)
+            range = Range(start = token.start, end = next_expression.range.end)
             try:
-                exp = PrefixOps.generate(next_expression, token)
+                exp = PrefixOps.generate(next_expression, token, range)
             except TypeCheckError as e:
-                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+                raise ParseError(str(e), range)
             return exp
 
         elif UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
@@ -378,12 +363,13 @@ class Parser:
             self.remove()  # (
             argument = self.expression(is_lhs=is_lhs, is_subscript=is_subscript)
 
-            self.expect_token(Special, ")")
+            rparen = self.expect_token(Special, ")")
             self.remove()  # )
+            range = Range(start = token.start, end = rparen.end)
             try:
-                exp = UnaryFunctions.generate(argument, token)
+                exp = UnaryFunctions.generate(argument, token, range)
             except TypeCheckError as e:
-                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+                raise ParseError(str(e), range)
             return exp
 
         elif BinaryFunctions.check(token):  # binaryFunction '(' expression, expression ')'
@@ -391,31 +377,30 @@ class Parser:
             self.expect_token(Special, "(")
             self.remove()  # (
             arguments = self.expressions("(", is_subscript=is_subscript)
-            self.expect_token(Special, ")")
+            rparen = self.expect_token(Special, ")")
             self.remove()  # )
+            range = Range(start = token.start, end = rparen.end)
             try:
-                exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
-            except TypeCheckError as e:
-                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+                exp = BinaryFunctions.generate(arguments[0], arguments[1], token, range)
             except Exception as e:
-                raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+                raise ParseError(str(e), range)
             return exp
 
         elif isinstance(token, Identifier):  # parse data and param
             if token.value in self.data_names:
                 if not is_subscript:
-                    exp = Data(name=token.value, line_index=token.line_index, column_index=token.column_index)
+                    exp = Data(name=token.value, range = token.range)
                 else:
-                    exp = SubscriptColumn(name=token.value, line_index=token.line_index, column_index=token.column_index)
+                    exp = SubscriptColumn(name=token.value, range = token.range)
                 self.remove()  # identifier
 
             elif token.value in Distributions.names:
-                raise ParseError("A distribution has been found in an expressions", self.model_string, token.line_index, token.column_index)
+                raise ParseError("A distribution has been found in an expressions", token.range)
             else:
                 if not is_subscript:
                     exp = self.parse_param(is_lhs=is_lhs)
                 else:
-                    exp = SubscriptColumn(name=token.value, line_index=token.line_index, column_index=token.column_index)
+                    exp = SubscriptColumn(name=token.value, range = token.range)
                     self.remove()  # token identifier(subscript)
 
             next_token = self.peek()
@@ -424,7 +409,7 @@ class Parser:
                 self.remove()  # [
                 subscript_expressions = self.expressions("[", is_subscript=True)  # list of expressions
                 # The data types in the parsed expressions are being used as subscripts
-                self.expect_token(Special, "]")
+                rbracket = self.expect_token(Special, "]")
                 self.remove()  # ]
                 try:
                     subscript_names, shift_amounts = [], []
@@ -435,23 +420,18 @@ class Parser:
                                 shift_amounts.append(subscript_expr.shift_expr)
                             case SubscriptColumn():
                                 subscript_names.append(subscript_expr)
-                                shift_amounts.append(IntegerConstant(value=0))
+                                shift_amounts.append(IntegerConstant(value=0, range = None))
                             case _:
-                                raise ParseError(
-                                    f"Found unknown expression class {subscript_expr.__class__.__name__} when parsing subscripts",
-                                    self.model_string,
-                                    subscript_expr.line_index,
-                                    subscript_expr.column_index,
-                                )
+                                msg = f"Found unknown expression class {subscript_expr.__class__.__name__} when parsing subscripts"
+                                raise ParseError(msg, subscript_expr.range)
 
                     exp.subscript = Subscript(
                         names=tuple(subscript_names),
                         shifts=tuple(shift_amounts),
-                        line_index=next_token.line_index,
-                        column_index=next_token.column_index,
+                        range=Range(next_token.start, rbracket.end)
                     )
                 except TypeCheckError as e:
-                    raise ParseError(str(e), self.model_string, next_token.line_index, next_token.column_index)
+                    raise ParseError(str(e), next_token.range)
 
             next_token = self.peek()
             if isinstance(next_token, Operator) and next_token.value == "'":
@@ -468,13 +448,13 @@ class Parser:
             return exp
         else:
             raise ParseError(
-                f"{token.value} can't be in the beginning of a construct!", self.model_string, token.line_index, token.column_index
+                f"{token.value} can't be in the beginning of a construct!", token.range
             )
 
     def parse_param(self, is_lhs=False):
         self.expect_token(Identifier)
         token = self.peek()
-        exp = Param(name=token.value, line_index=token.line_index, column_index=token.column_index)
+        exp = Param(name=token.value, range = token.range)
         self.remove()  # identifier
 
         # check for constraints  param<lower = 0.0, upper = 1.0>
@@ -486,12 +466,8 @@ class Parser:
             "upper",
         ):
             if not is_lhs:
-                raise ParseError(
-                    "Constraints for parameters/variables are only allowed on LHS.",
-                    self.model_string,
-                    lookahead_1.line_index,
-                    lookahead_1.column_index,
-                )
+                msg = "Constraints for parameters/variables are only allowed on LHS"
+                raise ParseError(msg, Range(lookahead_1.start, lookahead_2.end))
             self.remove()  # <
             # the problem is that ">" is considered as an operator, but in the case of constraints, it is
             # not an operator, but a delimeter denoting the end of the constraint region.
@@ -500,18 +476,19 @@ class Parser:
             # the ll(k) approach and therefore is a very hacky way to fix the issue.
             n_openbrackets = 0
             for idx in range(len(self.tokens)):
-                if self.peek(idx).value == "<":
+                next_token = self.peek(idx)
+                if next_token.value == "<":
                     n_openbrackets += 1
-                if self.peek(idx).value == ">":
+                if next_token.value == ">":
                     if n_openbrackets == 0:
                         # switch from Operator to Special
-                        self.tokens[idx] = Special(">", self.peek(idx).line_index, self.peek(idx).column_index)
+                        self.tokens[idx] = Special(">", next_token.start)
                         break
                     else:
                         n_openbrackets -= 1
             # now actually parse the constraints
-            lower = RealConstant(value=float("-inf"))
-            upper = RealConstant(value=float("inf"))
+            lower = RealConstant(value=float("-inf"), range = None)
+            upper = RealConstant(value=float("inf"), range = None)
             for _ in range(2):
                 # loop at max 2 times, once for lower, once for upper
                 if lookahead_2.value == "lower":
@@ -537,9 +514,7 @@ class Parser:
                 else:
                     raise ParseError(
                         f"Found unknown token with value {lookahead_1.value} when evaluating constraints",
-                        self.model_string,
-                        lookahead_1.line_index,
-                        lookahead_1.column_index,
+                        lookahead_1.range
                     )
 
             # the for loop takes of the portion "<lower= ... >
@@ -550,7 +525,7 @@ class Parser:
 
         return exp
 
-    def expression(self, min_precedence=0, is_lhs=False, is_subscript=False):
+    def expression(self, min_precedence=0, is_lhs=False, is_subscript=False) -> Expr:
         """
         This function is used to evaluate an expression. Please refer to the BNF grammer to see what types of
         rules are being applied.
@@ -576,9 +551,10 @@ class Parser:
             elif PostfixOps.check(token):  # expression infixOps expression
                 if PostfixOps.precedence[token.value] <= min_precedence:
                     break
-                self.expect_token(Operator, PostfixOps.ops)
+                rop = self.expect_token(Operator, PostfixOps.ops)
                 self.remove()  # op
-                exp = PostfixOps.generate(left, token)
+                range = Range(start = left.range.start, end = rop.end)
+                exp = PostfixOps.generate(left, token, range)
 
             elif InfixOps.check(token):  # expression infixOps expression
                 if InfixOps.precedence[token.value] <= min_precedence:
@@ -586,10 +562,12 @@ class Parser:
                 self.expect_token(Operator, InfixOps.ops)
                 self.remove()  # op
                 rhs = self.expression(min_precedence=InfixOps.precedence[token.value], is_lhs=is_lhs, is_subscript=is_subscript)
+
+                range = Range(left.range.start, rhs.range.end)
                 try:
-                    exp = InfixOps.generate(left, rhs, token)
+                    exp = InfixOps.generate(left, rhs, token, range)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+                    raise ParseError(str(e), range)
 
             elif isinstance(token, Identifier):
                 if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
@@ -601,12 +579,14 @@ class Parser:
                     self.remove()  # (
                     argument = self.expression(is_lhs=is_lhs, is_subscript=is_subscript)
 
-                    self.expect_token(Special, ")")
+                    rparen = self.expect_token(Special, ")")
                     self.remove()  # )
+
+                    range = Range(left.range.start, rparen.end)
                     try:
-                        exp = UnaryFunctions.generate(argument, token)
+                        exp = UnaryFunctions.generate(argument, token, range)
                     except TypeCheckError as e:
-                        raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+                        raise ParseError(str(e), range)
 
                 elif BinaryFunctions.check(token):
                     if BinaryFunctions.precedence[token.value] <= min_precedence:
@@ -615,18 +595,19 @@ class Parser:
                     self.expect_token(Special, "(")
                     self.remove()  # (
                     arguments = self.expressions(entry_token_value="(", is_subscript=is_subscript)
-                    self.expect_token(Special, ")")
+                    rparen = self.expect_token(Special, ")")
                     self.remove()  # )
+                    range = Range(left = left.range.start, right = rparen.end)
                     try:
-                        exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
+                        exp = BinaryFunctions.generate(arguments[0], arguments[1], token, range)
                     except TypeCheckError as e:
-                        raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
+                        raise ParseError(str(e), range)
 
                 else:
-                    raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
+                    raise ParseError(f"Unknown token '{token.value}'", token.range)
 
             else:
-                raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
+                raise ParseError(f"Unknown token '{token.value}'", token.range)
 
             left = exp
 
@@ -642,7 +623,7 @@ class Parser:
 
         token = self.peek()
         if Distributions.check(token):
-            raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)
+            raise ParseError("Cannot assign to a distribution.", token.range)
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.parse_nud(is_lhs=True)
@@ -652,10 +633,11 @@ class Parser:
             if AssignmentOps.check(op):
                 self.remove()  # assignment operator
                 rhs = self.expression()
+                range = Range(lhs.range.start, rhs.range.start)
                 try:
-                    return_statement = AssignmentOps.generate(lhs, rhs, op)
+                    return_statement = AssignmentOps.generate(lhs, rhs, op, range)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), self.model_string, op.line_index, op.column_index)
+                    raise ParseError(str(e), range)
 
             elif isinstance(op, Special) and op.value == "~":
                 # distribution declaration
@@ -668,20 +650,19 @@ class Parser:
                 self.expect_token(Special, "(")
                 self.remove()  # (
                 expressions = self.expressions("(")  # list of expression
-                self.expect_token(Special, ")")
+                rparen = self.expect_token(Special, ")")
                 self.remove()  # )
+                range = Range(lhs.range.start, rparen.range.end)
                 try:
-                    return_statement = Distributions.generate(lhs, expressions, distribution)
+                    return_statement = Distributions.generate(lhs, expressions, distribution, range)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), self.model_string, distribution.line_index, distribution.column_index)
+                    raise ParseError(str(e), range)
 
             else:
                 if op.value == "<":
-                    raise ParseError(
-                        f"Constraints must be present in front of subscripts", self.model_string, op.line_index, op.column_index
-                    )
+                    raise ParseError(f"Constraints must be present in front of subscripts", op.range)
                 else:
-                    raise ParseError(f"Unknown operator '{op.value}' in statement", self.model_string, op.line_index, op.column_index)
+                    raise ParseError(f"Unknown operator '{op.value}' in statement", op.range)
 
         if return_statement is not None:
             return return_statement

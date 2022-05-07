@@ -1,8 +1,11 @@
 from typing import ClassVar, Dict, Tuple, Set, List
 import re
 
-realnum = re.compile("^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$")  # (negative or positive) + (integer, real, scientific)
+from .position_and_range import Position, Range
+from .exceptions import TokenizeError
 
+
+realnum = re.compile("^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$")  # (negative or positive) + (integer, real, scientific)
 
 class Token:
     """
@@ -12,18 +15,25 @@ class Token:
 
     value: str
     """A string containing the input characters"""
-    line_index: int
-    """An integer denoting the line number of the Token in the original code string"""
-    column_index: int
-    """An integer denoting the start position of the Token in the code line"""
+    start : Position
+    """Position in file of start of token"""
     token_type: str
     """A string representing the type of token. Set by self.__class__.__name"""
 
-    def __init__(self, value, line_index, column_index):
-        self.value: str = value
-        self.line_index: int = line_index
-        self.column_index: int = column_index
+    def __init__(self, value, start):
+        self.value = value
+        self.start = start
         self.token_type = self.__class__.__name__
+    
+    @property
+    def end(self) -> Position:
+        """Position in file of end of token"""
+        return Position(self.start.line, self.start.col + len(self.value), document = self.start.document)
+
+    @property
+    def range(self) -> Range:
+        """Range of token in file"""
+        return Range(self.start, self.end)
 
 
 class Identifier(Token):
@@ -31,9 +41,7 @@ class Identifier(Token):
     The Identifier token represents any alphanumeric string that isn't used as a standalone number.
     This includes function names, variables, distributions, etc.
     """
-
-    def __init__(self, value, line_index, column_index):
-        super(Identifier, self).__init__(value, line_index, column_index)
+    pass
 
 
 class Special(Token):
@@ -41,18 +49,14 @@ class Special(Token):
     The Special token represents any single characters that indicate change in semantics or control flow.
     Explicitly any single token that has the following values("(", ")", ",", "[", "]", "~") are set as Special
     """
-
-    def __init__(self, value, line_index, column_index):
-        super(Special, self).__init__(value, line_index, column_index)
+    pass
 
 
 class IntLiteral(Token):
     """
     The IntLiteral token represent integers.
     """
-
-    def __init__(self, value, line_index, column_index):
-        super(IntLiteral, self).__init__(value, line_index, column_index)
+    pass
 
 
 class RealLiteral(Token):
@@ -61,9 +65,7 @@ class RealLiteral(Token):
     ^[-]?[0-9]*\.?[0-9]+(e[-+]?[0-9]+)?$ is being used to parse real numbers, which allows negative values as well as
     scientific notation.
     """
-
-    def __init__(self, value, line_index, column_index):
-        super(RealLiteral, self).__init__(value, line_index, column_index)
+    pass
 
 
 class Operator(Token):
@@ -72,27 +74,22 @@ class Operator(Token):
     following values("=","+","-","*","/","^","%") are
     set as an Operator.
     """
-
-    def __init__(self, value, line_index, column_index):
-        super(Operator, self).__init__(value, line_index, column_index)
+    pass
 
 
 class Terminate(Token):
     """
     In rat, all statements are terminated using with ; and not newline.
     """
-
-    def __init__(self, value, line_index, column_index):
-        super(Terminate, self).__init__(value, line_index, column_index)
+    pass
 
 
 class NullToken(Token):
     """
     NullToken doesn't represent anything. This is pretty much used in the same context as None.
     """
-
     def __init__(self):
-        super(NullToken, self).__init__(None, -1, -1)
+        pass
 
 
 special_characters = [
@@ -120,13 +117,6 @@ delimeters = [
     ",",
     "~",
 ]  # characters that ALWAYS demarcate tokens
-
-
-class TokenizeError(Exception):
-    def __init__(self, message: str, code_string: str, line_num: int, column_num: int):
-        code_string = code_string.split("\n")[line_num]
-        exception_message = f"An error occured while tokenizing the following line({line_num}:{column_num}):\n{code_string}\n{' ' * (column_num - 1) + '^'}\n{message}"
-        super().__init__(exception_message)
 
 
 class Scanner:
@@ -175,14 +165,18 @@ class Scanner:
         self.column_index += 1
         if self.current_char == "\n":
             self.current_state = self.default_state
-            self.column_index = -1
+            self.column_index = 0
             self.line_index += 1
             if ignore_newline:
                 self.consume()
 
-    def reduce_register(self):
+    def raise_error(self, msg):
+        position = Position(self.line_index, self.column_index, self.model_code)
+        raise TokenizeError(msg, Range(position, length = len(self.register)))
+
+    def reduce_register(self, offset : int = 1):
         """
-        Resolve the current characters in the register int o a token
+        Resolve the current characters in the register into a token
         """
 
         def casts_to_int(val):
@@ -193,10 +187,12 @@ class Scanner:
             else:
                 return True
 
+        position = Position(self.line_index, self.column_index - len(self.register) - offset, document = self.model_code)
+
         if self.register == " " or not self.register:
             token = NullToken()
         elif self.register == ";":
-            token = Terminate(self.register, self.line_index, self.column_index)
+            token = Terminate(self.register, position)
             self.register = ""
             self.current_tokens.append(token)
             if self.current_tokens and len(self.bracket_stack) == 0:
@@ -205,25 +201,23 @@ class Scanner:
             return
 
         elif casts_to_int(self.register):
-            token = IntLiteral(self.register, self.line_index, self.column_index - len(self.register))
+            token = IntLiteral(self.register, position)
         elif realnum.match(self.register):
-            token = RealLiteral(self.register, self.line_index, self.column_index - len(self.register))
+            token = RealLiteral(self.register, position)
         elif self.register in special_characters:
-            token = Special(self.register, self.line_index, self.column_index - len(self.register) + 1)
+            token = Special(self.register, position)
         elif self.register in operator_strings:
-            token = Operator(self.register, self.line_index, self.column_index - len(self.register) + 1)
+            token = Operator(self.register, position)
         else:
             if self.register.isidentifier():
-                token = Identifier(self.register, self.line_index, self.column_index - len(self.register))
+                token = Identifier(self.register, position)
             else:
+                self.raise_error(f"Failed to handle reduce of {self.register}")
                 token = NullToken()
 
         self.register = ""
         if not isinstance(token, NullToken):
             self.current_tokens.append(token)
-
-    def raise_error(self, msg):
-        raise TokenizeError(msg, self.model_code, self.line_index, self.column_index)
 
     # The following functions are scanner states
 
@@ -236,7 +230,7 @@ class Scanner:
                 self.raise_error(f"Found unmatching brackets {self.current_char}")
             elif self.bracket_stack.pop() != bracket_dict[self.current_char]:
                 self.raise_error(f"Found unmatching brackets {self.current_char}")
-        self.reduce_register()
+        self.reduce_register(offset = 0)
         self.current_state = self.default_state
 
     def default_state(self):
@@ -429,5 +423,5 @@ class Scanner:
         # else:
         #     self.reduce_register()
         #     self.current_state = self.default_state
-        self.reduce_register()
+        self.reduce_register(offset = 0)
         self.current_state = self.default_state
