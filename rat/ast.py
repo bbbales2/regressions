@@ -40,6 +40,7 @@ class Expr:
 class Constant(Expr):
     pass
 
+
 @dataclass
 class RealConstant(Constant):
     """
