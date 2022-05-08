@@ -37,7 +37,11 @@ class Expr:
 
 
 @dataclass
-class RealConstant(Expr):
+class Constant(Expr):
+    pass
+
+@dataclass
+class RealConstant(Constant):
     """
     Elementary value
     """
@@ -52,7 +56,7 @@ class RealConstant(Expr):
 
 
 @dataclass
-class IntegerConstant(Expr):
+class IntegerConstant(Constant):
     """
     Elementary value
     """
