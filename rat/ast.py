@@ -9,10 +9,12 @@ if TYPE_CHECKING:
 
 from . import types
 
+
 @dataclass
 class ASTNode:
     line_index: int = field(default=-1, kw_only=True)  # line index of the original model code
     column_index: int = field(default=-1, kw_only=True)  # column index of the original model code
+
     def __iter__(self):
         yield self
 
@@ -22,11 +24,13 @@ class ASTNode:
     def __str__(self):
         return "ASTNode()"
 
+
 @dataclass
 class Expr(ASTNode):
     """
     out_type denotes the return type of the expression
     """
+
     out_type: Type[types.BaseType] = field(default=types.BaseType, kw_only=True)
 
     def __post_init__(self):
@@ -180,8 +184,10 @@ class Distr(Statement):
     a variate.
     variate_type is used to denote whether draws from the distributions are real or integer valued.
     """
+
     variate: Expr
     variate_type: Type[types.BaseType] = field(default=types.BaseType, kw_only=True)
+
 
 @dataclass
 class Normal(Distr):
@@ -339,6 +345,7 @@ class Pow(BinaryExpr):
     left: base
     right: exponent
     """
+
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,

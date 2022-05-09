@@ -424,11 +424,19 @@ class Parser:
                 if len(expressions) != 3:
                     raise ParseError(
                         "Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.",
-                        self.model_string, token.line_index, token.column_index)
+                        self.model_string,
+                        token.line_index,
+                        token.column_index,
+                    )
 
                 condition, true_expr, false_expr = expressions
-                return IfElse(condition=condition, true_expr=true_expr, false_expr=false_expr, line_index=token.line_index,
-                             column_index=token.column_index)
+                return IfElse(
+                    condition=condition,
+                    true_expr=true_expr,
+                    false_expr=false_expr,
+                    line_index=token.line_index,
+                    column_index=token.column_index,
+                )
 
             if token.value in self.data_names:
                 if not is_subscript:
@@ -656,10 +664,21 @@ class Parser:
                     self.remove()  # ")"
                     expressions = self.expressions(entry_token_value="(")
                     if len(expressions) != 3:
-                        raise ParseError("Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.", self.model_string, token.line_index, token.column_index)
+                        raise ParseError(
+                            "Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.",
+                            self.model_string,
+                            token.line_index,
+                            token.column_index,
+                        )
 
                     condition, true_expr, false_expr = expressions
-                    exp = IfElse(condition=condition, true_expr=true_expr, false_expr=false_expr, line_index=token.line_index, column_index=token.column_index)
+                    exp = IfElse(
+                        condition=condition,
+                        true_expr=true_expr,
+                        false_expr=false_expr,
+                        line_index=token.line_index,
+                        column_index=token.column_index,
+                    )
 
                 else:
                     raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
@@ -686,8 +705,6 @@ class Parser:
         token = self.peek()
         if Distributions.check(token):
             raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)
-
-
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.parse_nud(is_lhs=True)
