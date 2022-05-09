@@ -407,6 +407,7 @@ $\mathcal{R}$ here means all real numbers and $\mathcal{R}^+$ means real numbers
 | `^`  | 40  |
 | `*`, `/`, `%`  | 30  |
 | `+`, `-`  | 10  |
+| `>`, `<`, `>=`, `<=`, `!=`, `==` | 5  |
 
 # Installation and Use
 

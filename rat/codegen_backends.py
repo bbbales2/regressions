@@ -105,6 +105,30 @@ class BaseCodeGenerator:
             case ast.PrefixNegation():
                 self.expression_string += "-"
                 self.generate(ast_node.subexpr)
+            case ast.LessThan():
+                self.generate(ast_node.left)
+                self.expression_string += " < "
+                self.generate(ast_node.right)
+            case ast.GreaterThan():
+                self.generate(ast_node.left)
+                self.expression_string += " > "
+                self.generate(ast_node.right)
+            case ast.LessThanOrEq():
+                self.generate(ast_node.left)
+                self.expression_string += " <= "
+                self.generate(ast_node.right)
+            case ast.GreaterThanOrEq():
+                self.generate(ast_node.left)
+                self.expression_string += " >= "
+                self.generate(ast_node.right)
+            case ast.EqualTo():
+                self.generate(ast_node.left)
+                self.expression_string += " == "
+                self.generate(ast_node.right)
+            case ast.NotEqualTo():
+                self.generate(ast_node.left)
+                self.expression_string += " != "
+                self.generate(ast_node.right)
 
             case ast.Sqrt():
                 self.expression_string += "jax.numpy.sqrt("
@@ -166,6 +190,7 @@ class BaseCodeGenerator:
                 self.expression_string += "jax.scipy.special.expit("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
+
             case _:
                 raise NotImplementedError()
 

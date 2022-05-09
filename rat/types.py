@@ -31,7 +31,11 @@ class SubscriptSetType(BaseType):
     name = "SubscriptSet"
 
 
+class BooleanType(BaseType):
+    name = "Boolean"
+
 class TypeOr:
+
     def __init__(self, *args):
         self.types = args
 

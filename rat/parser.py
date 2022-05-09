@@ -57,8 +57,8 @@ class InfixOps:
     `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`, `ops.Div`
     """
 
-    ops = ["+", "-", "*", "^", "/", "%", "<", ">"]
-    precedence = {"+": 10, "-": 10, "*": 30, "/": 30, "^": 40, "%": 30, "<": 5, ">": 5}
+    ops = ["+", "-", "*", "^", "/", "%", "<", ">", "<=", ">=", "!=", "=="]
+    precedence = {"+": 10, "-": 10, "*": 30, "/": 30, "^": 40, "%": 30, "<": 5, ">": 5, "<=": 5, ">=": 5, "!=": 5, "==": 5}
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -77,9 +77,21 @@ class InfixOps:
         elif operator.value == "/":
             return Div(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
         elif operator.value == "^":
-            return Pow(base=left, exponent=right, line_index=operator.line_index, column_index=operator.column_index)
+            return Pow(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
         elif operator.value == "%":
             return Mod(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+        elif operator.value == "<":
+            return LessThan(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+        elif operator.value == ">":
+            return GreaterThan(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+        elif operator.value == "<=":
+            return LessThanOrEq(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+        elif operator.value == ">=":
+            return GreaterThanOrEq(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+        elif operator.value == "==":
+            return EqualTo(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
+        elif operator.value == "!=":
+            return NotEqualTo(left=left, right=right, line_index=operator.line_index, column_index=operator.column_index)
         else:
             raise Exception(f"InfixOps: Unknown operator type {operator.value}")
 
@@ -402,6 +414,22 @@ class Parser:
             return exp
 
         elif isinstance(token, Identifier):  # parse data and param
+            if token.value == "ifelse":  # ifelse(boolean_expression, statement, statement)
+                self.remove()  # "ifelse"
+                self.expect_token(Special, "(")
+                self.remove()  # "("
+                expressions = self.expressions(entry_token_value="(")
+                self.expect_token(Special, ")")
+                self.remove()  # ")"
+                if len(expressions) != 3:
+                    raise ParseError(
+                        "Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.",
+                        self.model_string, token.line_index, token.column_index)
+
+                condition, true_expr, false_expr = expressions
+                return IfElse(condition=condition, true_expr=true_expr, false_expr=false_expr, line_index=token.line_index,
+                             column_index=token.column_index)
+
             if token.value in self.data_names:
                 if not is_subscript:
                     exp = Data(name=token.value, line_index=token.line_index, column_index=token.column_index)
@@ -622,6 +650,17 @@ class Parser:
                     except TypeCheckError as e:
                         raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
 
+                elif token.value == "ifelse":  # ifelse(boolean_expression, statement, statement)
+                    self.remove()  # "ifelse"
+                    self.expect_token(Special, "(")
+                    self.remove()  # ")"
+                    expressions = self.expressions(entry_token_value="(")
+                    if len(expressions) != 3:
+                        raise ParseError("Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.", self.model_string, token.line_index, token.column_index)
+
+                    condition, true_expr, false_expr = expressions
+                    exp = IfElse(condition=condition, true_expr=true_expr, false_expr=false_expr, line_index=token.line_index, column_index=token.column_index)
+
                 else:
                     raise ParseError(f"Unknown token '{token.value}'", self.model_string, token.line_index, token.column_index)
 
@@ -634,8 +673,12 @@ class Parser:
 
     def statement(self):
         """
-        Evaluates a single statement. Statements in rat are either assignments or sampling statements. They will get
-        resolved into an `ops.Assignment` or an `ops.Distr` object.
+        Evaluates a single statement. Statements in Rat are either:
+        1. assignments
+        2. sampling statements
+        3. ifelse(E_predicate, E_true, E_false) clause, where E_predicate is a boolean expression, semantically equal to
+        if E_predicate then E_true else E_false.
+        They will get resolved into an `ops.Assignment` or an `ops.Distr` object.
         :return:
         """
         return_statement = None
@@ -643,6 +686,8 @@ class Parser:
         token = self.peek()
         if Distributions.check(token):
             raise ParseError("Cannot assign to a distribution.", self.model_string, token.line_index, token.column_index)
+
+
 
         # Step 1. evaluate lhs, assume it's expression
         lhs = self.parse_nud(is_lhs=True)
