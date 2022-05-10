@@ -36,10 +36,10 @@ class PrefixOps:
         return False
 
     @staticmethod
-    def generate(expr: Expr, tok: Operator, range: Range):
+    def generate(expr: Expr, tok: Operator):
         match tok.value:
             case "-":
-                return PrefixNegation(expr, range=range)
+                return PrefixNegation(expr, range=expr.range)
 
 
 class PostfixOps:
@@ -69,19 +69,19 @@ class InfixOps:
         return False
 
     @staticmethod
-    def generate(left: Expr, right: Expr, operator: Type[Token], range: Range):
+    def generate(left: Expr, right: Expr, operator: Token):
         if operator.value == "+":
-            return Sum(left=left, right=right, range=range)
+            return Sum(left=left, right=right, range=operator.range)
         elif operator.value == "-":
-            return Diff(left=left, right=right, range=range)
+            return Diff(left=left, right=right, range=operator.range)
         elif operator.value == "*":
-            return Mul(left=left, right=right, range=range)
+            return Mul(left=left, right=right, range=operator.range)
         elif operator.value == "/":
-            return Div(left=left, right=right, range=range)
+            return Div(left=left, right=right, range=operator.range)
         elif operator.value == "^":
-            return Pow(base=left, exponent=right, range=range)
+            return Pow(base=left, exponent=right, range=operator.range)
         elif operator.value == "%":
-            return Mod(left=left, right=right, range=range)
+            return Mod(left=left, right=right, range=operator.range)
         else:
             raise Exception(f"InfixOps: Unknown operator type {operator.value}")
 
@@ -105,10 +105,10 @@ class AssignmentOps:
         return False
 
     @staticmethod
-    def generate(lhs: Expr, rhs: Expr, operator: Operator, range: Range):
+    def generate(lhs: Expr, rhs: Expr, operator: Operator):
         # check() has been ran for operator
         if operator.value == "=":
-            return Assignment(lhs=lhs, rhs=rhs, range=range)
+            return Assignment(lhs=lhs, rhs=rhs, range=operator.range)
 
 
 class UnaryFunctions:
@@ -141,35 +141,35 @@ class UnaryFunctions:
         return False
 
     @staticmethod
-    def generate(subexpr: Expr, func_type: Identifier, range: Range):
+    def generate(subexpr: Expr, func_type: Identifier):
         if func_type.value == "exp":
-            return Exp(subexpr=subexpr, range=range)
+            return Exp(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "log":
-            return Log(subexpr=subexpr, range=range)
+            return Log(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "abs":
-            return Abs(subexpr=subexpr, range=range)
+            return Abs(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "floor":
-            return Floor(subexpr=subexpr, range=range)
+            return Floor(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "ceil":
-            return Ceil(subexpr=subexpr, range=range)
+            return Ceil(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "round":
-            return Round(subexpr=subexpr, range=range)
+            return Round(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "sin":
-            return Sin(subexpr=subexpr, range=range)
+            return Sin(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "cos":
-            return Cos(subexpr=subexpr, range=range)
+            return Cos(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "tan":
-            return Tan(subexpr=subexpr, range=range)
+            return Tan(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "arcsin":
-            return Arcsin(subexpr=subexpr, range=range)
+            return Arcsin(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "arccos":
-            return Arccos(subexpr=subexpr, range=range)
+            return Arccos(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "arctan":
-            return Arctan(subexpr=subexpr, range=range)
+            return Arctan(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "logit":
-            return Logit(subexpr=subexpr, range=range)
+            return Logit(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "inverse_logit":
-            return InverseLogit(subexpr=subexpr, range=range)
+            return InverseLogit(subexpr=subexpr, range=func_type.range)
 
 
 class BinaryFunctions:
@@ -189,8 +189,8 @@ class BinaryFunctions:
         return False
 
     @staticmethod
-    def generate(arg1: Expr, arg2: Expr, func_type: Identifier, range: Range):
-        return Shift(subscript_column=arg1, shift_expr=arg2, range=range)
+    def generate(arg1: Expr, arg2: Expr, func_type: Identifier):
+        return Shift(subscript_column=arg1, shift_expr=arg2, range=func_type.range)
 
 
 class Distributions:
@@ -209,27 +209,27 @@ class Distributions:
         return False
 
     @staticmethod
-    def generate(lhs: Expr, expressions: List[Expr], dist_type: Identifier, range: Range):
+    def generate(lhs: Expr, expressions: List[Expr], dist_type: Identifier):
         if dist_type.value == "normal":
             if len(expressions) != 2:
                 raise Exception(f"normal distribution needs 2 parameters, but got {len(expressions)}!")
-            return Normal(variate=lhs, mean=expressions[0], std=expressions[1], range=range)
+            return Normal(variate=lhs, mean=expressions[0], std=expressions[1], range=dist_type.range)
         elif dist_type.value == "bernoulli_logit":
             if len(expressions) != 1:
                 raise Exception(f"bernoulli_logit distribution needs 1 parameter, but got {len(expressions)}!")
-            return BernoulliLogit(variate=lhs, logit_p=expressions[0], range=range)
+            return BernoulliLogit(variate=lhs, logit_p=expressions[0], range=dist_type.range)
         elif dist_type.value == "log_normal":
             if len(expressions) != 2:
                 raise Exception(f"log_normal distribution needs 2 parameters, but got {len(expressions)}!")
-            return LogNormal(variate=lhs, mean=expressions[0], std=expressions[1], range=range)
+            return LogNormal(variate=lhs, mean=expressions[0], std=expressions[1], range=dist_type.range)
         elif dist_type.value == "cauchy":
             if len(expressions) != 2:
                 raise Exception(f"cauchy distribution needs 2 parameters, but got {len(expressions)}!")
-            return Cauchy(variate=lhs, location=expressions[0], scale=expressions[1], range=range)
+            return Cauchy(variate=lhs, location=expressions[0], scale=expressions[1], range=dist_type.range)
         elif dist_type.value == "exponential":
             if len(expressions) != 1:
                 raise Exception(f"exponential distribution needs 1 parameter, but got {len(expressions)}!")
-            return Exponential(variate=lhs, scale=expressions[0], range=range)
+            return Exponential(variate=lhs, scale=expressions[0], range=dist_type.range)
 
 
 class Parser:
@@ -351,11 +351,10 @@ class Parser:
             self.remove()
 
             next_expression = self.expression(PrefixOps.precedence[token.value], is_lhs=is_lhs, is_subscript=is_subscript)
-            range = Range(start=token.start, end=next_expression.range.end)
             try:
-                exp = PrefixOps.generate(next_expression, token, range)
+                exp = PrefixOps.generate(next_expression, token)
             except TypeCheckError as e:
-                raise ParseError(str(e), range)
+                raise ParseError(str(e), token.range)
             return exp
 
         elif UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
@@ -367,11 +366,10 @@ class Parser:
 
             rparen = self.expect_token(Special, ")")
             self.remove()  # )
-            range = Range(start=token.start, end=rparen.end)
             try:
-                exp = UnaryFunctions.generate(argument, token, range)
+                exp = UnaryFunctions.generate(argument, token)
             except TypeCheckError as e:
-                raise ParseError(str(e), range)
+                raise ParseError(str(e), token.range)
             return exp
 
         elif BinaryFunctions.check(token):  # binaryFunction '(' expression, expression ')'
@@ -379,13 +377,11 @@ class Parser:
             self.expect_token(Special, "(")
             self.remove()  # (
             arguments = self.expressions("(", is_subscript=is_subscript)
-            rparen = self.expect_token(Special, ")")
             self.remove()  # )
-            range = Range(start=token.start, end=rparen.end)
             try:
-                exp = BinaryFunctions.generate(arguments[0], arguments[1], token, range)
+                exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
             except Exception as e:
-                raise ParseError(str(e), range)
+                raise ParseError(str(e), token.range)
             return exp
 
         elif isinstance(token, Identifier):  # parse data and param
@@ -548,8 +544,7 @@ class Parser:
                     break
                 rop = self.expect_token(Operator, PostfixOps.ops)
                 self.remove()  # op
-                range = Range(start=left.range.start, end=rop.end)
-                exp = PostfixOps.generate(left, token, range)
+                exp = PostfixOps.generate(left, token)
 
             elif InfixOps.check(token):  # expression infixOps expression
                 if InfixOps.precedence[token.value] <= min_precedence:
@@ -558,11 +553,10 @@ class Parser:
                 self.remove()  # op
                 rhs = self.expression(min_precedence=InfixOps.precedence[token.value], is_lhs=is_lhs, is_subscript=is_subscript)
 
-                range = Range(left.range.start, rhs.range.end)
                 try:
-                    exp = InfixOps.generate(left, rhs, token, range)
+                    exp = InfixOps.generate(left, rhs, token)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), range)
+                    raise ParseError(str(e), token.range)
 
             elif isinstance(token, Identifier):
                 if UnaryFunctions.check(token):  # unaryFunction '(' expression ')'
@@ -577,11 +571,10 @@ class Parser:
                     rparen = self.expect_token(Special, ")")
                     self.remove()  # )
 
-                    range = Range(left.range.start, rparen.end)
                     try:
-                        exp = UnaryFunctions.generate(argument, token, range)
+                        exp = UnaryFunctions.generate(argument, token)
                     except TypeCheckError as e:
-                        raise ParseError(str(e), range)
+                        raise ParseError(str(e), token.range)
 
                 elif BinaryFunctions.check(token):
                     if BinaryFunctions.precedence[token.value] <= min_precedence:
@@ -592,11 +585,10 @@ class Parser:
                     arguments = self.expressions(entry_token_value="(", is_subscript=is_subscript)
                     rparen = self.expect_token(Special, ")")
                     self.remove()  # )
-                    range = Range(left=left.range.start, right=rparen.end)
                     try:
-                        exp = BinaryFunctions.generate(arguments[0], arguments[1], token, range)
+                        exp = BinaryFunctions.generate(arguments[0], arguments[1], token)
                     except TypeCheckError as e:
-                        raise ParseError(str(e), range)
+                        raise ParseError(str(e), token.range)
 
                 else:
                     raise ParseError(f"Unknown token '{token.value}'", token.range)
@@ -628,9 +620,8 @@ class Parser:
             if AssignmentOps.check(op):
                 self.remove()  # assignment operator
                 rhs = self.expression()
-                range = Range(lhs.range.start, rhs.range.start)
                 try:
-                    return_statement = AssignmentOps.generate(lhs, rhs, op, range)
+                    return_statement = AssignmentOps.generate(lhs, rhs, op)
                 except TypeCheckError as e:
                     raise ParseError(str(e), range)
 
@@ -647,9 +638,8 @@ class Parser:
                 expressions = self.expressions("(")  # list of expression
                 rparen = self.expect_token(Special, ")")
                 self.remove()  # )
-                range = Range(lhs.range.start, rparen.range.end)
                 try:
-                    return_statement = Distributions.generate(lhs, expressions, distribution, range)
+                    return_statement = Distributions.generate(lhs, expressions, distribution)
                 except TypeCheckError as e:
                     raise ParseError(str(e), range)
 
