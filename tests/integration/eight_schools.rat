@@ -1,3 +1,7 @@
+#! {
+#!   "y_data" : ["y", "school"]
+#!   "sigma_data" : ["sigma", "school"]
+#! }
 y' ~ normal(theta[school], sigma);
 theta' = mu + z[school] * tau;
 z ~ normal(0, 1);

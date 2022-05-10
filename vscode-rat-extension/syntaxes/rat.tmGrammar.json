@@ -1,0 +1,75 @@
+{
+  "scopeName": "source.rat",
+  "patterns": [{ "include": "#expression" }],
+  "repository": {
+    "expression": {
+      "patterns": [
+            { "include": "#comment"},
+            { "include": "#numeric" },
+            { "include": "#operator" },
+            { "include": "#special" },
+            { "include": "#distribution" },
+            { "include": "#function" },
+            { "include": "#identifier" },
+            { "include": "#subscript" }
+        ]
+    },
+    "subscript-expression": {
+      "patterns": [
+            { "include": "#comment"},
+            { "include": "#numeric" },
+            { "include": "#operator" },
+            { "include": "#special" },
+            { "include": "#distribution" },
+            { "include": "#function" },
+            { "include": "#constant_identifier" }
+        ]
+    },
+    "comment" : {
+        "match" : "#.*",
+        "name" : "comment.line"
+    },
+    "operator" : {
+        "match" : "\\+|-|\\*|\\/|\\^|%|'",
+        "name" : "keyword.operator"
+    },
+    "special" : {
+        "match" : "=|\\(|\\)|,|~|;|<|>",
+        "name" : "punctuation"
+    },
+    "numeric" : {
+        "match" : "\\b[-]?[0-9]*\\.?[0-9]+(e[-+]?[0-9]+)?\\b",
+        "name" : "support.constant"
+    },
+    "distribution" : {
+        "match" : "normal|bernoulli_logit|log_normal|cauchy|exponential",
+        "name" : "entity.name.function"
+    },
+    "function" : {
+        "match" : "exp|log|abs|floor|ceil|round|sin|cos|tan|arcsin|arccos|arctan|logit|inverse_logit|shift|lower|upper",
+        "name" : "support.function"
+    },
+    "identifier": {
+        "match": "\\w+",
+        "name": "variable.parameter.rat"
+    },
+    "constant_identifier": {
+        "match": "\\w+",
+        "name": "string"
+    },
+    "subscript": {
+        "begin": "\\[",
+        "end": "\\]",
+        "beginCaptures": {
+            "0": { "name": "punctuation" }
+        },
+        "endCaptures": {
+            "0": { "name": "punctuation" }
+        },
+        "name": "expression.subscript.rat",
+        "patterns": [
+            { "include": "#subscript-expression" }
+        ]
+    }
+  }
+}
