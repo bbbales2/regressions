@@ -36,6 +36,7 @@ def read_json_rpc(file: TextIO):
 
     return content
 
+
 # https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#baseProtocol
 def write_json_rpc(string_obj, file: TextIO):
     output_string = f"Content-Length:{len(string_obj)}\r\n\r\n{string_obj}"
@@ -43,19 +44,19 @@ def write_json_rpc(string_obj, file: TextIO):
     file.write(output_string)
     file.flush()
 
+
 # https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_publishDiagnostics
 def publishDiagnostics(uri, diagnostics):
-    message_out = jsonrpcclient.notification_json(
-        "textDocument/publishDiagnostics", params={"uri": uri, "diagnostics": diagnostics}
-    )
+    message_out = jsonrpcclient.notification_json("textDocument/publishDiagnostics", params={"uri": uri, "diagnostics": diagnostics})
     write_json_rpc(message_out, sys.stdout)
 
 
 @dataclass
 class Document:
-    uri : str
-    version : int
-    text : str
+    uri: str
+    version: int
+    text: str
+
 
 def validateDocument(document: Document):
     diagnostics = []
@@ -79,32 +80,30 @@ def validateDocument(document: Document):
 
 
 class LanguageServer:
-    documents : Dict[str, Document]
+    documents: Dict[str, Document]
 
     def __init__(self):
         self.documents = {}
 
     # https://microsoft.github.io//language-server-protocol/specifications/lsp/3.17/specification/#initialize
     def initialize(self, processId, rootUri, capabilities, **kwargs):
-        return jsonrpcserver.Success({
-            "capabilities": {
-                # 1 means this server requires the full document to be synced -- no incremental updates
-                "textDocumentSync": 1,
-                # Does the server provide symbols
-                #"documentSymbolProvider": True,
-                # The semantic tokens will be used to communicate with the editor what
-                #  
-                "semanticTokensProvider" : {
-                    "legend" : {
-                        "tokenTypes" : ["type", "variable", "operator", "enum", "number"],
-                        "tokenModifiers" : []
+        return jsonrpcserver.Success(
+            {
+                "capabilities": {
+                    # 1 means this server requires the full document to be synced -- no incremental updates
+                    "textDocumentSync": 1,
+                    # Does the server provide symbols
+                    # "documentSymbolProvider": True,
+                    # The semantic tokens will be used to communicate with the editor what
+                    #
+                    "semanticTokensProvider": {
+                        "legend": {"tokenTypes": ["type", "variable", "operator", "enum", "number"], "tokenModifiers": []},
+                        "range": False,
+                        "full": True,
                     },
-
-                    "range" : False,
-                    "full" : True
                 }
             }
-        })
+        )
 
     # https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#semanticTokens_fullRequest
     def semantic_tokens(self, textDocument):
@@ -141,16 +140,11 @@ class LanguageServer:
                     previous_line = token.range.start.line
                     previous_char = token.range.start.col
 
-        
-        return jsonrpcserver.Success({ "data" : data })
+        return jsonrpcserver.Success({"data": data})
 
     # https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didOpen
     def did_open(self, textDocument):
-        document = Document(
-            uri = textDocument["uri"],
-            version = textDocument["version"],
-            text = textDocument["text"]
-        )
+        document = Document(uri=textDocument["uri"], version=textDocument["version"], text=textDocument["text"])
 
         self.documents[document.uri] = document
 
@@ -158,25 +152,17 @@ class LanguageServer:
 
         return jsonrpcserver.Success()
 
-
     # https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didChange
     def did_change(self, textDocument, contentChanges):
-        incoming_document = Document(
-            uri = textDocument["uri"],
-            version = textDocument["version"],
-            text = textDocument["text"]
-        )
+        incoming_document = Document(uri=textDocument["uri"], version=textDocument["version"], text=textDocument["text"])
         uri = incoming_document.uri
         if self.documents[uri] < incoming_document:
             if len(contentChanges) != 1:
-                raise Exception(
-                    "There should be exactly one change. textDocumentSync should be for full document only, not incremental"
-                )
+                raise Exception("There should be exactly one change. textDocumentSync should be for full document only, not incremental")
             self.documents[uri] = incoming_document
             validateDocument(incoming_document)
 
         return jsonrpcserver.Success()
-
 
     # https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didClose
     def did_close(self, textDocument):
