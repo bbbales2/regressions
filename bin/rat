@@ -11,8 +11,13 @@ parser = argparse.ArgumentParser(
 parser.set_defaults(func=lambda x: parser.print_usage())
 
 parser.add_argument("model", type = str, help = "Rat model file")
-parser.add_argument("dataframe", type = str, help = "Filename with data (.csv, .feather, .parquet)")
 parser.add_argument("output", type = str, help = "Folder to store output in (folder will be created if it doesn't exist)")
+parser.add_argument(
+    "data",
+    type = str,
+    nargs = "+",
+    help = """Filename or a list of name=file pairs containing data (.csv, .feather, .parquet)"""
+)
 parser.add_argument("--method", choices = ["optimize", "sample"], default = "sample", help = "Run sampler or optimizer on model")
 parser.add_argument("--chains", type = int, default = 4, help = "Number of MCMC chains or optimization trajectories")
 parser.add_argument("--init", type = float, default = 2.0, help = "Random init radius")
@@ -31,8 +36,39 @@ if len(sys.argv) < 2:
 
 args = parser.parse_args()
 
+data_filenames = {}
+if len(args.data) == 1 and "=" not in args.data[0]:
+    data_filenames = {
+        "default" : args.data[0]
+    }
+else:
+    for keyvalue in args.data:
+        try:
+            name, value = [item.strip() for item in keyvalue.split("=")]
+        except:
+            print(
+                f"Error parsing `{keyvalue}`.\n"
+                " Data can be passed in as a single filename, or, if\n"
+                " there are multiple files, as a sequence of named pairs,\n"
+                " `name=file`. For instance, to pass in two dataframes,\n"
+                " carrot.csv and lime.csv we could do this with\n"
+                "\n"
+                "     rat ... orange=carrot.csv green=lime.csv\n"
+                "\n"
+                "Names are (that's what orange and green are) required unless\n"
+                " a single dataframe is passed in which case a name is optional\n"
+                "\n"
+                "Because `=` is used in parsing, it cannot be part of the filename"
+            )
+            exit(1)
+        
+        if name in data_filenames:
+            print(f"{name} used as a name at least twice. Data names must be unique")
+            exit(1)
+
+        data_filenames[name] = value
+
 model_filename = args.model
-dataframe_filename = args.dataframe
 output_folder = args.output
 method = args.method
 chains = args.chains
@@ -52,22 +88,24 @@ if os.path.exists(output_folder) and not overwrite:
 import pandas
 from rat.model import Model
 
-root, ext = os.path.splitext(dataframe_filename)
+data = {}
+for name, dataframe_filename in data_filenames.items():
+    root, ext = os.path.splitext(dataframe_filename)
 
-if ext == ".csv":
-    df = pandas.read_csv(dataframe_filename)
-elif ext == ".feather":
-    df = pandas.read_feather(dataframe_filename)
-elif ext == ".parquet":
-    df = pandas.read_parquet(dataframe_filename)
-else:
-    raise Exception(f"Don't know how to read {dataframe_filename} with extension {ext}. Must be appropriately formatted file ending in .csv, .feather, or .parquet")
+    if ext == ".csv":
+        data[name] = pandas.read_csv(dataframe_filename)
+    elif ext == ".feather":
+        data[name] = pandas.read_feather(dataframe_filename)
+    elif ext == ".parquet":
+        data[name] = pandas.read_parquet(dataframe_filename)
+    else:
+        raise Exception(f"Don't know how to read {dataframe_filename} with extension {ext}. Must be appropriately formatted file ending in .csv, .feather, or .parquet")
 
 with open(model_filename) as f:
     model_string = f.read().strip()
 
 print("Compiling model")
-model = Model(df, model_string=model_string, compile_path=compile_path, overwrite=overwrite)
+model = Model(data, model_string=model_string, compile_path=compile_path, overwrite=overwrite)
 
 if method == "optimize":
     print("Running optimization")
