@@ -28,7 +28,7 @@ class Compiler:
         self.variable_table: VariableTable = None
         self.generated_code = ""
 
-    def _get_primary_symbol_from_statement(self, top_expr):
+    def _get_primary_symbol_from_statement(self, top_expr: ast.Expr):
         """
         Get the primary symbol in a statement. This assumes that the statement has
         only one primary symbol
@@ -38,7 +38,7 @@ class Compiler:
                 break
         else:
             msg = f"Internal compiler error. No primary variable found"
-            raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+            raise CompileError(msg, top_expr.range)
         return primary_symbol
 
     def _identify_primary_symbols(self):
@@ -64,7 +64,7 @@ class Compiler:
                         primary_symbol = primeable_symbol
                     else:
                         msg = f"Found two marked primary variables {primary_symbol.get_key()} and {primeable_symbol.get_key()}. There should only be one"
-                        raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+                        raise CompileError(msg, top_expr.range)
 
             # Rule 3
             if primary_symbol is None:
@@ -78,10 +78,10 @@ class Compiler:
                             primary_key = primary_symbol.get_key()
                             if primary_key != primeable_key:
                                 msg = f"No marked primary variable and at least {primary_key} and {primeable_key} are candidates. A primary variable should be marked manually"
-                                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+                                raise CompileError(msg, top_expr.range)
                             else:
                                 msg = f"No marked primary variable but found multiple references to {primary_key}. One reference should be marked manually"
-                                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+                                raise CompileError(msg, top_expr.range)
 
             # Rule 4
             if primary_symbol is None:
@@ -92,7 +92,7 @@ class Compiler:
             # Rule 5
             if primary_symbol is None:
                 msg = f"No primary variable found on line (this means there are no candidate variables)"
-                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+                raise CompileError(msg, top_expr.range)
 
             # Mark the primary symbol if it wasn't already
             primary_symbol.prime = True
@@ -119,7 +119,7 @@ class Compiler:
                         integer_shifts.append(folded_shift)
                     except Exception as e:
                         error_msg = f"Failed evaluating shift. Shift amount expressions must be an expression which can be evaluated at compile-time."
-                        raise CompileError(error_msg, self.model_code_string, shift_expr.line_index, shift_expr.column_index) from e
+                        raise CompileError(error_msg, shift_expr.range) from e
 
         # If there is a non-zero shift, set pad needed to True
         pad_needed = any(shift != 0 for shift in integer_shifts)
@@ -142,7 +142,7 @@ class Compiler:
                         case ast.Param():
                             self.variable_table.insert(variable_name=symbol.get_key(), variable_type=VariableType.PARAM)
                 except KeyError as e:
-                    raise CompileError(str(e), self.model_code_string, symbol.line_index, symbol.column_index)
+                    raise CompileError(str(e), symbol.range)
 
         # TODO: I'm not sure it's a good pattern to modify the AST in place
         # Fold all shifts to constants
@@ -155,13 +155,7 @@ class Compiler:
 
                             new_shift_expressions = []
                             for shift_expression, integer_shift in zip(symbol.subscript.shifts, integer_shifts):
-                                new_shift_expressions.append(
-                                    ast.IntegerConstant(
-                                        value=integer_shift,
-                                        line_index=shift_expression.line_index,
-                                        column_index=shift_expression.column_index,
-                                    )
-                                )
+                                new_shift_expressions.append(ast.IntegerConstant(value=integer_shift, range=shift_expression.range))
 
                             symbol.subscript.shifts = tuple(new_shift_expressions)
 
@@ -175,7 +169,7 @@ class Compiler:
                 primary_variable = self.variable_table[primary_symbol_key]
             except KeyError:
                 msg = f"Parameter {primary_symbol_key} must be used as a secondary variable before it can be used as a primary variable"
-                raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
+                raise CompileError(msg, primary_symbol.range)
 
             # Rename the primary variable
             if primary_symbol.subscript is not None:
@@ -186,7 +180,7 @@ class Compiler:
                     primary_variable.set_subscript_names(primary_subscript_names)
                 except AttributeError:
                     msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {variable.subscripts}"
-                    raise CompileError(msg, self.model_code_string, primary_variable.line_index, primary_variable.column_index)
+                    raise CompileError(msg, primary_symbol.range)
 
             primary_subscript_names = primary_variable.subscripts
 
@@ -208,12 +202,12 @@ class Compiler:
                                 if column.name not in primary_subscript_names:
                                     dataframe_name = self.variable_table.get_dataframe_name(primary_symbol_key)
                                     msg = f"Subscript {column.name} not found in dataframe {dataframe_name} (associated with primary variable {primary_symbol_key})"
-                                    raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
+                                    raise CompileError(msg, column.range)
 
                                 if column.name not in variable.subscripts:
                                     dataframe_name = self.variable_table.get_dataframe_name(symbol_key)
                                     msg = f"Subscript {column.name} not found in dataframe {dataframe_name} (associated with variable {symbol_key})"
-                                    raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
+                                    raise CompileError(msg, column.range)
                     case ast.Param():
                         symbol_key = symbol.get_key()
 
@@ -225,7 +219,7 @@ class Compiler:
                             for column in symbol.subscript.names:
                                 if column.name not in primary_subscript_names:
                                     msg = f"Subscript {column.name} not found in dataframe of primary variable {primary_symbol_key}"
-                                    raise CompileError(msg, self.model_code_string, column.line_index, column.column_index)
+                                    raise CompileError(msg, column.range)
 
                             subscript_names = [column.name for column in symbol.subscript.names]
 
@@ -235,7 +229,7 @@ class Compiler:
                             if len(variable.subscripts) > 0:
                                 if len(subscript_names) != len(variable.subscripts):
                                     msg = f"{len(subscript_names)} found, previously used with {len(variable.subscripts)}"
-                                    raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+                                    raise CompileError(msg, symbol.range)
 
                             # Fold all the shift expressions to simple integers
                             shifts, pad_needed = self._get_shifts_and_padding(symbol.subscript)
@@ -249,7 +243,7 @@ class Compiler:
                                 # model in mind (my guess is access should give zeros)
                                 if any(shift != 0 for shift in shifts):
                                     msg = f"Shifted access on a secondary parameter is not allowed"
-                                    raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+                                    raise CompileError(msg, symbol.range)
 
                                 # Add to dataframe
                                 variable.add_rows_from_dataframe(primary_variable.base_df[subscript_names])
@@ -272,14 +266,14 @@ class Compiler:
                             upper_constraint_value = float(eval(upper_constraint_evaluator.get_expression_string()))
                         except Exception as e:
                             error_msg = f"Failed evaluating constraints for parameter {symbol_key}, ({e})"
-                            raise CompileError(error_msg, self.model_code_string, symbol.line_index, symbol.column_index) from e
+                            raise CompileError(error_msg, symbol.range) from e
 
                         variable = self.variable_table[symbol_key]
                         try:
                             variable.set_constraints(lower_constraint_value, upper_constraint_value)
                         except AttributeError:
                             msg = f"Attempting to set constraints of {symbol_key} to ({lower_constraint_value}, {upper_constraint_value}) but they are already set to ({variable.constraint_lower}, {variable.constraint_upper})"
-                            raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+                            raise CompileError(msg, symbol.range)
 
         # Apply constraints to parameters
         for top_expr in self.expr_tree_list:
@@ -293,7 +287,7 @@ class Compiler:
                                 lhs_variable.variable_type = VariableType.ASSIGNED_PARAM
                             case _:
                                 msg = f"The left hand of an assignment must be a parameter"
-                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+                                raise CompileError(msg, symbol.range)
 
     def pre_codegen_checks(self):
         N_lines = len(self.expr_tree_list)
@@ -318,21 +312,21 @@ class Compiler:
 
                             if symbol.subscript is None or all(shift is None for shift in symbol.subscript.shifts):
                                 msg = f"Recursively assigning {symbol_key} requires a shifted subscript on the right hand side reference"
-                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+                                raise CompileError(msg, symbol.range)
 
                             shifts = [shift.value for shift in symbol.subscript.shifts]
 
                             if sum(shift != 0 for shift in shifts) != 1:
                                 msg = "Exactly one (no more, no less) subscripts can be shifted in a recursively assigned variable"
-                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+                                raise CompileError(msg, symbol.range)
 
                             if shifts[-1] <= 0:
                                 msg = "Only the right-most subscript of a recursively assigned variable can be shifted"
-                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+                                raise CompileError(msg, symbol.range)
 
                             if any(shift < 0 for shift in shifts):
                                 msg = "All nonzero shifts in a recursively assigned variable must be positive"
-                                raise CompileError(msg, self.model_code_string, symbol.line_index, symbol.column_index)
+                                raise CompileError(msg, symbol.range)
 
             # 2. Check that all secondary parameter uses precede primary uses (or throw an error)
             if isinstance(primary_symbol, ast.Param):
@@ -342,7 +336,7 @@ class Compiler:
 
                         if primary_key == secondary_key and not secondary_symbol.prime:
                             msg = f"Primary variable {primary_symbol.get_key()} used on line {line_index} but then referenced as non-prime on line {j}. The primed uses must come last"
-                            raise CompileError(msg, self.model_code_string, primary_symbol.line_index, primary_symbol.column_index)
+                            raise CompileError(msg, primary_symbol.range)
 
             # 3. Parameters cannot be used after they are assigned
             match top_expr:
@@ -353,7 +347,7 @@ class Compiler:
                             symbol_key = symbol.get_key()
                             if symbol_key == lhs_key:
                                 msg = f"Parameter {lhs.get_key()} is assigned on line {line_index} but used on line {j}. A variable cannot be used after it is assigned"
-                                raise CompileError(msg, self.model_code_string, lhs.line_index, lhs.column_index)
+                                raise CompileError(msg, lhs.range)
 
     def codegen(self):
         self.generated_code = ""
@@ -447,7 +441,7 @@ class Compiler:
                 code_generator.generate(top_expr)
             except MergeError as e:
                 msg = str(e)
-                raise CompileError(msg, self.model_code_string, top_expr.line_index, top_expr.column_index)
+                raise CompileError(msg, top_expr.range)
             self.generated_code += f"    target += jax.numpy.sum({code_generator.get_expression_string()})\n"
 
         self.generated_code += "\n"

@@ -32,83 +32,81 @@ def test_scanner_missing_terminate():
 
 def test_scanner_valid_1():
     input_str = "tau<lower=0.0> ~ normal(-2.0 - 1.0, 1.0);"
-    #            ^        ^         ^         ^
-    #            1        10        20        30
+    #            ^        ^       ^           ^
+    #            0        9       17          24
     expected = [
-        Identifier("tau", 0, 1),
-        Operator("<", 0, 4),
-        Identifier("lower", 0, 5),
-        Operator("=", 0, 10),
-        RealLiteral("0.0", 0, 11),
-        Operator(">", 0, 14),
-        Special("~", 0, 16),
-        Identifier("normal", 0, 18),
-        Special("(", 0, 24),
-        Operator("-", 0, 25),
-        RealLiteral("2.0", 0, 26),
-        Operator("-", 0, 30),
-        RealLiteral("1.0", 0, 32),
-        Special(",", 0, 35),
-        RealLiteral("1.0", 0, 37),
-        Special(")", 0, 40),
-        Terminate(";", 0, 41),
+        Identifier("tau", Position(0, 0, input_str)),
+        Operator("<", Position(0, 3, input_str)),
+        Identifier("lower", Position(0, 4, input_str)),
+        Operator("=", Position(0, 9, input_str)),
+        RealLiteral("0.0", Position(0, 10, input_str)),
+        Operator(">", Position(0, 13, input_str)),
+        Special("~", Position(0, 15, input_str)),
+        Identifier("normal", Position(0, 17, input_str)),
+        Special("(", Position(0, 23, input_str)),
+        Operator("-", Position(0, 24, input_str)),
+        RealLiteral("2.0", Position(0, 25, input_str)),
+        Operator("-", Position(0, 29, input_str)),
+        RealLiteral("1.0", Position(0, 31, input_str)),
+        Special(",", Position(0, 34, input_str)),
+        RealLiteral("1.0", Position(0, 36, input_str)),
+        Special(")", Position(0, 39, input_str)),
+        Terminate(";", Position(0, 40, input_str)),
     ]
     parsed = Scanner(input_str)
     for index, val in enumerate(parsed.scan()[0]):
         # print(val.value.ljust(20), val.token_type)
         true_token = expected[index]
         assert true_token.value == val.value
-        assert true_token.line_index == val.line_index
-        assert true_token.column_index == val.column_index
+        assert true_token.start == val.start
 
 
 def test_scanner_complex():
     input_str = "tau<lower=1.4e5*2,upper=1.1>~ normal(exp(-2.0) - 1.0*a+1.0e1-a_412+1, 1.0);"
-    #            ^        ^         ^         ^         ^         ^         ^         ^
-    #            1        10        20        30        40        50        60        70
+    #            ^         ^         ^         ^         ^         ^         ^         ^
+    #            0         10        20        30        40        50        60        70
     expected = [
-        Identifier("tau", 0, 1),
-        Operator("<", 0, 4),
-        Identifier("lower", 0, 5),
-        Operator("=", 0, 10),
-        RealLiteral("1.4e5", 0, 11),
-        Operator("*", 0, 16),
-        IntLiteral("2", 0, 17),
-        Special(",", 0, 18),
-        Identifier("upper", 0, 19),
-        Operator("=", 0, 24),
-        RealLiteral("1.1", 0, 25),
-        Operator(">", 0, 28),
-        Special("~", 0, 29),
-        Identifier("normal", 0, 31),
-        Special("(", 0, 37),
-        Identifier("exp", 0, 38),
-        Special("(", 0, 41),
-        Operator("-", 0, 42),
-        RealLiteral("2.0", 0, 43),
-        Special(")", 0, 46),
-        Operator("-", 0, 48),
-        RealLiteral("1.0", 0, 50),
-        Operator("*", 0, 53),
-        Identifier("a", 0, 54),
-        Operator("+", 0, 55),
-        RealLiteral("1.0e1", 0, 56),
-        Operator("-", 0, 61),
-        Identifier("a_412", 0, 62),
-        Operator("+", 0, 67),
-        IntLiteral("1", 0, 68),
-        Special(",", 0, 69),
-        RealLiteral("1.0", 0, 71),
-        Special(")", 0, 74),
-        Terminate(";", 0, 75),
+        Identifier("tau", Position(0, 0, input_str)),
+        Operator("<", Position(0, 3, input_str)),
+        Identifier("lower", Position(0, 4, input_str)),
+        Operator("=", Position(0, 9, input_str)),
+        RealLiteral("1.4e5", Position(0, 10, input_str)),
+        Operator("*", Position(0, 15, input_str)),
+        IntLiteral("2", Position(0, 16, input_str)),
+        Special(",", Position(0, 17, input_str)),
+        Identifier("upper", Position(0, 18, input_str)),
+        Operator("=", Position(0, 23, input_str)),
+        RealLiteral("1.1", Position(0, 24, input_str)),
+        Operator(">", Position(0, 27, input_str)),
+        Special("~", Position(0, 28, input_str)),
+        Identifier("normal", Position(0, 30, input_str)),
+        Special("(", Position(0, 36, input_str)),
+        Identifier("exp", Position(0, 37, input_str)),
+        Special("(", Position(0, 40, input_str)),
+        Operator("-", Position(0, 41, input_str)),
+        RealLiteral("2.0", Position(0, 42, input_str)),
+        Special(")", Position(0, 45, input_str)),
+        Operator("-", Position(0, 47, input_str)),
+        RealLiteral("1.0", Position(0, 49, input_str)),
+        Operator("*", Position(0, 52, input_str)),
+        Identifier("a", Position(0, 53, input_str)),
+        Operator("+", Position(0, 54, input_str)),
+        RealLiteral("1.0e1", Position(0, 55, input_str)),
+        Operator("-", Position(0, 60, input_str)),
+        Identifier("a_412", Position(0, 61, input_str)),
+        Operator("+", Position(0, 66, input_str)),
+        IntLiteral("1", Position(0, 67, input_str)),
+        Special(",", Position(0, 68, input_str)),
+        RealLiteral("1.0", Position(0, 70, input_str)),
+        Special(")", Position(0, 73, input_str)),
+        Terminate(";", Position(0, 74, input_str)),
     ]
     parsed = Scanner(input_str)
     for index, val in enumerate(parsed.scan()[0]):
         # print(val.value.ljust(20), val.token_type)
         true_token = expected[index]
         assert true_token.value == val.value
-        assert true_token.line_index == val.line_index
-        assert true_token.column_index == val.column_index
+        assert true_token.start == val.start
 
 
 def test_scanner_valid_multiline_1():
@@ -139,9 +137,9 @@ b
     lines = parsed.scan()
     assert len(lines) == 2
     assert lines[0][0].value == "y"
-    assert lines[0][0].line_index == 1
+    assert lines[0][0].start.line == 1
     assert lines[1][0].value == "a"
-    assert lines[1][0].line_index == 4
+    assert lines[1][0].start.line == 4
 
 
 def test_scanner_comment_multiline():
@@ -157,7 +155,7 @@ b# this is a comment without a space
     lines = parsed.scan()
     assert len(lines) == 2
     assert lines[0][0].value == "y"
-    assert lines[0][0].line_index == 2
+    assert lines[0][0].start.line == 2
     assert lines[0][6].value == "b"
     assert lines[1][0].value == "a"
-    assert lines[1][0].line_index == 5
+    assert lines[1][0].start.line == 5
