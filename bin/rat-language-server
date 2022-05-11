@@ -1,189 +1,25 @@
 #!/usr/bin/env python
-import json
 import logging
-import re
 import sys
 import threading
-import time
 import jsonrpcserver
-import jsonrpcclient
+from rat import language_server
 
-from rat import ast, scanner
-from rat.scanner import Scanner
-from rat.parser import Parser
-
-from rat.language_server import read_json_rpc, write_json_rpc
+from rat.language_server import read_json_rpc, write_json_rpc, LanguageServer
 
 logging.basicConfig(filename="rat-language-server.log", encoding="utf-8", level=logging.DEBUG, filemode="w")
 
-versions = {}
-text = {}
-
-
-@jsonrpcserver.method
-def initialize(processId, rootUri, capabilities, **kwargs):
-    return jsonrpcserver.Success(
-        {
-            "capabilities": {
-                "textDocumentSync": 1,
-                #"documentSymbolProvider": True,
-                "semanticTokensProvider" : {
-                    "legend" : {
-                        "tokenTypes" : ["type", "variable", "operator", "enum", "number"],
-                        "tokenModifiers" : []
-                    },
-                    "range" : False,
-                    "full" : True
-                }
-                # Tell the client that this server supports code completion.
-                # "completionProvider": {
-                # 	"resolveProvider": True
-                # }
-            }
-        }
-    )
-
-
-def publishDiagnostics(uri, diagnostics):
-    message_out = jsonrpcclient.notification_json(
-        "textDocument/publishDiagnostics", params={"uri": uri, "diagnostics": diagnostics}
-    )
-    write_json_rpc(message_out, sys.stdout)
-
-
-def validateDocument(uri: str):
-    model_string = text[uri]
-
-    diagnostics = []
-    # scanned_lines = Scanner(model_string).scan()
-    # for scanned_line in scanned_lines:
-    #     tokens = Parser(scanned_line, [], model_string).statement()
-
-    #     for token in tokens:
-    #         match token:
-    #             case ast.Param():
-    #                 diagnostics.append(
-    #                     {
-    #                         "range": {
-    #                             "start": {"line": token.range.start.line, "character": token.range.start.col},
-    #                             "end": {"line": token.range.end.line, "character": token.range.end.col},
-    #                         },
-    #                         "message": "It's a parameter!",
-    #                     }
-    #                 )
-    publishDiagnostics(uri, diagnostics)
-
-
-@jsonrpcserver.method(name="textDocument/semanticTokens/full")
-def documentSymbol(textDocument):
-    uri: str = textDocument["uri"]
-    model_string = text[uri]
-
-    # symbol_information = []
-    # scanned_lines = Scanner(model_string).scan()
-    # for scanned_line in scanned_lines:
-    #     symbols = Parser(scanned_line, [], model_string).statement()
-
-    #     for symbol in symbols:
-    #         match symbol:
-    #             case ast.Param():
-    #                 symbol_information.append(
-    #                     {
-    #                         "name" : symbol.name,
-    #                         "location" : {
-    #                             "uri" : uri,
-    #                             "range": {
-    #                                 "start": {"line": symbol.range.start.line, "character": symbol.range.start.col},
-    #                                 "end": {"line": symbol.range.end.line, "character": symbol.range.end.col},
-    #                             },
-    #                         },
-    #                         "kind": 13,
-    #                     }
-    #                 )
-    # 
-    data = []
-    scanned_lines = Scanner(model_string).scan()
-    previous_line = 0
-    previous_char = 0
-    for scanned_line in scanned_lines:
-        # symbols = Parser(scanned_line, [], model_string).statement()
-
-        # for symbol in symbols:
-        #     type_as_int = None
-        #     match symbol:
-        #         case ast.Param():
-        #             type_as_int = 1
-        #         case ast.Distr():
-        #             type_as_int = 2
-        #         case ast.Subscript():
-        #             type_as_int = 0
-        #         case ast.Constant():
-        #             type_as_int = 4
-
-        for token in scanned_line:
-            type_as_int = None
-            match token:
-                case scanner.Identifier():
-                    type_as_int = 1
-                case scanner.IntLiteral() | scanner.RealLiteral():
-                    type_as_int = 4
-                case _:
-                    type_as_int = 2
-
-            if type_as_int is not None:
-                if token.range.start.line != previous_line:
-                    delta_line = token.range.start.line - previous_line
-                    delta_start_char = token.range.start.col
-                else:
-                    delta_line = 0
-                    delta_start_char = token.range.start.col - previous_char
-                length = token.range.end.col - token.range.start.col
-                data.extend([delta_line, delta_start_char, length, type_as_int, 0])
-                previous_line = token.range.start.line
-                previous_char = token.range.start.col
-
-    
-    return jsonrpcserver.Success({ "data" : data })
-
-@jsonrpcserver.method(name="textDocument/didOpen")
-def didOpen(textDocument):
-    uri: str = textDocument["uri"]
-    versions[uri] = textDocument["version"]
-    text[uri] = textDocument["text"]
-
-    validateDocument(uri)
-
-    return jsonrpcserver.Success()
-
-
-@jsonrpcserver.method(name="textDocument/didChange")
-def didChange(textDocument, contentChanges):
-    uri: str = textDocument["uri"]
-    version: int = textDocument["version"]
-    if versions[uri] < version:
-        if len(contentChanges) != 1:
-            raise Exception(
-                "There should be exactly one change. textDocumentSync should be for full document only, not incremental"
-            )
-        text[uri] = contentChanges[0]["text"]
-
-        validateDocument(uri)
-
-    return jsonrpcserver.Success()
-
-
-@jsonrpcserver.method(name="textDocument/didClose")
-def didClose(textDocument):
-    uri: str = textDocument["uri"]
-    del versions[uri]
-    del text[uri]
-
-    return jsonrpcserver.Success()
-
+server = LanguageServer()
 
 while True:
     message_in = read_json_rpc(sys.stdin)
-    message_out = jsonrpcserver.dispatch(message_in)
+    message_out = jsonrpcserver.dispatch(message_in, methods = {
+        "initialize" : server.initialize,
+        "textDocument/semanticTokens/full" : server.semantic_tokens,
+        "textDocument/didOpen" : server.did_open,
+        "textDocument/didChange" : server.did_change,
+        "textDocument/didClose" : server.did_close
+    })
     if message_out:
         write_json_rpc(message_out, sys.stdout)
     else:
