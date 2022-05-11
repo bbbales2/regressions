@@ -12,7 +12,7 @@ To run the examples, navigate to the `examples/mrp` folder and run:
 
 ```bash
 python clean.py
-rat mrp.rat clean.csv samples --num_draws=100
+rat mrp.rat samples clean.csv --num_draws=100
 python plot.py
 ```
 
