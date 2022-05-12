@@ -196,7 +196,7 @@ class Scanner:
             else:
                 return True
 
-        #print(self.register)
+        # print(self.register)
 
         position = Position(self.line_index, self.column_index - len(self.register) - offset, document=self.model_code)
         if self.register == " " or not self.register:
@@ -209,7 +209,6 @@ class Scanner:
                 self.scanned_lines.append(self.current_tokens)
                 self.current_tokens = []
             return
-
 
         elif casts_to_int(self.register):
             token = IntLiteral(self.register, position)

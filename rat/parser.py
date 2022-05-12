@@ -407,23 +407,15 @@ class Parser:
                 if len(expressions) != 3:
                     raise ParseError(
                         "Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.",
-                        token.range
+                        token.range,
                     )
 
                 condition, true_expr, false_expr = expressions
 
                 # parameters are not allowed in conditions.
                 if len(list(search_tree(condition, Param))) > 0:
-                    raise ParseError(
-                        "Parameters are not allowed in ifelse conditions",
-                        token.range
-                    )
-                return IfElse(
-                    condition=condition,
-                    true_expr=true_expr,
-                    false_expr=false_expr,
-                    range=token.range
-                )
+                    raise ParseError("Parameters are not allowed in ifelse conditions", token.range)
+                return IfElse(condition=condition, true_expr=true_expr, false_expr=false_expr, range=token.range)
 
             if token.value in self.data_names:
                 if not is_subscript:

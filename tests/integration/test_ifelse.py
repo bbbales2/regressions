@@ -9,6 +9,7 @@ from rat.model import Model
 
 test_dir = pathlib.Path(__file__).parent
 
+
 def test_lines_in_wrong_order_for_assignments():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
