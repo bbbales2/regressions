@@ -149,14 +149,15 @@ and `sigma` are the variable references, and `score_diff` is the primary variabl
 
 Variables are associated with dataframes with the process of *variable dataframe deduction* (executed in order):
 
-1. Variables with names that match columns in the *input dataframe* take the input dataframe
-2. Otherwise, variables references are associated with parameters. The dataframe of the parameter is the minimum
+1. Variables with names that match columns in an *input dataframe* take that input dataframe
+2. If variable names match columns in multiple input dataframes, it is an error
+3. Otherwise, variables references are associated with parameters. The dataframe of the parameter is the minimum
 dataframe required to execute all statements it is used in.
 
 For the purposes of both dataframe deductions, Rat programs are understood top to bottom.
 
-The input dataframe is a single dataframe passed to a Rat program. For the regression above, a
-suitable example might be (the point differentials for a number of NBA games from the 2016 season):
+For the regression above, a suitable example of an input dataframe might be
+(the point differentials for a number of NBA games from the 2016 season):
 
 ```
     game_id  home_score  away_score home_team away_team  score_diff  year
@@ -173,9 +174,10 @@ suitable example might be (the point differentials for a number of NBA games fro
 10       11          97         103       PHI       CLE        -6.0  2016
 ```
 
-Because `score_diff` matches a column in the input dataframe, the input dataframe
-is the primary dataframe for this datement. Because `skill` and `sigma` do not appear
-as columns in this dataframe, they will be parameters.
+Because `score_diff` matches a column in this dataframe, assuming there are no
+other dataframes, this dataframe becomes the primary dataframe for this statement.
+Because `skill` and `sigma` do not appear as columns in this dataframe, they
+will be parameters.
 
 The statement will *execute* once for each line of this dataframe. As the statement runs,
 it will substitute values from this dataframe into variables and subscripts that match
@@ -352,6 +354,74 @@ A negative shift produces a different result:
 | `skill[CHA, 2016]`  | `skill[CHA, 2017]`            |
 | `skill[CHA, 2017]`  | `0`                           |
 | `skill[ATL, 2017]`  | `0`                           |
+
+## Multiple input dataframes
+
+A Rat program can take in multiple input dataframes. As a part of variable dataframe
+deduction, every name will be associated with a dataframe (or an error will be thrown).
+
+In the same way that parameters are handled, non-primary variable values are joined to
+primary variables via subscripts. The major difference is that, because Rat allocates
+parameter dataframes, it can be careful to avoid duplicate entries. Because dataframes
+for data variables come from the outside, this must be verified by the user. It is an
+error if rows in a dataframe are referenced in a way that makes them not unique.
+
+As a simple example of using multiple dataframes, consider the eight schools data:
+```
+y,sigma,school
+28,15,1
+8,10,2
+-3,16,3
+7,11,4
+-1,9,5
+1,11,6
+18,10,7
+12,18,8
+```
+
+Along with the eight schools model:
+```
+y' ~ normal(theta[school], sigma);
+theta' = mu + z[school] * tau;
+z ~ normal(0, 1);
+mu ~ normal(0, 5);
+tau<lower = 0.0> ~ log_normal(0, 1);
+```
+
+In this case, it is possible to split the input dataframe in two, with one
+dataframe for the `y` variable and one for `sigma`.
+
+```
+y,school    sigma,school
+28,1        15,1
+8,2         10,2
+-3,3        16,3
+7,4         11,4
+-1,5        9,5
+1,6         11,6
+18,7        10,7
+12,8        18,8
+```
+
+In this case the two dataframes could be joined together on `school`.
+
+However, if instead these are passed as two separate dataframes to a Rat program, then
+they can be recombined in code by replacing:
+
+```
+y' ~ normal(theta[school], sigma);
+```
+
+with
+
+```
+y' ~ normal(theta[school], sigma[school]);
+```
+
+The variable `sigma` uses the second dataframe because there is no `sigma` in the first,
+and the subscript `school` allows the two sets of data to be joined together. It would be
+an error for the subscript `school` to not be there. In that case the join from `sigma`
+to `y` would not be unique.
 
 ## Sharp edges with renaming
 

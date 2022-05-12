@@ -3,9 +3,9 @@ from enum import Enum
 import numpy
 import pandas
 import pprint
-from typing import Dict, Set, Tuple, Iterable
+from typing import Dict, Set, Tuple, Iterable, Union
 
-from .exceptions import CompileError
+from .exceptions import CompileError, MergeError
 
 
 class VariableType(Enum):
@@ -107,26 +107,48 @@ class VariableRecord:
             if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
                 raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
 
+    def to_numpy(self) -> numpy.ndarray:
+        """
+        Materialize data variable as a numpy array
+        """
+        if self.variable_type == VariableType.DATA:
+            series = self.base_df[self.name]
+            # Pandas Int64Dtype()s don't play well with jax
+            if series.dtype == pandas.Int64Dtype():
+                return series.astype(int).to_numpy()
+            else:
+                return series.to_numpy()
+        else:
+            raise AttributeError("Internal compiler error: `to_numpy` can only be used if variable_type is data")
+
 
 class VariableTable:
     variable_dict: Dict[str, VariableRecord]
     unconstrained_parameter_size: int
-    data_df: pandas.DataFrame
+    data: Dict[str, pandas.DataFrame]
 
     generated_subscript_dict: Dict[str, numpy.ndarray]
     first_in_group_indicator: Dict[str, numpy.ndarray]
 
     _unique_number: int
 
-    def __init__(self, data_df: pandas.DataFrame):
+    def __init__(self, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
         self.variable_dict = {}
+        self.data = {}
         self.unconstrained_parameter_size = None
-        self.data_df = data_df.copy()
+
+        match data:
+            case pandas.DataFrame():
+                self.data["__default"] = data.copy()
+            case _:
+                for key, value in data.items():
+                    self.data[key] = value.copy()
 
         # Convert all integer columns to a type that supports NA
-        for column in self.data_df.columns:
-            if pandas.api.types.is_integer_dtype(self.data_df[column].dtype):
-                self.data_df[column] = self.data_df[column].astype(pandas.Int64Dtype())
+        for key, data_df in self.data.items():
+            for column in data_df.columns:
+                if pandas.api.types.is_integer_dtype(data_df[column].dtype):
+                    data_df[column] = data_df[column].astype(pandas.Int64Dtype())
 
         self.generated_subscript_dict = {}
         self.first_in_group_indicator = {}
@@ -137,17 +159,35 @@ class VariableTable:
         self._unique_number += 1
         return self._unique_number
 
+    def get_dataframe_name(self, variable_name):
+        """
+        Look up the dataframe associated with a given variable name
+
+        Exactly one dataframe must be found or a KeyError will be thrown
+        """
+        matching_dfs = []
+        for key, data_df in self.data.items():
+            if variable_name in data_df:
+                matching_dfs.append(key)
+
+        if len(matching_dfs) == 0:
+            raise KeyError(f"Variable {variable_name} not found")
+        elif len(matching_dfs) > 1:
+            raise KeyError(f"Variable {variable_name} is ambiguous; it is found in dataframes {matching_dfs}")
+
+        return matching_dfs[0]
+
     def insert(
         self,
         variable_name: str,
         variable_type: VariableType = None,
     ):
         """
-        Insert a variable record. If it is data, attach the input dataframe to it
+        Insert a variable record. If it is data, attach an input dataframe to it
         """
         if variable_name not in self.variable_dict:
             if variable_type == VariableType.DATA:
-                base_df = self.data_df
+                base_df = self.data[self.get_dataframe_name(variable_name)]
             else:
                 base_df = None
 
@@ -205,8 +245,6 @@ class VariableTable:
 
         shifts_by_subscript_name = {name: shift for name, shift in zip(target_variable_subscripts, shifts)}
 
-        target_variable.base_df
-
         shift_subscripts = []
         shift_values = []
         grouping_subscripts = []
@@ -233,22 +271,62 @@ class VariableTable:
             shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
             primary_base_df[column] = shifted_column
 
-        target_base_df = target_variable.base_df.copy()
-        target_base_df.columns = list(target_variable_subscripts)
+        # TODO: It would be nice if this logic weren't different for data and parameters
+        if target_variable.variable_type == VariableType.DATA:
+            # If the target variable is data, then assume the subscripts here are
+            # referencing columns of the dataframe by name
+            target_base_df = target_variable.base_df[list(target_variable_subscripts)].copy()
+        else:
+            # If the target variable is parameter, then assume the subscripts here are
+            # referencing columns of the dataframe by position
+            target_base_df = target_variable.base_df.copy()
+            target_base_df.columns = list(target_variable_subscripts)
 
         target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]), dtype=pandas.Int64Dtype())
 
         key_name = f"subscript__{self.get_unique_number()}"
 
-        self.generated_subscript_dict[key_name] = (
-            primary_base_df.merge(target_base_df, on=target_variable_subscripts, how="left")["__in_dataframe_index"]
-            # NAs correspond to out of bounds accesses -- those should map
-            # to zero (and any parameter that needs to do out of bounds
-            # accesses will have zeros allocated for the last element)
-            .fillna(target_base_df.shape[0])
-            .astype(int)
-            .to_numpy()
-        )
+        try:
+            in_dataframe_index = primary_base_df.merge(target_base_df, on=target_variable_subscripts, how="left", validate="many_to_one")[
+                "__in_dataframe_index"
+            ]
+        except pandas.errors.MergeError as e:
+            base_msg = f"Unable to merge {target_variable_name} into {primary_variable_name} on subscripts {target_variable_subscripts}"
+            extended_msg = (
+                base_msg + f" because values of {target_variable_name} are not unique with given subscripts"
+                if "many-to-one" in str(e)
+                else ""
+            )
+            raise MergeError(extended_msg)
+
+        if target_variable.variable_type == VariableType.DATA:
+            # NAs in a data dataframe should not be ignored -- these
+            # all need to be defined
+            na_count = in_dataframe_index.isna().sum()
+            if na_count > 0:
+                for row in primary_base_df[in_dataframe_index.isna()].itertuples(index=False):
+                    dataframe_name = self.get_dataframe_name(target_variable_name)
+                    base_msg = (
+                        f"Unable to merge {target_variable_name} into {primary_variable_name} on subscripts {target_variable_subscripts}"
+                    )
+                    extended_msg = (
+                        base_msg + f" because there are {na_count} required values not found in {dataframe_name}"
+                        f" (associated with {target_variable_name}). For instance, there should be a value for"
+                        f" {row} but this is not there."
+                    )
+                    raise MergeError(extended_msg)
+
+            filled_in_dataframe_index = in_dataframe_index
+        else:
+            filled_in_dataframe_index = (
+                in_dataframe_index
+                # NAs correspond to out of bounds accesses -- those should map
+                # to zero (and any parameter that needs to do out of bounds
+                # accesses will have zeros allocated for the last element)
+                .fillna(target_base_df.shape[0])
+            )
+
+        self.generated_subscript_dict[key_name] = filled_in_dataframe_index.astype(int).to_numpy()
 
         # If this is a recursively assigned parameter and there are groupings then we'll
         # need to generate some special values for the jax.lax.scan recursive assignment

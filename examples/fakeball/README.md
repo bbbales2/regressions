@@ -4,7 +4,7 @@ To do generate, fit, and plot results, navigate to the `examples/fakeball` folde
 
 ```bash
 python generate.py
-rat fakeball.rat shots.csv samples
+rat fakeball.rat samples shots.csv
 python plot.py
 ```
 

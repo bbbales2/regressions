@@ -39,8 +39,6 @@ class BaseCodeGenerator:
                     self.expression_string += "float('-inf')"
                 else:
                     self.expression_string += str(ast_node.value)
-            case ast.Data():
-                self.expression_string += f"data['{ast_node.name}']"
             case ast.Normal():
                 self.expression_string += "jax.scipy.stats.norm.logpdf("
                 self.generate(ast_node.variate)
@@ -213,6 +211,14 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
             case ast.Param():
                 self.expression_string += f"parameters['{ast_node.name}']"
                 if ast_node.subscript:
+                    self.expression_string += "["
+                    self.variable_name = ast_node.name
+                    self.generate(ast_node.subscript)
+                    self.variable_name = None
+                    self.expression_string += "]"
+            case ast.Data():
+                self.expression_string += f"data['{ast_node.name}']"
+                if ast_node.name != self.primary_variable_name and ast_node.subscript:
                     self.expression_string += "["
                     self.variable_name = ast_node.name
                     self.generate(ast_node.subscript)

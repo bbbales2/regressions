@@ -1,18 +1,42 @@
+from .position_and_range import Range
+
+# TODO: These four errors are basically all the same thing. Probably be possible to simplify them somehow
+
+
+class TokenizeError(Exception):
+    def __init__(self, message: str, range: Range):
+        code_string = range.document.split("\n")[range.start.line]
+        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
+        exception_message = f"An error occured while tokenizing string at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
+        super().__init__(exception_message)
+
+
+class ParseError(Exception):
+    def __init__(self, message, range: Range):
+        code_string = range.document.split("\n")[range.start.line]
+        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
+        exception_message = f"An error occured while parsing the expression at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
+        super().__init__(exception_message)
+
+
 class CompileError(Exception):
-    def __init__(self, message, code_string: str = "", line_num: int = -1, column_num: int = -1):
-        code_string = code_string.split("\n")[line_num] if code_string else ""
-        if code_string:
-            exception_message = f"An error occurred while compiling the following line({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
+    def __init__(self, message, range: Range = None):
+        if range is None:
+            exception_message = message
         else:
-            exception_message = f"An error occurred during compilation:\n{message}"
+            code_string = range.document.split("\n")[range.start.line]
+            pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
+            exception_message = f"An error occurred while compiling code at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
         super().__init__(exception_message)
 
 
 class CompileWarning(UserWarning):
-    def __init__(self, message, code_string: str = "", line_num: int = -1, column_num: int = -1):
-        code_string = code_string.split("\n")[line_num] if code_string else ""
-        if code_string:
-            warning_message = f"Compilation warning({line_num}:{column_num}):\n{code_string}\n{' ' * column_num + '^'}\n{message}"
-        else:
-            warning_message = f"Compilation warning:\n{message}"
+    def __init__(self, message, range: Range):
+        code_string = range.document.split("\n")[range.start.line]
+        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
+        warning_message = f"Warning generated at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
         super().__init__(warning_message)
+
+
+class MergeError(Exception):
+    pass

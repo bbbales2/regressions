@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from distutils.errors import CompileError
 import itertools
+from types import NoneType
 from typing import Tuple, Union, Type, List, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -8,12 +9,12 @@ if TYPE_CHECKING:
 
 
 from . import types
+from .scanner import Range
 
 
 @dataclass
 class ASTNode:
-    line_index: int = field(default=-1, kw_only=True)  # line index of the original model code
-    column_index: int = field(default=-1, kw_only=True)  # column index of the original model code
+    range: Range = field(default=lambda: None, kw_only=True)
 
     def __iter__(self):
         yield self
@@ -163,8 +164,8 @@ class Data(PrimeableExpr):
 
 @dataclass
 class Param(PrimeableExpr):
-    lower: Expr = RealConstant(value=float("-inf"))
-    upper: Expr = RealConstant(value=float("inf"))
+    lower: Expr = RealConstant(float("-inf"))
+    upper: Expr = RealConstant(float("inf"))
     assigned_by_scan: bool = False
 
     def get_key(self):
