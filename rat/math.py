@@ -11,6 +11,7 @@ def log_normal(y, mu, sigma):
     logy = jax.numpy.log(y)
     return jax.scipy.stats.norm.logpdf(logy, mu, sigma) - logy
 
+
 def lax_select_scalar(pred, on_true, on_false):
     # For jax.lax.select, the dimensions pred, on_true, on_false must all match.
     # This may not be true for values return by directly generated code(ex. select([True, False], 0.0, 1.0).
