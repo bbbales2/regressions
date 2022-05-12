@@ -407,18 +407,22 @@ class Parser:
                 if len(expressions) != 3:
                     raise ParseError(
                         "Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.",
-                        self.model_string,
-                        token.line_index,
-                        token.column_index,
+                        token.range
                     )
 
                 condition, true_expr, false_expr = expressions
+
+                # parameters are not allowed in conditions.
+                if len(list(search_tree(condition, Param))) > 0:
+                    raise ParseError(
+                        "Parameters are not allowed in ifelse conditions",
+                        token.range
+                    )
                 return IfElse(
                     condition=condition,
                     true_expr=true_expr,
                     false_expr=false_expr,
-                    line_index=token.line_index,
-                    column_index=token.column_index,
+                    range=token.range
                 )
 
             if token.value in self.data_names:
@@ -626,38 +630,6 @@ class Parser:
                     except TypeCheckError as e:
                         raise ParseError(str(e), token.range)
 
-                elif token.value == "ifelse":  # ifelse(boolean_expression, statement, statement)
-                    # 3. ifelse(E_predicate, E_true, E_false) clause, where E_predicate is a boolean expression,
-                    # semantically equal to if E_predicate then E_true else E_false.
-                    self.remove()  # "ifelse"
-                    self.expect_token(Special, "(")
-                    self.remove()  # ")"
-                    expressions = self.expressions(entry_token_value="(")
-                    if len(expressions) != 3:
-                        raise ParseError(
-                            "Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.",
-                            self.model_string,
-                            token.line_index,
-                            token.column_index,
-                        )
-
-                    condition, true_expr, false_expr = expressions
-                    # parameters are not allowed in conditions.
-                    if len(list(search_tree(condition, Param))) > 0:
-                        raise ParseError(
-                            "Parameters are not allowed in ifelse conditions",
-                            self.model_string,
-                            token.line_index,
-                            token.column_index
-                        )
-                    exp = IfElse(
-                        condition=condition,
-                        true_expr=true_expr,
-                        false_expr=false_expr,
-                        line_index=token.line_index,
-                        column_index=token.column_index,
-                    )
-
                 else:
                     raise ParseError(f"Unknown token '{token.value}'", token.range)
 
@@ -711,7 +683,7 @@ class Parser:
                 try:
                     return_statement = Distributions.generate(lhs, expressions, distribution)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), range)
+                    raise ParseError(str(e), lhs.range)
 
             else:
                 if op.value == "<":
