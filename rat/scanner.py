@@ -112,6 +112,7 @@ special_characters = [
 ]  # symbols indicating change in semantics or control flow
 
 operator_strings = ["=", "+", "-", "*", "/", "^", "%", "<", ">", "=", ">=", "<=", "!=", "==", "'"]
+compound_operator_strings = [">=", "<=", "!=", "=="]
 
 delimeters = [
     " ",
@@ -195,8 +196,9 @@ class Scanner:
             else:
                 return True
 
-        position = Position(self.line_index, self.column_index - len(self.register) - offset, document=self.model_code)
+        #print(self.register)
 
+        position = Position(self.line_index, self.column_index - len(self.register) - offset, document=self.model_code)
         if self.register == " " or not self.register:
             token = NullToken()
         elif self.register == ";":
@@ -208,13 +210,14 @@ class Scanner:
                 self.current_tokens = []
             return
 
+
         elif casts_to_int(self.register):
             token = IntLiteral(self.register, position)
         elif realnum.match(self.register):
             token = RealLiteral(self.register, position)
         elif self.register in special_characters:
             token = Special(self.register, position)
-        elif self.register in operator_strings:
+        elif self.register in operator_strings + compound_operator_strings:
             token = Operator(self.register, position)
         else:
             if self.register.isidentifier():
@@ -422,14 +425,9 @@ class Scanner:
             self.raise_error(f"Character '{self.current_char}' cannot be present within scientific notation!")
 
     def operator_state(self):
-        # if self.model_code[self.subscript].isnumeric() and self.register == "-":
-        #     # transition 1: if we find a numeric, change to integer state
-        #     # lookahead used, needs to be improved
-        #     #self.register += self.current_char
-        #     self.current_state = self.integer_state
-        #
-        # else:
-        #     self.reduce_register()
-        #     self.current_state = self.default_state
+        # for 2-length operators, we need to lookahead 1 token to see if they form a compound operator
+        if self.register + self.model_code[self.index] in compound_operator_strings:
+            self.consume()
+            self.register += self.current_char
         self.reduce_register(offset=0)
         self.current_state = self.default_state
