@@ -235,11 +235,14 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
                 self.expression_string += f"subscripts['{subscript_key}']"
 
             case ast.IfElse():
-                predicate = ast_node.condition
-                self.expression_string += "jax.lax.select("
-
+                primary = self.primary_variable.name
+                self.expression_string += "rat.math.lax_select_scalar("
+                self.generate(ast_node.condition)
+                self.expression_string += ", "
+                self.generate(ast_node.true_expr)
+                self.expression_string += ", "
+                self.generate(ast_node.false_expr)
                 self.expression_string += ")"
-
 
             case _:
                 super().generate(ast_node)
