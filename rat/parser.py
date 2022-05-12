@@ -659,6 +659,8 @@ class Parser:
                         raise ParseError(str(e), self.model_string, token.line_index, token.column_index)
 
                 elif token.value == "ifelse":  # ifelse(boolean_expression, statement, statement)
+                    # 3. ifelse(E_predicate, E_true, E_false) clause, where E_predicate is a boolean expression,
+                    # semantically equal to if E_predicate then E_true else E_false.
                     self.remove()  # "ifelse"
                     self.expect_token(Special, "(")
                     self.remove()  # ")"
@@ -672,6 +674,14 @@ class Parser:
                         )
 
                     condition, true_expr, false_expr = expressions
+                    # parameters are not allowed in conditions.
+                    if len(list(search_tree(condition, Param))) > 0:
+                        raise ParseError(
+                            "Parameters are not allowed in ifelse conditions",
+                            self.model_string,
+                            token.line_index,
+                            token.column_index
+                        )
                     exp = IfElse(
                         condition=condition,
                         true_expr=true_expr,
@@ -695,8 +705,6 @@ class Parser:
         Evaluates a single statement. Statements in Rat are either:
         1. assignments
         2. sampling statements
-        3. ifelse(E_predicate, E_true, E_false) clause, where E_predicate is a boolean expression, semantically equal to
-        if E_predicate then E_true else E_false.
         They will get resolved into an `ops.Assignment` or an `ops.Distr` object.
         :return:
         """

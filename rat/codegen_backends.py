@@ -196,7 +196,7 @@ class BaseCodeGenerator:
 
 
 class EvaluateDensityCodeGenerator(BaseCodeGenerator):
-    variable_name: str = None
+    variable_name: str = None  # This is an internal attribute that's used to pass variable name when generating subscripts
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -227,6 +227,14 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
                     self.primary_variable_name, self.variable_name, subscript_names, subscript_shifts
                 )
                 self.expression_string += f"subscripts['{subscript_key}']"
+
+            case ast.IfElse():
+                predicate = ast_node.condition
+                self.expression_string += "jax.lax.select("
+
+                self.expression_string += ")"
+
+
             case _:
                 super().generate(ast_node)
 
