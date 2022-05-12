@@ -695,7 +695,9 @@ class IfElse(Expr):
         signatures = {
             (types.BooleanType, types.IntegerType, types.IntegerType): types.IntegerType,
             (types.BooleanType, types.RealType, types.RealType): types.RealType,
-            (types.BooleanType, types.NumericType, types.NumericType): types.NumericType,
+            # (types.BooleanType, types.NumericType, types.NumericType): types.NumericType,
+            # this signature is not supported, because the backend, jax.lax.select, requires that the types of true
+            # and false be equal
         }
         self.out_type = types.get_output_type(signatures, (self.condition.out_type, self.true_expr.out_type, self.false_expr.out_type))
 
