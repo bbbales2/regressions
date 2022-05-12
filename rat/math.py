@@ -13,8 +13,9 @@ def log_normal(y, mu, sigma):
 
 def lax_select_scalar(pred, on_true, on_false):
     # For jax.lax.select, the dimensions pred, on_true, on_false must all match.
-    # This may not be true for values return by directly generated code.
-    # This function is a wrapper to support scalar expressions with array preds
+    # This may not be true for values return by directly generated code(ex. select([True, False], 0.0, 1.0).
+    # This function is a wrapper to support scalar expressions with array preds by expanding scalars to an array,
+    # making them compatible with select()
     if isinstance(pred, jax.numpy.ndarray):
         if not isinstance(on_true, jax.numpy.ndarray):
             on_true = jax.numpy.full(pred.shape, on_true)
