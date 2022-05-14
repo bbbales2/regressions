@@ -257,20 +257,31 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
         super().__init__(*args, **kwargs)
         self.lhs_used_in_rhs = False
         self.lhs_key = ""
-        self.at_rhs = False
+        self.at_rhs_of_scan = False
+        # at_rhs_of_scan is used to indicate whether we are generating code for the RHS of a jax.lax.scan().
+        # scan() differ fron normal array operations because we're working elementwise on the parameter array.
+        # this means we can't just do data["a"] + parameter["b"], but instead need to index them one by one, depending
+        # on the LHS parameter's index. We do that by appending [index] to RHS variables, so that we're indexing an
+        # array. (ex. parameters["b"][1], where index = 1)
 
     def generate(self, ast_node: ast.Expr):
         match ast_node:
             case ast.Subscript():
                 super().generate(ast_node)
-                if self.at_rhs:
+                if self.at_rhs_of_scan:
+                    # This means parameters need to be treated elementwise
+                    self.expression_string += "[index]"
+            case ast.Data():
+                super().generate(ast_node)
+                if self.at_rhs_of_scan:
+                    # This means parameters need to be treated elementwise
                     self.expression_string += "[index]"
             case ast.Param():
                 param_key = ast_node.get_key()
 
                 if ast_node.subscript:
                     if param_key == self.lhs_key:
-                        if self.at_rhs:
+                        if self.at_rhs_of_scan:
                             # scan function
                             subscript = ast_node.subscript
 
@@ -325,9 +336,9 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                         self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'][index], lambda : {zero_tuple_string}, lambda : carry)\n"
                     self.expression_string += f"    {carry_tuple_string} = carry\n"
                     self.expression_string += f"    next_value = "
-                    self.at_rhs = True
+                    self.at_rhs_of_scan = True
                     self.generate(rhs)
-                    self.at_rhs = False
+                    self.at_rhs_of_scan = False
                     self.expression_string += "\n"
                     self.expression_string += f"    return {next_carry_tuple_string}, next_value\n\n"
 
