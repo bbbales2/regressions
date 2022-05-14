@@ -145,13 +145,17 @@ class BaseCodeGenerator:
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
             case ast.Floor():
-                self.expression_string += "jx.numpy.floor("
+                self.expression_string += "jax.numpy.floor("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
             case ast.Ceil():
                 self.expression_string += "jax.numpy.ceil("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
+            case ast.Real():
+                self.expression_string += "jax.numpy.array("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ", dtype = 'float')"
             case ast.Round():
                 self.expression_string += "jax.numpy.round("
                 self.generate(ast_node.subexpr)

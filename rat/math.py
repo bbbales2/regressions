@@ -21,14 +21,14 @@ def lax_select_scalar(pred, on_true, on_false):
         if not isinstance(on_true, jax.numpy.ndarray):
             # if pred is an array but on_true is a scalar, convert on_true to array by filling
             on_true = jax.numpy.full(pred.shape, on_true)
-        elif isinstance(on_true, jax.numpy.ndarray) and on_true.size == 1:
+        elif isinstance(on_true, jax.numpy.ndarray) and on_true.size == 1 and len(pred.shape) > 0:
             # do the same for "arrays" pretending to be an array (array with no dims)
             on_true = jax.numpy.tile(on_true, pred.size)
 
         # do the exact same thing for on_false
         if not isinstance(on_false, jax.numpy.ndarray):
             on_false = jax.numpy.full(pred.shape, on_false)
-        elif isinstance(on_false, jax.numpy.ndarray) and on_false.size == 1:
+        elif isinstance(on_false, jax.numpy.ndarray) and on_false.size == 1 and len(pred.shape) > 0:
             on_false = jax.numpy.tile(on_false, pred.size)
 
     return jax.lax.select(pred, on_true, on_false)

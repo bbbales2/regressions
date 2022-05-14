@@ -128,22 +128,23 @@ class UnaryFunctions:
     A utility class that's used to identify and build unary functions.
     """
 
-    names = ["exp", "log", "abs", "floor", "ceil", "round", "sin", "cos", "tan", "arcsin", "arccos", "arctan", "logit", "inverse_logit"]
+    names = ["exp", "log", "abs", "floor", "ceil", "real", "round", "sin", "cos", "tan", "arcsin", "arccos", "arctan", "logit", "inverse_logit"]
     precedence = {
-        "exp": 100,
-        "log": 100,
         "abs": 100,
-        "floor": 100,
+        "arccos": 100,
+        "arcsin": 100,
+        "arctan": 100,
         "ceil": 100,
+        "cos": 100,
+        "exp": 100,
+        "floor": 100,
+        "inverse_logit": 100,
+        "log": 100,
+        "logit": 100,
+        "real": 100,
         "round": 100,
         "sin": 100,
-        "cos": 100,
         "tan": 100,
-        "arcsin": 100,
-        "arccos": 100,
-        "arctan": 100,
-        "logit": 100,
-        "inverse_logit": 100,
     }
 
     @staticmethod
@@ -160,6 +161,8 @@ class UnaryFunctions:
             return Log(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "abs":
             return Abs(subexpr=subexpr, range=func_type.range)
+        elif func_type.value == "real":
+            return Real(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "floor":
             return Floor(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "ceil":

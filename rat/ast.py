@@ -565,6 +565,20 @@ class Ceil(UnaryExpr):
 
 
 @dataclass
+class Real(UnaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.IntegerType,): types.RealType,
+            (types.RealType,): types.RealType,
+            (types.NumericType,): types.RealType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
+
+    def __str__(self):
+        return f"Real({self.subexpr})"
+
+
+@dataclass
 class Round(UnaryExpr):
     def __post_init__(self):
         signatures = {
