@@ -63,7 +63,7 @@ def test_ifelse_recursive_assignment():
     # This first line more or less shouldn't matter
     offset' ~ normal(mu[school], 1000.0);
     mu[school]' = ifelse(
-        school[school] == 1,
+        school == 1,
         10.0,
         mu[shift(school, 1)] + 1.0
     ) + epsilon[school];
