@@ -16,7 +16,8 @@ from .exceptions import CompileError, MergeError
 from .variable_table import VariableTable, VariableType
 from rat import variable_table
 
-def add_primary_information_to_ast(expr_tree_list_old : List[ast.Expr]):
+
+def add_primary_information_to_ast(expr_tree_list_old: List[ast.Expr]):
     expr_tree_list = copy.deepcopy(expr_tree_list_old)
 
     # figure out which symbols will have dataframes
@@ -75,6 +76,7 @@ def add_primary_information_to_ast(expr_tree_list_old : List[ast.Expr]):
         primary_symbol.prime = True
 
     return expr_tree_list
+
 
 class Compiler:
     data: Union[pandas.DataFrame, Dict]
