@@ -24,15 +24,13 @@ def test_ifelse_basic():
     mu_df = fit.draws("mu")
 
     for row in mu_df.itertuples():
-       assert row.mu == pytest.approx(0.0 if row.school <= 4 else 1.0, abs=1e-3, rel=1e-3)
+        assert row.mu == pytest.approx(0.0 if row.school <= 4 else 1.0, abs=1e-3, rel=1e-3)
+
 
 def test_ifelse_recursive():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
-    data_df = pandas.DataFrame({
-        "school" : [1, 2, 3, 4],
-        "offset" : [10.0, 0.0, 0.0, 0.0]
-    })
+    data_df = pandas.DataFrame({"school": [1, 2, 3, 4], "offset": [10.0, 0.0, 0.0, 0.0]})
 
     model_string = """
     # This first line more or less shouldn't matter
@@ -53,15 +51,13 @@ def test_ifelse_recursive():
     mu_df = fit.draws("mu")
 
     for row in mu_df.itertuples():
-       assert row.mu == pytest.approx(9.0 + row.school, abs=1e-3, rel=1e-3)
+        assert row.mu == pytest.approx(9.0 + row.school, abs=1e-3, rel=1e-3)
+
 
 def test_ifelse_recursive_assignment():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
-    data_df = pandas.DataFrame({
-        "school" : [1, 2, 3, 4],
-        "offset" : [10.0, 0.0, 0.0, 0.0]
-    })
+    data_df = pandas.DataFrame({"school": [1, 2, 3, 4], "offset": [10.0, 0.0, 0.0, 0.0]})
 
     model_string = """
     # This first line more or less shouldn't matter
@@ -80,7 +76,7 @@ def test_ifelse_recursive_assignment():
     mu_df = fit.draws("mu")
 
     for row in mu_df.itertuples():
-       assert row.mu == pytest.approx(9.0 + row.school, abs=1e-3, rel=1e-3)
+        assert row.mu == pytest.approx(9.0 + row.school, abs=1e-3, rel=1e-3)
 
 
 if __name__ == "__main__":

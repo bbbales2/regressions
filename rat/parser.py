@@ -128,7 +128,23 @@ class UnaryFunctions:
     A utility class that's used to identify and build unary functions.
     """
 
-    names = ["exp", "log", "abs", "floor", "ceil", "real", "round", "sin", "cos", "tan", "arcsin", "arccos", "arctan", "logit", "inverse_logit"]
+    names = [
+        "exp",
+        "log",
+        "abs",
+        "floor",
+        "ceil",
+        "real",
+        "round",
+        "sin",
+        "cos",
+        "tan",
+        "arcsin",
+        "arccos",
+        "arctan",
+        "logit",
+        "inverse_logit",
+    ]
     precedence = {
         "abs": 100,
         "arccos": 100,
