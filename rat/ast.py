@@ -465,14 +465,6 @@ class Assignment(Statement):
         for expr in itertools.chain(self.lhs, self.rhs):
             yield expr
 
-    # def __post_init__(self):
-    #     signatures = {
-    #         (types.IntegerType,): types.IntegerType,
-    #         (types.RealType,): types.RealType,
-    #         (types.NumericType,): types.NumericType,
-    #     }
-    #     self.out_type = types.get_output_type(signatures, (self.rhs.out_type,))
-
     def __str__(self):
         return f"Assignment({self.lhs}, {self.rhs})"
 

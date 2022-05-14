@@ -663,8 +663,7 @@ class Parser:
                 # distribution declaration
                 self.expect_token(Special, "~")
                 self.remove()  # ~
-                distribution = self.peek()
-                self.expect_token(Identifier, Distributions.names)
+                distribution = self.expect_token(Identifier, Distributions.names)
                 self.remove()  # distribution
 
                 self.expect_token(Special, "(")
@@ -675,7 +674,7 @@ class Parser:
                 try:
                     return_statement = Distributions.generate(lhs, expressions, distribution)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), lhs.range)
+                    raise ParseError(str(e), distribution.range)
 
             else:
                 if op.value == "<":
