@@ -78,6 +78,7 @@ def test_ifelse_recursive_assignment():
     for row in mu_df.itertuples():
         assert row.mu == pytest.approx(9.0 + row.school, abs=1e-3, rel=1e-3)
 
+
 def test_ifelse_recursive_assignment2():
     # this is a test for ifelse when the length of a subscript parameter is different from the # of elements in
     # the subscript data column
