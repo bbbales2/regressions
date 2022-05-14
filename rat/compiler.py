@@ -185,7 +185,7 @@ class Compiler:
                 try:
                     primary_variable.set_subscript_names(primary_subscript_names)
                 except AttributeError:
-                    msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {variable.subscripts}"
+                    msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {primary_variable.subscripts}"
                     raise CompileError(msg, primary_symbol.range)
 
             primary_subscript_names = primary_variable.subscripts

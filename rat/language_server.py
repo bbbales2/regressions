@@ -131,16 +131,17 @@ class LanguageServer:
             if match is None:
                 break
 
-            logging.debug(clean_line)
-            logging.debug(match.group(1))
             data_hints_string += match.group(1)
 
         logging.debug(f"Parsing {data_hints_string}")
 
-        try:
-            data_hints = json.loads(data_hints_string)
-        except Exception:
-            raise Exception("Error parsing json")
+        if data_hints_string.strip() == "":
+            data_hints = {}
+        else:
+            try:
+                data_hints = json.loads(data_hints_string)
+            except Exception:
+                raise Exception("Error parsing json")
 
         if not isinstance(data_hints, dict):
             if isinstance(data_hints, list):
@@ -245,9 +246,9 @@ class LanguageServer:
         if len(contentChanges) != 1:
             raise Exception("There should be exactly one change. textDocumentSync should be for full document only, not incremental")
         uri = textDocument["uri"]
-        incoming_document = Document(uri=uri, version=textDocument["version"], text=contentChanges[0])
+        incoming_document = Document(uri=uri, version=textDocument["version"], text=contentChanges[0]["text"])
 
-        if self.documents[uri] < incoming_document:
+        if self.documents[uri].version < incoming_document.version:
             validateDocument(incoming_document)
             self.documents[uri] = incoming_document
 
