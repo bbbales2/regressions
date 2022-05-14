@@ -1,4 +1,5 @@
 from codeop import Compile
+import copy
 import itertools
 import pandas
 import jax
@@ -15,6 +16,65 @@ from .exceptions import CompileError, MergeError
 from .variable_table import VariableTable, VariableType
 from rat import variable_table
 
+def add_primary_information_to_ast(expr_tree_list_old : List[ast.Expr]):
+    expr_tree_list = copy.deepcopy(expr_tree_list_old)
+
+    # figure out which symbols will have dataframes
+    has_dataframe = set()
+    for top_expr in expr_tree_list:
+        for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
+            if isinstance(primeable_symbol, ast.Data) or primeable_symbol.subscript is not None:
+                has_dataframe.add(primeable_symbol.get_key())
+
+    for top_expr in expr_tree_list:
+        # We compute the primary variable reference in a line of code with the rules:
+        # 1. There can only be one primary variable reference (priming two references to the same variable is still an error)
+        # 2. If a variable is marked as primary, then it is the primary variable.
+        # 3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
+        # 4. If there are no variables with dataframes, the leftmost one is the primary one
+        # 5. It is an error if no primary variable can be identified
+        primary_symbol: ast.PrimeableExpr = None
+        # Rule 2
+        for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
+            if primeable_symbol.prime:
+                if primary_symbol is None:
+                    primary_symbol = primeable_symbol
+                else:
+                    msg = f"Found two marked primary variables {primary_symbol.get_key()} and {primeable_symbol.get_key()}. There should only be one"
+                    raise CompileError(msg, top_expr.range)
+
+        # Rule 3
+        if primary_symbol is None:
+            for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
+                primeable_key = primeable_symbol.get_key()
+
+                if primeable_key in has_dataframe:
+                    if primary_symbol is None:
+                        primary_symbol = primeable_symbol
+                    else:
+                        primary_key = primary_symbol.get_key()
+                        if primary_key != primeable_key:
+                            msg = f"No marked primary variable and at least {primary_key} and {primeable_key} are candidates. A primary variable should be marked manually"
+                            raise CompileError(msg, top_expr.range)
+                        else:
+                            msg = f"No marked primary variable but found multiple references to {primary_key}. One reference should be marked manually"
+                            raise CompileError(msg, top_expr.range)
+
+        # Rule 4
+        if primary_symbol is None:
+            for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
+                primary_symbol = primeable_symbol
+                break
+
+        # Rule 5
+        if primary_symbol is None:
+            msg = f"No primary variable found on line (this means there are no candidate variables)"
+            raise CompileError(msg, top_expr.range)
+
+        # Mark the primary symbol if it wasn't already
+        primary_symbol.prime = True
+
+    return expr_tree_list
 
 class Compiler:
     data: Union[pandas.DataFrame, Dict]
@@ -23,7 +83,7 @@ class Compiler:
 
     def __init__(self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List[ast.Expr], model_code_string: str = ""):
         self.data = data
-        self.expr_tree_list = expr_tree_list
+        self.expr_tree_list = add_primary_information_to_ast(expr_tree_list)
         self.model_code_string = model_code_string
         self.variable_table: VariableTable = None
         self.generated_code = ""
@@ -40,62 +100,6 @@ class Compiler:
             msg = f"Internal compiler error. No primary variable found"
             raise CompileError(msg, top_expr.range)
         return primary_symbol
-
-    def _identify_primary_symbols(self):
-        # figure out which symbols will have dataframes
-        has_dataframe = set()
-        for top_expr in self.expr_tree_list:
-            for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
-                if isinstance(primeable_symbol, ast.Data) or primeable_symbol.subscript is not None:
-                    has_dataframe.add(primeable_symbol.get_key())
-
-        for top_expr in self.expr_tree_list:
-            # We compute the primary variable reference in a line of code with the rules:
-            # 1. There can only be one primary variable reference (priming two references to the same variable is still an error)
-            # 2. If a variable is marked as primary, then it is the primary variable.
-            # 3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
-            # 4. If there are no variables with dataframes, the leftmost one is the primary one
-            # 5. It is an error if no primary variable can be identified
-            primary_symbol: ast.PrimeableExpr = None
-            # Rule 2
-            for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
-                if primeable_symbol.prime:
-                    if primary_symbol is None:
-                        primary_symbol = primeable_symbol
-                    else:
-                        msg = f"Found two marked primary variables {primary_symbol.get_key()} and {primeable_symbol.get_key()}. There should only be one"
-                        raise CompileError(msg, top_expr.range)
-
-            # Rule 3
-            if primary_symbol is None:
-                for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
-                    primeable_key = primeable_symbol.get_key()
-
-                    if primeable_key in has_dataframe:
-                        if primary_symbol is None:
-                            primary_symbol = primeable_symbol
-                        else:
-                            primary_key = primary_symbol.get_key()
-                            if primary_key != primeable_key:
-                                msg = f"No marked primary variable and at least {primary_key} and {primeable_key} are candidates. A primary variable should be marked manually"
-                                raise CompileError(msg, top_expr.range)
-                            else:
-                                msg = f"No marked primary variable but found multiple references to {primary_key}. One reference should be marked manually"
-                                raise CompileError(msg, top_expr.range)
-
-            # Rule 4
-            if primary_symbol is None:
-                for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
-                    primary_symbol = primeable_symbol
-                    break
-
-            # Rule 5
-            if primary_symbol is None:
-                msg = f"No primary variable found on line (this means there are no candidate variables)"
-                raise CompileError(msg, top_expr.range)
-
-            # Mark the primary symbol if it wasn't already
-            primary_symbol.prime = True
 
     def _get_shifts_and_padding(self, subscript: ast.Subscript):
         """
@@ -128,7 +132,7 @@ class Compiler:
 
     def build_variable_table(self):
         """
-        Builds the "symbol table", which holds information for all variables in the model.
+        Builds the variable table, which holds information for all variables in the model.
         """
         self.variable_table = VariableTable(self.data)
 
@@ -448,8 +452,6 @@ class Compiler:
         self.generated_code += "    return target\n"
 
     def compile(self):
-        self._identify_primary_symbols()
-
         self.build_variable_table()
 
         self.variable_table.prepare_unconstrained_parameter_mapping()
