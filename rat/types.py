@@ -31,6 +31,10 @@ class SubscriptSetType(BaseType):
     name = "SubscriptSet"
 
 
+class BooleanType(BaseType):
+    name = "Boolean"
+
+
 class TypeOr:
     def __init__(self, *args):
         self.types = args
@@ -54,4 +58,4 @@ def get_output_type(signatures: Dict[Tuple[Type[BaseType], ...], Type[BaseType]]
         if all([issubclass(in_sigs[i], in_sig[i]) for i in range(len(in_sigs))]):
             return out_sig
 
-    raise TypeCheckError(f"Input Type signature {[x.name for x in in_sigs]} is invalid.\nValid signatures:\n\n" + string_output)
+    raise TypeCheckError(f"Input Type signature {[x.name for x in in_sigs]} is invalid.\nValid type signatures:\n\n" + string_output)

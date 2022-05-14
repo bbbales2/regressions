@@ -103,6 +103,30 @@ class BaseCodeGenerator:
             case ast.PrefixNegation():
                 self.expression_string += "-"
                 self.generate(ast_node.subexpr)
+            case ast.LessThan():
+                self.generate(ast_node.left)
+                self.expression_string += " < "
+                self.generate(ast_node.right)
+            case ast.GreaterThan():
+                self.generate(ast_node.left)
+                self.expression_string += " > "
+                self.generate(ast_node.right)
+            case ast.LessThanOrEq():
+                self.generate(ast_node.left)
+                self.expression_string += " <= "
+                self.generate(ast_node.right)
+            case ast.GreaterThanOrEq():
+                self.generate(ast_node.left)
+                self.expression_string += " >= "
+                self.generate(ast_node.right)
+            case ast.EqualTo():
+                self.generate(ast_node.left)
+                self.expression_string += " == "
+                self.generate(ast_node.right)
+            case ast.NotEqualTo():
+                self.generate(ast_node.left)
+                self.expression_string += " != "
+                self.generate(ast_node.right)
 
             case ast.Sqrt():
                 self.expression_string += "jax.numpy.sqrt("
@@ -121,13 +145,17 @@ class BaseCodeGenerator:
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
             case ast.Floor():
-                self.expression_string += "jx.numpy.floor("
+                self.expression_string += "jax.numpy.floor("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
             case ast.Ceil():
                 self.expression_string += "jax.numpy.ceil("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
+            case ast.Real():
+                self.expression_string += "jax.numpy.array("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ", dtype = 'float')"
             case ast.Round():
                 self.expression_string += "jax.numpy.round("
                 self.generate(ast_node.subexpr)
@@ -164,12 +192,13 @@ class BaseCodeGenerator:
                 self.expression_string += "jax.scipy.special.expit("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
+
             case _:
                 raise NotImplementedError()
 
 
 class EvaluateDensityCodeGenerator(BaseCodeGenerator):
-    variable_name: str = None
+    variable_name: str = None  # This is an internal attribute that's used to pass variable name when generating subscripts
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -208,6 +237,17 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
                     self.primary_variable_name, self.variable_name, subscript_names, subscript_shifts
                 )
                 self.expression_string += f"subscripts['{subscript_key}']"
+
+            case ast.IfElse():
+                primary = self.primary_variable.name
+                self.expression_string += "rat.math.lax_select_scalar("
+                self.generate(ast_node.condition)
+                self.expression_string += ", "
+                self.generate(ast_node.true_expr)
+                self.expression_string += ", "
+                self.generate(ast_node.false_expr)
+                self.expression_string += ")"
+
             case _:
                 super().generate(ast_node)
 
