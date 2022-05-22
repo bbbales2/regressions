@@ -666,7 +666,15 @@ class Parser:
             raise ParseError("Cannot assign to a distribution.", token.range)
 
         # Step 1. evaluate lhs, assume it's expression
-        lhs = self.parse_nud(is_lhs=True)
+        # ~ operator isn't defined, so we need to capture the parse exception
+        # TODO: make it better
+        try:
+            lhs = self.expression(is_lhs=True)
+        except ParseError as e:
+            if "Unknown token '~'" in e:
+                self.remove()  # ~
+
+        print(lhs)
         if isinstance(lhs, Expr):
             op = self.peek()
 
@@ -676,7 +684,7 @@ class Parser:
                 try:
                     return_statement = AssignmentOps.generate(lhs, rhs, op)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), range)
+                    raise ParseError("Error while parsing assignment: " + str(e), op.range)
 
             elif isinstance(op, Special) and op.value == "~":
                 # distribution declaration
