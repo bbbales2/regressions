@@ -28,7 +28,8 @@ def test_distribution_lhs_expression_issue_88():
     assert mu_df["mu"][0] == pytest.approx(4.61934000, rel=1e-2)
     assert tau_df["tau"][0] == pytest.approx(0.36975800, rel=1e-2)
 
-#https://github.com/bbbales2/regressions/issues/89
+
+# https://github.com/bbbales2/regressions/issues/89
 def test_primed_variable_does_not_exist_issue_89():
     data_df = pandas.read_csv(os.path.join(test_dir, "bernoulli.csv"))
 
