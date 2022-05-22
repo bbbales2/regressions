@@ -678,6 +678,8 @@ class Parser:
         if isinstance(lhs, Expr):
 
             if AssignmentOps.check(op):
+                if not isinstance(lhs, Param):
+                    raise ParseError("Can only assign values to variables!", lhs.range)
                 self.remove()  # assignment operator
                 rhs = self.expression()
                 try:
