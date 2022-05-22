@@ -57,10 +57,13 @@ class InfixOps:
     A utility class that's used to identify and build binary operation expressions.
     Currently supported operations are:
     `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`, `ops.Div`
+
+    Note on '~' and '='. They are not actually parsed into an AST node. They're included in InfixOps check just so
+    Parser.statement() can detect them and stop before processing them.
     """
 
-    ops = ["+", "-", "*", "^", "/", "%", "<", ">", "<=", ">=", "!=", "=="]
-    precedence = {"+": 10, "-": 10, "*": 30, "/": 30, "^": 40, "%": 30, "<": 5, ">": 5, "<=": 5, ">=": 5, "!=": 5, "==": 5}
+    ops = ["+", "-", "*", "^", "/", "%", "<", ">", "<=", ">=", "!=", "==", "~", "="]
+    precedence = {"+": 10, "-": 10, "*": 30, "/": 30, "^": 40, "%": 30, "<": 5, ">": 5, "<=": 5, ">=": 5, "!=": 5, "==": 5, "~": 1, "=": 1}
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -666,21 +669,27 @@ class Parser:
             raise ParseError("Cannot assign to a distribution.", token.range)
 
         # Step 1. evaluate lhs, assume it's expression
-        lhs = self.parse_nud(is_lhs=True)
+        # we set = and ~ to have a precedence value of 1, so setting minimum precedence to 2 makes the parser stop right
+        # before consuming them
+        # TODO: make it better
+        lhs = self.expression(is_lhs=True, min_precedence=2)
+
+        op = self.peek()
         if isinstance(lhs, Expr):
-            op = self.peek()
 
             if AssignmentOps.check(op):
+                if not isinstance(lhs, Param):
+                    raise ParseError("Can only assign values to variables!", lhs.range)
                 self.remove()  # assignment operator
                 rhs = self.expression()
                 try:
                     return_statement = AssignmentOps.generate(lhs, rhs, op)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), range)
+                    raise ParseError("Error while parsing assignment: " + str(e), op.range)
 
-            elif isinstance(op, Special) and op.value == "~":
+            elif isinstance(op, Operator) and op.value == "~":
                 # distribution declaration
-                self.expect_token(Special, "~")
+                self.expect_token(Operator, "~")
                 self.remove()  # ~
                 distribution = self.expect_token(Identifier, Distributions.names)
                 self.remove()  # distribution
