@@ -1,0 +1,27 @@
+fun target (
+    df : dataframe of int
+) -> real =
+    let
+        fun cow int -> real = horse
+        fun frog real -> real = chicken
+    in
+        y ~ normal (x(i, j), sigma)
+        + z ~ normal (apple)
+    end
+
+#fun target (
+#  dataframe of { y : real, i : int }
+#) =
+#  let
+#    fun mu (i) = mu(i - 1) + epsilon(i);
+#  do
+#    y ~ normal(mu(i), 0.1)
+#    + epsilon ~ normal(0, 0.3)
+#  end
+
+#let
+#    fun horse = birds
+#    fun crow = frog
+#in
+#    field
+#end

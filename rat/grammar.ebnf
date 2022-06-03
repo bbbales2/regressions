@@ -1,0 +1,135 @@
+@@grammar::Calc
+@@eol_comments :: /#.*?$/
+@@keyword :: let in end fun
+
+start
+    =
+    { declaration }+ $
+    ;
+
+expression
+    =
+    | let
+    | addition
+    | subtraction
+    | term
+    ;
+
+let::Let
+    =
+    'let' ~ declarations:{ declaration }+ 'in' ~ body:expression 'end'
+    ;
+
+declarations
+    =
+    @+:declaration { @+:declaration }*
+    ;
+
+declaration::Declaration
+    =
+    'fun' ~ id:identifier named_type '->' type '=' expr:expression
+    ;
+
+named_type::NamedType
+    =
+    | identifier ':' ~ type
+    | type
+    ;
+
+type::Type
+    =
+    | dataframe
+    | record
+    | tuple_type
+    | primitive
+    ;
+
+dataframe::Dataframe
+    =
+    'dataframe' ~ 'of' ~ type
+    ;
+
+record::Record
+    =
+    '{' ~ @+:named_type { ',' @+:named_type }* '}'
+    ;
+
+primitive::Primitive
+    =
+    | '(' [@:named_type] ')'
+    | 'int'
+    | 'real'    
+    ;
+
+tuple_type::Tuple
+    =
+    '(' @+:named_type ',' ~ {@+:named_type ','}* @+:named_type [','] ')'
+    ;
+
+function_call::FunctionCall
+    =
+    id:identifier arg:factor
+    ;
+
+addition::Add
+    =
+    left:term op:'+' ~ right:expression
+    ;
+
+subtraction::Subtract
+    =
+    left:term op:'-' ~ right:expression
+    ;
+
+term
+    =
+    | multiplication
+    | division
+    | factor
+    ;
+
+multiplication::Multiply
+    =
+    left:factor op:'*' ~ right:term
+    ;
+
+division::Divide
+    =
+    left:factor '/' ~ right:term
+    ;
+
+factor
+    =
+    | twiddle
+    | function_call
+    | tuple
+    | subexpression
+    | number
+    | identifier
+    ;
+
+twiddle::Twiddle
+    =
+    left:factor op:'~' ~ right:function_call
+    ;
+
+tuple::Tuple
+    =
+    '(' @+:expression ',' ~ {@+:expression ','}* @+:expression [','] ')'
+    ;
+
+subexpression
+    =
+    '(' ~ @:expression ')'
+    ;
+    
+number::int
+    =
+    /\d+/
+    ;
+
+@name
+identifier::str
+    =
+    /[a-zA-Z0-9_]+/
+    ;
