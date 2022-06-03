@@ -1,6 +1,6 @@
 {
-	"name": "lsp-sample",
-	"description": "Rat language server",
+	"name": "rat-language-client",
+	"description": "Rat language client",
 	"license": "GPL3",
 	"version": "1.0.0",
 	"repository": {
@@ -108,6 +108,6 @@
 		"typescript": "^4.6.2"
 	},
 	"dependencies": {
-		"vsce": "^2.7.0"
+		"vsce": "^2.8.0"
 	}
 }
