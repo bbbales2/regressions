@@ -1,0 +1,34 @@
+fun target (
+    df : dataframe of { y : real, i : int }
+) -> real =
+    let
+        fun mu (i : int) -> real =
+            if i == 0 then
+                0.0
+            else
+                mu (i - 1) + epsilon(i)
+        fun likelihood (r : { y : real, i : int }) -> real =
+            r.y ~ normal (mu(r.i), sigma)
+        fun prior (epsilon : real) -> real =
+            epsilon ~ normal (0.0, 1.0)
+    in
+        sum map (df, likelihood)
+        + sum map (epsilon, prior)
+    end
+
+#fun target (
+#  dataframe of { y : real, i : int }
+#) =
+#  let
+#    fun mu (i) = mu(i - 1) + epsilon(i);
+#  do
+#    y ~ normal(mu(i), 0.1)
+#    + epsilon ~ normal(0, 0.3)
+#  end
+
+#let
+#    fun horse = birds
+#    fun crow = frog
+#in
+#    field
+#end

@@ -1,0 +1,90 @@
+@@grammar::Calc
+@@eol_comments :: /#.*?$/
+@@keyword :: let in end fun
+
+start = { declaration }+ $;
+
+declarations = @+:declaration { @+:declaration }*;
+
+declaration::Declaration = 'fun' ~ id:identifier arg:named_type '->' return_type:type '=' expr:expression;
+
+named_type::NamedType =
+    | id:identifier ':' ~ type:type
+    | type:type
+;
+
+type::Type =
+    | dataframe
+    | record
+    | tuple_type
+    | '(' [@:named_type] ')'
+    | 'int'
+    | 'real'
+;
+
+dataframe::Dataframe = 'dataframe' ~ 'of' ~ row_type:record;
+
+record::Record = '{' ~ @+:named_type { ',' @+:named_type }* '}' ;
+
+tuple_type::TupleType = '(' @+:named_type ',' ~ {@+:named_type ','}* @+:named_type [','] ')';
+
+expression =
+    | let
+    | addition
+    | subtraction
+    | term
+;
+
+let::Let = 'let' ~ declarations:{ declaration }+ 'in' ~ body:expression 'end' ;
+
+addition::Add = left:term op:'+' ~ right:expression;
+
+subtraction::Subtract = left:term op:'-' ~ right:expression;
+
+term =
+    | multiplication
+    | division
+    | factor
+;
+
+multiplication::Multiply = left:factor op:'*' ~ right:term;
+
+division::Divide = left:factor op:'/' ~ right:term;
+
+factor
+    =
+    | equals
+    | ifelse
+    | twiddle
+    | function_call
+    | tuple
+    | subexpression
+    | real
+    | integer
+    | selector
+    | identifier
+    ;
+
+equals::Equals = left:factor op:'==' ~ right:factor;
+
+ifelse::IfElse = 'if' ~ predicate:expression 'then' ~ left:expression ['else' ~ right:expression];
+
+twiddle::Twiddle = left:factor op:'~' ~ right:function_call;
+
+function_call::FunctionCall = id:identifier arg:factor;
+
+tuple::Tuple = '(' @+:expression ',' ~ {@+:expression ','}* @+:expression [','] ')';
+
+subexpression = '(' ~ @:expression ')';
+    
+integer::int = /[-]?\d+/;
+
+real::float =
+    | /[-]?[0-9]+\.[0-9]*e[-+]?[0-9]+/
+    | /[-]?[0-9]+\.[0-9]*/
+;
+
+selector::Selector = ids+:identifier { '.' ids+:identifier }+;
+
+@name
+identifier::str = /[a-zA-Z_][a-zA-Z0-9_]*/;
