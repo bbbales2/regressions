@@ -2,64 +2,40 @@
 @@eol_comments :: /#.*?$/
 @@keyword :: let in end fun
 
-start
-    =
-    { declaration }+ $
-    ;
+start = { declaration }+ $;
 
-expression
-    =
-    | let
-    | addition
-    | subtraction
-    | term
-    ;
+declarations = @+:declaration { @+:declaration }*;
 
-let::Let
-    =
-    'let' ~ declarations:{ declaration }+ 'in' ~ body:expression 'end'
-    ;
+declaration::Declaration = 'fun' ~ id:identifier arg:named_type '->' return_type:type '=' expr:expression;
 
-declarations
-    =
-    @+:declaration { @+:declaration }*
-    ;
-
-declaration::Declaration
-    =
-    'fun' ~ id:identifier arg:named_type '->' return_type:type '=' expr:expression
-    ;
-
-named_type::NamedType
-    =
+named_type::NamedType =
     | id:identifier ':' ~ type:type
     | type:type
-    ;
+;
 
-type::Type
-    =
+type::Type =
     | dataframe
     | record
     | tuple_type
     | '(' [@:named_type] ')'
     | 'int'
     | 'real'
-    ;
+;
 
-dataframe::Dataframe
-    =
-    'dataframe' ~ 'of' ~ row_type:record
-    ;
+dataframe::Dataframe = 'dataframe' ~ 'of' ~ row_type:record;
 
-record::Record
-    =
-    '{' ~ @+:named_type { ',' @+:named_type }* '}'
-    ;
+record::Record = '{' ~ @+:named_type { ',' @+:named_type }* '}' ;
 
-tuple_type::TupleType
-    =
-    '(' @+:named_type ',' ~ {@+:named_type ','}* @+:named_type [','] ')'
-    ;
+tuple_type::TupleType = '(' @+:named_type ',' ~ {@+:named_type ','}* @+:named_type [','] ')';
+
+expression =
+    | let
+    | addition
+    | subtraction
+    | term
+;
+
+let::Let = 'let' ~ declarations:{ declaration }+ 'in' ~ body:expression 'end' ;
 
 function_call::FunctionCall
     =

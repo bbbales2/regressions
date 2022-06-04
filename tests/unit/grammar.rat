@@ -12,8 +12,8 @@ fun target (
         fun prior (epsilon : real) -> real =
             epsilon ~ normal (0.0, 1.0)
     in
-        map (df, likelihood)
-        + map (epsilon, prior)
+        sum map (df, likelihood)
+        + sum map (epsilon, prior)
     end
 
 #fun target (
