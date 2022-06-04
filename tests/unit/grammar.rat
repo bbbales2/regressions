@@ -3,7 +3,10 @@ fun target (
 ) -> real =
     let
         fun mu (i : int) -> real =
-            mu (i - 1) + epsilon(i)
+            if i == 0 then
+                0.0
+            else
+                mu (i - 1) + epsilon(i)
         fun likelihood (r : { y : real, i : int }) -> real =
             r.y ~ normal (mu(r.i), sigma)
         fun prior (epsilon : real) -> real =

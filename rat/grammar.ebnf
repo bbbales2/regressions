@@ -90,11 +90,13 @@ multiplication::Multiply
 
 division::Divide
     =
-    left:factor '/' ~ right:term
+    left:factor op:'/' ~ right:term
     ;
 
 factor
     =
+    | equals
+    | ifelse
     | twiddle
     | function_call
     | tuple
@@ -103,6 +105,13 @@ factor
     | integer
     | selector
     | identifier
+    ;
+
+equals::Equals = left:factor op:'==' ~ right:factor;
+
+ifelse::IfElse
+    =
+    'if' ~ predicate:expression 'then' ~ left:expression ['else' ~ right:expression]
     ;
 
 twiddle::Twiddle
