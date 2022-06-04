@@ -1,12 +1,16 @@
 fun target (
-    df : dataframe of int
+    df : dataframe of { y : real, i : int }
 ) -> real =
     let
-        fun cow int -> real = horse
-        fun frog real -> real = chicken
+        fun mu (i : int) -> real =
+            mu (i - 1) + epsilon(i)
+        fun likelihood (r : { y : real, i : int }) -> real =
+            r.y ~ normal (mu(r.i), sigma)
+        fun prior (epsilon : real) -> real =
+            epsilon ~ normal (0.0, 1.0)
     in
-        y ~ normal (x(i, j), sigma)
-        + z ~ normal (apple)
+        map (df, likelihood)
+        + map (epsilon, prior)
     end
 
 #fun target (

@@ -27,13 +27,13 @@ declarations
 
 declaration::Declaration
     =
-    'fun' ~ id:identifier named_type '->' type '=' expr:expression
+    'fun' ~ id:identifier arg:named_type '->' return_type:type '=' expr:expression
     ;
 
 named_type::NamedType
     =
-    | identifier ':' ~ type
-    | type
+    | id:identifier ':' ~ type:type
+    | type:type
     ;
 
 type::Type
@@ -41,12 +41,14 @@ type::Type
     | dataframe
     | record
     | tuple_type
-    | primitive
+    | '(' [@:named_type] ')'
+    | 'int'
+    | 'real'
     ;
 
 dataframe::Dataframe
     =
-    'dataframe' ~ 'of' ~ type
+    'dataframe' ~ 'of' ~ row_type:record
     ;
 
 record::Record
@@ -54,14 +56,7 @@ record::Record
     '{' ~ @+:named_type { ',' @+:named_type }* '}'
     ;
 
-primitive::Primitive
-    =
-    | '(' [@:named_type] ')'
-    | 'int'
-    | 'real'    
-    ;
-
-tuple_type::Tuple
+tuple_type::TupleType
     =
     '(' @+:named_type ',' ~ {@+:named_type ','}* @+:named_type [','] ')'
     ;
@@ -104,7 +99,9 @@ factor
     | function_call
     | tuple
     | subexpression
-    | number
+    | real
+    | integer
+    | selector
     | identifier
     ;
 
@@ -123,13 +120,24 @@ subexpression
     '(' ~ @:expression ')'
     ;
     
-number::int
+integer::int
     =
-    /\d+/
+    /[-]?\d+/
+    ;
+
+real::float
+    =
+    | /[-]?[0-9]+\.[0-9]*e[-+]?[0-9]+/
+    | /[-]?[0-9]+\.[0-9]*/
+    ;
+
+selector::Selector
+    =
+    ids+:identifier { '.' ids+:identifier }+
     ;
 
 @name
 identifier::str
     =
-    /[a-zA-Z0-9_]+/
+    /[a-zA-Z_][a-zA-Z0-9_]*/
     ;
