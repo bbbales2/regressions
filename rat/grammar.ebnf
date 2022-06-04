@@ -37,37 +37,19 @@ expression =
 
 let::Let = 'let' ~ declarations:{ declaration }+ 'in' ~ body:expression 'end' ;
 
-function_call::FunctionCall
-    =
-    id:identifier arg:factor
-    ;
+addition::Add = left:term op:'+' ~ right:expression;
 
-addition::Add
-    =
-    left:term op:'+' ~ right:expression
-    ;
+subtraction::Subtract = left:term op:'-' ~ right:expression;
 
-subtraction::Subtract
-    =
-    left:term op:'-' ~ right:expression
-    ;
-
-term
-    =
+term =
     | multiplication
     | division
     | factor
-    ;
+;
 
-multiplication::Multiply
-    =
-    left:factor op:'*' ~ right:term
-    ;
+multiplication::Multiply = left:factor op:'*' ~ right:term;
 
-division::Divide
-    =
-    left:factor op:'/' ~ right:term
-    ;
+division::Divide = left:factor op:'/' ~ right:term;
 
 factor
     =
@@ -85,44 +67,24 @@ factor
 
 equals::Equals = left:factor op:'==' ~ right:factor;
 
-ifelse::IfElse
-    =
-    'if' ~ predicate:expression 'then' ~ left:expression ['else' ~ right:expression]
-    ;
+ifelse::IfElse = 'if' ~ predicate:expression 'then' ~ left:expression ['else' ~ right:expression];
 
-twiddle::Twiddle
-    =
-    left:factor op:'~' ~ right:function_call
-    ;
+twiddle::Twiddle = left:factor op:'~' ~ right:function_call;
 
-tuple::Tuple
-    =
-    '(' @+:expression ',' ~ {@+:expression ','}* @+:expression [','] ')'
-    ;
+function_call::FunctionCall = id:identifier arg:factor;
 
-subexpression
-    =
-    '(' ~ @:expression ')'
-    ;
+tuple::Tuple = '(' @+:expression ',' ~ {@+:expression ','}* @+:expression [','] ')';
+
+subexpression = '(' ~ @:expression ')';
     
-integer::int
-    =
-    /[-]?\d+/
-    ;
+integer::int = /[-]?\d+/;
 
-real::float
-    =
+real::float =
     | /[-]?[0-9]+\.[0-9]*e[-+]?[0-9]+/
     | /[-]?[0-9]+\.[0-9]*/
-    ;
+;
 
-selector::Selector
-    =
-    ids+:identifier { '.' ids+:identifier }+
-    ;
+selector::Selector = ids+:identifier { '.' ids+:identifier }+;
 
 @name
-identifier::str
-    =
-    /[a-zA-Z_][a-zA-Z0-9_]*/
-    ;
+identifier::str = /[a-zA-Z_][a-zA-Z0-9_]*/;
