@@ -2,7 +2,7 @@ from typing import Tuple
 
 from . import ast
 from .exceptions import CompileError
-from .variable_table import VariableTable
+from .variable_table import VariableTable, VariableRecord
 
 
 class IndentedString:
@@ -355,3 +355,208 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
 
             case _:
                 super().generate(ast_node)
+
+class DiscoverVariablesCodeGenerator():
+    expression_string : str
+
+    def __init__(self):
+        self.expression_string = ""
+
+    def generate(self, ast_node: ast.Expr):
+        match ast_node:
+            case ast.Param():
+                self.expression_string += f"parameters['{ast_node.name}']"
+                if ast_node.subscript:
+                    self.expression_string += "("
+                    self.generate(ast_node.subscript)
+                    self.expression_string += ")"
+            case ast.Data():
+                if ast_node.subscript:
+                    # This is a join
+                    self.expression_string += f"data['{ast_node.name}']"
+                    self.expression_string += "("
+                    self.generate(ast_node.subscript)
+                    self.expression_string += ")"
+                else:
+                    # With no subscript the variable comes from primary dataframe
+                    self.expression_string += ast_node.name
+            case ast.Subscript():
+                subscript_names = tuple(column.name for column in ast_node.names)
+                subscript_shifts = tuple(x.value for x in ast_node.shifts)
+                self.expression_string += ",".join(
+                    f"{name} + {shift}" for name, shift in zip(subscript_names, subscript_shifts)
+                )
+            case ast.IfElse():
+                self.expression_string += "("
+                self.generate(ast_node.true_expr)
+                self.expression_string += ") if ("
+                self.generate(ast_node.condition)
+                self.expression_string += ") else ("
+                self.generate(ast_node.false_expr)
+                self.expression_string += ")"
+
+            case ast.IntegerConstant():
+                self.expression_string += str(ast_node.value)
+            case ast.RealConstant():
+                if ast_node.value == float("inf"):
+                    self.expression_string += "float('inf')"
+                elif ast_node.value == float("-inf"):
+                    self.expression_string += "float('-inf')"
+                else:
+                    self.expression_string += str(ast_node.value)
+            case ast.Normal():
+                self.expression_string += "scipy.stats.norm.logpdf("
+                self.generate(ast_node.variate)
+                self.expression_string += ", "
+                self.generate(ast_node.mean)
+                self.expression_string += ", "
+                self.generate(ast_node.std)
+                self.expression_string += ")"
+            case ast.BernoulliLogit():
+                self.expression_string += "rat.math.bernoulli_logit("
+                self.generate(ast_node.variate)
+                self.expression_string += ", "
+                self.generate(ast_node.logit_p)
+                self.expression_string += ")"
+            case ast.LogNormal():
+                self.expression_string += "rat.math.log_normal("
+                self.generate(ast_node.variate)
+                self.expression_string += ", "
+                self.generate(ast_node.mean)
+                self.expression_string += ", "
+                self.generate(ast_node.std)
+                self.expression_string += ")"
+            case ast.Cauchy():
+                self.expression_string += "scipy.stats.cauchy.logpdf("
+                self.generate(ast_node.variate)
+                self.expression_string += ", "
+                self.generate(ast_node.location)
+                self.expression_string += ", "
+                self.generate(ast_node.scale)
+                self.expression_string += ")"
+            case ast.Exponential():
+                self.expression_string += "scipy.stats.expon.logpdf("
+                self.generate(ast_node.variate)
+                self.expression_string += ", loc=0, scale="
+                self.generate(ast_node.scale)
+                self.expression_string += ")"
+
+            case ast.Diff():
+                self.generate(ast_node.left)
+                self.expression_string += " - "
+                self.generate(ast_node.right)
+            case ast.Sum():
+                self.generate(ast_node.left)
+                self.expression_string += " + "
+                self.generate(ast_node.right)
+            case ast.Mul():
+                self.generate(ast_node.left)
+                self.expression_string += " * "
+                self.generate(ast_node.right)
+            case ast.Pow():
+                self.generate(ast_node.left)
+                self.expression_string += " ** "
+                self.generate(ast_node.right)
+            case ast.Div():
+                self.generate(ast_node.left)
+                self.expression_string += " / "
+                self.generate(ast_node.right)
+            case ast.Mod():
+                self.generate(ast_node.left)
+                self.expression_string += " % "
+                self.generate(ast_node.right)
+            case ast.PrefixNegation():
+                self.expression_string += "-"
+                self.generate(ast_node.subexpr)
+            case ast.LessThan():
+                self.generate(ast_node.left)
+                self.expression_string += " < "
+                self.generate(ast_node.right)
+            case ast.GreaterThan():
+                self.generate(ast_node.left)
+                self.expression_string += " > "
+                self.generate(ast_node.right)
+            case ast.LessThanOrEq():
+                self.generate(ast_node.left)
+                self.expression_string += " <= "
+                self.generate(ast_node.right)
+            case ast.GreaterThanOrEq():
+                self.generate(ast_node.left)
+                self.expression_string += " >= "
+                self.generate(ast_node.right)
+            case ast.EqualTo():
+                self.generate(ast_node.left)
+                self.expression_string += " == "
+                self.generate(ast_node.right)
+            case ast.NotEqualTo():
+                self.generate(ast_node.left)
+                self.expression_string += " != "
+                self.generate(ast_node.right)
+
+            case ast.Sqrt():
+                self.expression_string += "numpy.sqrt("
+                self.generate(ast.subexpr)
+                self.expression_string += ")"
+            case ast.Log():
+                self.expression_string += "numpy.log("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Exp():
+                self.expression_string += "numpy.exp("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Abs():
+                self.expression_string += "numpy.abs("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Floor():
+                self.expression_string += "numpy.floor("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Ceil():
+                self.expression_string += "numpy.ceil("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Real():
+                self.expression_string += "numpy.array("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ", dtype = 'float')"
+            case ast.Round():
+                self.expression_string += "numpy.round("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Sin():
+                self.expression_string += "numpy.sin("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Cos():
+                self.expression_string += "numpy.cos("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Tan():
+                self.expression_string += "numpy.tan("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Arcsin():
+                self.expression_string += "numpy.arcsin("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Arccos():
+                self.expression_string += "numpy.arccos("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Arctan():
+                self.expression_string += "numpy.arctan("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.Logit():
+                self.expression_string += "scipy.special.logit("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+            case ast.InverseLogit():
+                self.expression_string += "scipy.special.expit("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ")"
+
+            case _:
+                raise NotImplementedError()

@@ -159,6 +159,38 @@ class Compiler:
 
                             symbol.subscript.shifts = tuple(new_shift_expressions)
 
+        for top_expr in self.expr_tree_list:
+            # Find the primary variable
+            primary_symbol = self._get_primary_symbol_from_statement(top_expr)
+            primary_symbol_key = primary_symbol.get_key()
+
+            primary_variable = self.variable_table[primary_symbol_key]
+
+            # Rename the primary variable
+            if primary_symbol.subscript is not None:
+                primary_subscript_names = tuple(column.name for column in primary_symbol.subscript.names)
+
+                # TODO: Make property?
+                try:
+                    primary_variable.set_subscript_names(primary_subscript_names)
+                except AttributeError:
+                    msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {primary_variable.subscripts}"
+                    raise CompileError(msg, primary_symbol.range)
+            
+            code_generator = codegen_backends.DiscoverVariablesCodeGenerator()
+
+            try:
+                code_generator.generate(top_expr)
+            except MergeError as e:
+                msg = str(e)
+                raise CompileError(msg, top_expr.range)
+            arguments_string = ",".join(primary_variable.base_df.columns)
+
+            generated_code = f"lambda {arguments_string} : {code_generator.expression_string}"
+
+            print(generated_code)
+            print("")
+
         # Resolve the dataframes
         for top_expr in self.expr_tree_list:
             # Find the primary variable
@@ -349,6 +381,7 @@ class Compiler:
                                 msg = f"Parameter {lhs.get_key()} is assigned on line {line_index} but used on line {j}. A variable cannot be used after it is assigned"
                                 raise CompileError(msg, lhs.range)
 
+
     def codegen(self):
         self.generated_code = ""
         self.generated_code += "# A rat model\n\n"
@@ -451,6 +484,8 @@ class Compiler:
         self._identify_primary_symbols()
 
         self.build_variable_table()
+
+        self.iteratively_build_variable_table()
 
         self.variable_table.prepare_unconstrained_parameter_mapping()
 
