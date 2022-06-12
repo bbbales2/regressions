@@ -356,8 +356,9 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
             case _:
                 super().generate(ast_node)
 
-class DiscoverVariablesCodeGenerator():
-    expression_string : str
+
+class DiscoverVariablesCodeGenerator:
+    expression_string: str
 
     def __init__(self):
         self.expression_string = ""
@@ -383,9 +384,7 @@ class DiscoverVariablesCodeGenerator():
             case ast.Subscript():
                 subscript_names = tuple(column.name for column in ast_node.names)
                 subscript_shifts = tuple(x.value for x in ast_node.shifts)
-                self.expression_string += ",".join(
-                    f"{name} + {shift}" for name, shift in zip(subscript_names, subscript_shifts)
-                )
+                self.expression_string += ",".join(f"{name} + {shift}" for name, shift in zip(subscript_names, subscript_shifts))
             case ast.IfElse():
                 self.expression_string += "("
                 self.generate(ast_node.true_expr)

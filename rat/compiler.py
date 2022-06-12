@@ -176,7 +176,7 @@ class Compiler:
                 except AttributeError:
                     msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {primary_variable.subscripts}"
                     raise CompileError(msg, primary_symbol.range)
-            
+
             code_generator = codegen_backends.DiscoverVariablesCodeGenerator()
 
             try:
@@ -380,7 +380,6 @@ class Compiler:
                             if symbol_key == lhs_key:
                                 msg = f"Parameter {lhs.get_key()} is assigned on line {line_index} but used on line {j}. A variable cannot be used after it is assigned"
                                 raise CompileError(msg, lhs.range)
-
 
     def codegen(self):
         self.generated_code = ""
