@@ -22,7 +22,9 @@ class Compiler:
     model_code_string: str
     max_trace_iterations: int
 
-    def __init__(self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List[ast.Expr], model_code_string: str, max_trace_iterations : int):
+    def __init__(
+        self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List[ast.Expr], model_code_string: str, max_trace_iterations: int
+    ):
         self.data = data
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
@@ -295,15 +297,15 @@ class Compiler:
                     code_generator = codegen_backends.DiscoverVariablesCodeGenerator()
                     code_generator.generate(top_expr)
 
-                    for row in primary_df.itertuples(index = False):
-                        eval(code_generator.expression_string, globals(), { **tracers, **row._asdict() } )
-            
+                    for row in primary_df.itertuples(index=False):
+                        eval(code_generator.expression_string, globals(), {**tracers, **row._asdict()})
+
             found_new_traces = False
             for variable_name, tracer in tracers.items():
                 variable = self.variable_table[variable_name]
                 if variable.variable_type == VariableType.PARAM:
                     found_new_traces |= variable.ingest_new_trace(tracer)
-            
+
             if not found_new_traces:
                 break
         else:

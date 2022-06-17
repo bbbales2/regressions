@@ -14,8 +14,9 @@ class VariableType(Enum):
     PARAM = 2
     ASSIGNED_PARAM = 3
 
-class VariableTracer():
-    args_set : Set[Tuple]
+
+class VariableTracer:
+    args_set: Set[Tuple]
 
     def __init__(self):
         self.args_set = set()
@@ -36,15 +37,16 @@ class VariableTracer():
     def __iter__(self):
         for args in self.args_set:
             yield args
-    
+
     def __repr__(self):
         return f"T{str(self.args_set)}"
 
+
 class DataTracer(VariableTracer):
-    def __init__(self, df : pandas.DataFrame):
+    def __init__(self, df: pandas.DataFrame):
         self.df = df
         self.args_set = set()
-        for args in self.df.itertuples(index = False, name = None):
+        for args in self.df.itertuples(index=False, name=None):
             self.args_set.add(args)
 
     def __call__(self, output_column_name, **kwargs):
@@ -58,6 +60,7 @@ class DataTracer(VariableTracer):
             raise ValueError(f"Internal compiler error: Data is not defined uniquely for {kwargs}")
         # TODO: This is here so that code generation can work without worrying about types
         return row_df.iloc[0][output_column_name]
+
 
 @dataclass()
 class VariableRecord:
@@ -94,7 +97,7 @@ class VariableRecord:
     unconstrained_vector_start_index: int = field(default=None, init=False)
     unconstrained_vector_end_index: int = field(default=None, init=False)
 
-    subscripts_requested_as_data : set = field(default_factory = lambda : set())
+    subscripts_requested_as_data: set = field(default_factory=lambda: set())
 
     @property
     def subscripts(self):
@@ -113,8 +116,8 @@ class VariableRecord:
 
             if len(self.base_df.columns) != len(subscript_names):
                 raise ValueError("Internal compiler error: Number of subscript names must match number of dataframe columns")
-            
-        self.base_df = pandas.DataFrame(columns = subscript_names)
+
+        self.base_df = pandas.DataFrame(columns=subscript_names)
         self.renamed = True
 
     def suggest_names(self, subscript_names: Tuple[str]):
@@ -133,7 +136,7 @@ class VariableRecord:
                     raise AttributeError("Internal compiler error: Number of subscript names must match number of dataframe columns")
                 if (self.base_df.columns != subscript_names).any():
                     raise AttributeError("Internal compiler error: If variable isn't renamed, then all subscript references must match")
-            self.base_df = pandas.DataFrame(columns = subscript_names)
+            self.base_df = pandas.DataFrame(columns=subscript_names)
 
     def get_tracer(self):
         """
@@ -151,12 +154,12 @@ class VariableRecord:
         """
         if len(tracer) == 0:
             if self.base_df is not None:
-                self.base_df = pandas.DataFrame(columns = self.base_df.columns)
+                self.base_df = pandas.DataFrame(columns=self.base_df.columns)
                 return True
             else:
                 return False
         else:
-            new_base_df = pandas.DataFrame(tracer, columns = self.base_df.columns)
+            new_base_df = pandas.DataFrame(tracer, columns=self.base_df.columns)
             new_len = len(new_base_df)
 
             if self.base_df is None:
@@ -164,7 +167,7 @@ class VariableRecord:
                 inner_join_len = 0
             else:
                 previous_len = len(self.base_df)
-                inner_join_len = len(self.base_df.merge(new_base_df, on = tuple(self.base_df.columns), how = "inner"))
+                inner_join_len = len(self.base_df.merge(new_base_df, on=tuple(self.base_df.columns), how="inner"))
 
             self.base_df = new_base_df.sort_values(list(new_base_df.columns)).reset_index(drop=True)
 
@@ -193,10 +196,10 @@ class VariableRecord:
             if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
                 raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
 
-    def subscript_as_data_name(self, column : str):
+    def subscript_as_data_name(self, column: str):
         return f"{self.name}__{column}"
 
-    def request_subscript_as_data(self, column : str):
+    def request_subscript_as_data(self, column: str):
         if column not in self.subscripts:
             raise ValueError(f"Internal compiler error: {column} not found among subscripts")
         self.subscripts_requested_as_data.add(column)
@@ -206,7 +209,8 @@ class VariableRecord:
         """
         Materialize data variable as a numpy array
         """
-        def replace_int_types(array : numpy.ndarray) -> numpy.ndarray:
+
+        def replace_int_types(array: numpy.ndarray) -> numpy.ndarray:
             # Pandas Int64Dtype()s don't play well with jax
             if series.dtype == pandas.Int64Dtype():
                 return series.astype(int).to_numpy()
