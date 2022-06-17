@@ -12,7 +12,7 @@ def test_log_normal_parser():
     parsed = Parser(Scanner(model_string).scan()[0], ["y", "mu", "sigma"], model_string).statement()
 
     expected = LogNormal(Data("y", prime=False), Data("mu", prime=False), Data("sigma", prime=True))
-    1/0
+
     assert str(parsed) == str(expected)
 
 

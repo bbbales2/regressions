@@ -410,7 +410,6 @@ class Compiler:
                                 msg = f"Parameter {lhs.get_key()} is assigned on line {line_index} but used on line {j}. A variable cannot be used after it is assigned"
                                 raise CompileError(msg, lhs.range)
 
-
     def codegen(self):
         self.generated_code = ""
         self.generated_code += "# A rat model\n\n"
