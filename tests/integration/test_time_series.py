@@ -17,7 +17,7 @@ def test_optimize_time_series():
 
     model_string = """
     y' ~ normal(mu[i], 0.1);
-    mu[i]' ~ normal(mu[shift(i, 1)], 0.3);
+    mu[i]' ~ normal(ifelse(i == 1, 0.0, real(mu[shift(i, 1)])), 0.3);
     """
 
     model = Model(data_df, model_string=model_string)
@@ -45,7 +45,7 @@ def test_optimize_time_series_non_center():
 
     model_string = """
     y' ~ normal(mu[i], 0.1);
-    mu[i]' = mu[shift(i, 1)] + epsilon[i];
+    mu[i]' = ifelse(i == 1, 0.0, real(mu[shift(i, 1)])) + epsilon[i];
     epsilon[i] ~ normal(0, 0.3);
     """
 
@@ -74,7 +74,7 @@ def test_optimize_time_series_2():
 
     model_string = """
     score_diff' ~ normal(skills[year, team1] - skills[year, team2], sigma);
-    skills[year, team]' ~ normal(skills[shift(year, 1), team], 0.5);
+    skills[year, team]' ~ normal(ifelse(year == 1, 0.0, real(skills[shift(year, 1), team])), 0.5);
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
@@ -114,7 +114,7 @@ def test_optimize_time_series_2_non_center():
 
     model_string = """
     score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
-    skills[team, year]' = skills[team, shift(year, 1)] + epsilon[team, year] * tau;
+    skills[team, year]' = ifelse(year == 1, 0.0, real(skills[team, shift(year, 1)])) + epsilon[team, year] * tau;
     epsilon[team, year] ~ normal(0.0, 1.0);
     tau = 0.5;
     sigma<lower = 0.0> ~ normal(0, 1.0);
@@ -156,7 +156,7 @@ def test_optimize_time_series_2_non_center_infer_tau():
 
     model_string = """
     score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
-    skills[team, year]' = skills[team, shift(year, 1)] + epsilon[team, year] * tau;
+    skills[team, year]' = ifelse(year == 1, 0.0, real(skills[team, shift(year, 1)])) + epsilon[team, year] * tau;
     epsilon[team, year] ~ normal(0.0, 1.0);
     tau<lower = 0.0> ~ normal(0.0, 0.5);
     sigma<lower = 0.0> ~ normal(0, 1.0);
@@ -175,7 +175,7 @@ def test_optimize_time_series_2_error():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    with pytest.raises(CompileError, match="not found"):
+    with pytest.raises(CompileError, match="The subscripts must be renamed"):
         model = Model(data_df, model_string=model_string)
 
 

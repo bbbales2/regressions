@@ -71,6 +71,7 @@ class Model:
         data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
         model_string: str = None,
         parsed_lines: List[ast.Expr] = None,
+        max_trace_iterations: int = 50,
         compile_path: str = None,
         overwrite: bool = False,
     ):
@@ -82,6 +83,9 @@ class Model:
 
         The parsed_lines argument is for creating a model from an intermediate representation -- likely
         deprecated soon.
+
+        max_trace_iterations determines how many tracing iterations the program will do to resolve
+        parameter domains
         """
         match data:
             case pandas.DataFrame():
@@ -119,7 +123,7 @@ class Model:
             subscript_indices_dict,
             first_in_group_indicators,
             model_source_string,
-        ) = compiler.Compiler(data, parsed_lines, model_string).compile()
+        ) = compiler.Compiler(data, parsed_lines, model_string, max_trace_iterations=max_trace_iterations).compile()
 
         if compile_path is None:
             self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")

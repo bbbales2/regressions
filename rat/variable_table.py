@@ -1,5 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
+from multiprocessing.sharedctypes import Value
 import numpy
 import pandas
 import pprint
@@ -13,6 +14,50 @@ class VariableType(Enum):
     PARAM = 2
     ASSIGNED_PARAM = 3
 
+class VariableTracer():
+    args_set : Set[Tuple]
+
+    def __init__(self):
+        self.args_set = set()
+
+    def __call__(self, *args, **kwargs):
+        if len(args) == 0:
+            return 0.0
+
+        if len(kwargs) > 0:
+            raise ValueError("Internal compiler error: A VariableTracer should not be traced with named arguments")
+        self.args_set.add(args)
+        # TODO: This is here so that code generation can work without worrying about types
+        return 0.0
+
+    def __len__(self):
+        return len(self.args_set)
+
+    def __iter__(self):
+        for args in self.args_set:
+            yield args
+    
+    def __repr__(self):
+        return f"T{str(self.args_set)}"
+
+class DataTracer(VariableTracer):
+    def __init__(self, df : pandas.DataFrame):
+        self.df = df
+        self.args_set = set()
+        for args in self.df.itertuples(index = False, name = None):
+            self.args_set.add(args)
+
+    def __call__(self, output_column_name, **kwargs):
+        row_selector = numpy.logical_and.reduce([self.df[column] == value for column, value in kwargs.items()])
+
+        row_df = self.df[row_selector]
+
+        if len(row_df) == 0:
+            raise ValueError(f"Internal compiler error: Data not defined for {kwargs}")
+        elif len(row_df) > 1:
+            raise ValueError(f"Internal compiler error: Data is not defined uniquely for {kwargs}")
+        # TODO: This is here so that code generation can work without worrying about types
+        return row_df.iloc[0][output_column_name]
 
 @dataclass()
 class VariableRecord:
@@ -31,13 +76,15 @@ class VariableRecord:
 
     unconstrained_vector_start_index: For parameters, the start index of the unconstrained parameter vector
     unconstrained_vector_end_index: For parameters, the end index of the unconstrained parameter vector
+
+    subscripts_requested_as_data: These are subscripts that should be generated as data on request
     """
 
     name: str
     variable_type: VariableType
     base_df: pandas.DataFrame
 
-    names_set: bool = False
+    renamed: bool = False
     constraints_set: bool = False
 
     constraint_lower: float = field(default=float("-inf"))
@@ -47,6 +94,8 @@ class VariableRecord:
     unconstrained_vector_start_index: int = field(default=None, init=False)
     unconstrained_vector_end_index: int = field(default=None, init=False)
 
+    subscripts_requested_as_data : set = field(default_factory = lambda : set())
+
     @property
     def subscripts(self):
         if self.base_df is not None:
@@ -54,7 +103,21 @@ class VariableRecord:
         else:
             return ()
 
-    def set_subscript_names(self, subscript_names: Tuple[str]):
+    def rename(self, subscript_names: Tuple[str]):
+        if self.renamed:
+            raise AttributeError("Internal compiler error: A variable cannot be renamed twice")
+
+        if self.base_df is not None:
+            if len(self.base_df) > 0:
+                raise ValueError("Internal compiler error: Renaming must be done before the dataframe is set")
+
+            if len(self.base_df.columns) != len(subscript_names):
+                raise ValueError("Internal compiler error: Number of subscript names must match number of dataframe columns")
+            
+        self.base_df = pandas.DataFrame(columns = subscript_names)
+        self.renamed = True
+
+    def suggest_names(self, subscript_names: Tuple[str]):
         """
         Set subscript names.
 
@@ -64,25 +127,48 @@ class VariableRecord:
         This function will raise a ValueError if called with the wrong
         number of names
         """
-        if not self.names_set:
-            if len(self.base_df.columns) != len(subscript_names):
-                raise ValueError("Internal compiler error: Number of subscript names must match number of dataframe columns")
-            self.base_df.columns = subscript_names
-            self.names_set = True
-        else:
-            raise AttributeError("Internal compiler error: If there are multiple renames, the rename values must match")
+        if not self.renamed:
+            if self.base_df is not None:
+                if len(self.base_df.columns) != len(subscript_names):
+                    raise AttributeError("Internal compiler error: Number of subscript names must match number of dataframe columns")
+                if (self.base_df.columns != subscript_names).any():
+                    raise AttributeError("Internal compiler error: If variable isn't renamed, then all subscript references must match")
+            self.base_df = pandas.DataFrame(columns = subscript_names)
 
-    def add_rows_from_dataframe(self, new_rows_df: pandas.DataFrame):
+    def get_tracer(self):
         """
-        Add rows to the base_df, ensure there aren't any duplicates, and make
-        sure that the base_df is sorted by it's columns (in order left to right)
+        Generate a tracer
         """
-        if self.base_df is None:
-            combined_df = new_rows_df
+        if self.variable_type == VariableType.DATA:
+            return DataTracer(self.base_df)
         else:
-            combined_df = pandas.DataFrame(numpy.concatenate([self.base_df.values, new_rows_df.values]), columns=self.base_df.columns)
+            return VariableTracer()
 
-        self.base_df = combined_df.drop_duplicates().sort_values(list(combined_df.columns)).reset_index(drop=True)
+    def ingest_new_trace(self, tracer: VariableTracer):
+        """
+        Rebuild the base_df based on a tracer object. Return true If there are any differences between the
+        new and old dataframes.
+        """
+        if len(tracer) == 0:
+            if self.base_df is not None:
+                self.base_df = pandas.DataFrame(columns = self.base_df.columns)
+                return True
+            else:
+                return False
+        else:
+            new_base_df = pandas.DataFrame(tracer, columns = self.base_df.columns)
+            new_len = len(new_base_df)
+
+            if self.base_df is None:
+                previous_len = 0
+                inner_join_len = 0
+            else:
+                previous_len = len(self.base_df)
+                inner_join_len = len(self.base_df.merge(new_base_df, on = tuple(self.base_df.columns), how = "inner"))
+
+            self.base_df = new_base_df.sort_values(list(new_base_df.columns)).reset_index(drop=True)
+
+            return (previous_len != inner_join_len) | (new_len != inner_join_len)
 
     def set_constraints(self, constraint_lower: float, constraint_upper: float):
         """
@@ -107,19 +193,33 @@ class VariableRecord:
             if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
                 raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
 
-    def to_numpy(self) -> numpy.ndarray:
+    def subscript_as_data_name(self, column : str):
+        return f"{self.name}__{column}"
+
+    def request_subscript_as_data(self, column : str):
+        if column not in self.subscripts:
+            raise ValueError(f"Internal compiler error: {column} not found among subscripts")
+        self.subscripts_requested_as_data.add(column)
+        return self.subscript_as_data_name(column)
+
+    def get_numpy_arrays(self) -> Iterable[numpy.ndarray]:
         """
         Materialize data variable as a numpy array
         """
-        if self.variable_type == VariableType.DATA:
-            series = self.base_df[self.name]
+        def replace_int_types(array : numpy.ndarray) -> numpy.ndarray:
             # Pandas Int64Dtype()s don't play well with jax
             if series.dtype == pandas.Int64Dtype():
                 return series.astype(int).to_numpy()
             else:
                 return series.to_numpy()
-        else:
-            raise AttributeError("Internal compiler error: `to_numpy` can only be used if variable_type is data")
+
+        if self.variable_type == VariableType.DATA:
+            series = self.base_df[self.name]
+            yield self.name, replace_int_types(series)
+
+        for column in self.subscripts_requested_as_data:
+            series = self.base_df[column]
+            yield self.subscript_as_data_name(column), replace_int_types(series)
 
 
 class VariableTable:

@@ -121,7 +121,7 @@ def test_multiple_dataframes_eight_schools_error_to_many_to_few_rows():
         :1,
     ]
 
-    with pytest.raises(Exception, match="because there are 7 required values"):
+    with pytest.raises(Exception, match="not defined"):
         Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
 
 

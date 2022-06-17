@@ -19,10 +19,11 @@ class IndentedString:
 
 
 class BaseCodeGenerator:
-    def __init__(self, variable_table: VariableTable, primary_variable=None, indent=0):
+    expression_string : IndentedString
+    indent : int
+
+    def __init__(self, indent : int = 0):
         self.expression_string = IndentedString(indent_level=indent)
-        self.variable_table = variable_table
-        self.primary_variable = primary_variable
         self.indent = indent
 
     def get_expression_string(self):
@@ -199,16 +200,15 @@ class BaseCodeGenerator:
 
 class EvaluateDensityCodeGenerator(BaseCodeGenerator):
     variable_name: str = None  # This is an internal attribute that's used to pass variable name when generating subscripts
+    variable_table : VariableTable
+    primary_symbol : ast.PrimeableExpr
+    primary_variable : VariableRecord
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.primary_variable_name = self.primary_variable.name
-        if self.primary_variable.subscript:
-            self.primary_variable_subscript_names = tuple(
-                [subscript_column.name for subscript_column in self.primary_variable.subscript.names]
-            )
-        else:
-            self.primary_variable_subscript_names = tuple()
+    def __init__(self, variable_table : VariableTable, primary_symbol : ast.PrimeableExpr = None, indent : int = 0):
+        super().__init__(indent)
+        self.variable_table = variable_table
+        self.primary_symbol = primary_symbol
+        self.primary_variable = self.variable_table[primary_symbol.name]
 
     def generate(self, ast_node: ast.Expr):
         match ast_node:
@@ -221,20 +221,24 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
                     self.variable_name = None
                     self.expression_string += "]"
             case ast.Data():
-                self.expression_string += f"data['{ast_node.name}']"
-                if ast_node.name != self.primary_variable_name and ast_node.subscript:
-                    self.expression_string += "["
-                    self.variable_name = ast_node.name
-                    self.generate(ast_node.subscript)
-                    self.variable_name = None
-                    self.expression_string += "]"
+                if ast_node.name != self.primary_variable.name and ast_node.name in self.primary_variable.subscripts:
+                    subscript_data_name = self.primary_variable.request_subscript_as_data(ast_node.name)
+                    self.expression_string += f"data['{subscript_data_name}']"
+                else:
+                    self.expression_string += f"data['{ast_node.name}']"
+                    if ast_node.name != self.primary_variable.name and ast_node.subscript:
+                        self.expression_string += "["
+                        self.variable_name = ast_node.name
+                        self.generate(ast_node.subscript)
+                        self.variable_name = None
+                        self.expression_string += "]"
             case ast.Subscript():
                 if not self.variable_name:
                     raise Exception("Internal compiler error -- Variable name must be passed for subscript codegen!")
                 subscript_names = tuple(column.name for column in ast_node.names)
                 subscript_shifts = tuple(x.value for x in ast_node.shifts)
                 subscript_key = self.variable_table.get_subscript_key(
-                    self.primary_variable_name, self.variable_name, subscript_names, subscript_shifts
+                    self.primary_variable.name, self.variable_name, subscript_names, subscript_shifts
                 )
                 self.expression_string += f"subscripts['{subscript_key}']"
 
@@ -253,8 +257,10 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
 
 
 class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    lhs_used_in_rhs : bool
+    at_rhs_of_scan : bool
+    def __init__(self, variable_table : VariableTable, primary_symbol : ast.PrimeableExpr = None, indent : int = 0):
+        super().__init__(variable_table, primary_symbol, indent)
         self.lhs_used_in_rhs = False
         self.lhs_key = ""
         self.at_rhs_of_scan = False
@@ -357,25 +363,29 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                 super().generate(ast_node)
 
 class DiscoverVariablesCodeGenerator():
+    name_arguments : bool
     expression_string : str
 
     def __init__(self):
+        self.name_arguments = False
         self.expression_string = ""
 
     def generate(self, ast_node: ast.Expr):
         match ast_node:
             case ast.Param():
-                self.expression_string += f"parameters['{ast_node.name}']"
+                self.expression_string += ast_node.name
+                self.expression_string += "("
                 if ast_node.subscript:
-                    self.expression_string += "("
                     self.generate(ast_node.subscript)
-                    self.expression_string += ")"
+                self.expression_string += ")"
             case ast.Data():
                 if ast_node.subscript:
                     # This is a join
-                    self.expression_string += f"data['{ast_node.name}']"
-                    self.expression_string += "("
+                    self.expression_string += ast_node.name
+                    self.expression_string += f"('{ast_node.name}', "
+                    self.name_arguments = True
                     self.generate(ast_node.subscript)
+                    self.name_arguments = False
                     self.expression_string += ")"
                 else:
                     # With no subscript the variable comes from primary dataframe
@@ -383,16 +393,28 @@ class DiscoverVariablesCodeGenerator():
             case ast.Subscript():
                 subscript_names = tuple(column.name for column in ast_node.names)
                 subscript_shifts = tuple(x.value for x in ast_node.shifts)
-                self.expression_string += ",".join(
-                    f"{name} + {shift}" for name, shift in zip(subscript_names, subscript_shifts)
-                )
+                arguments = []
+                for name, shift in zip(subscript_names, subscript_shifts):
+                    argument = f"{name} = {name}" if self.name_arguments else name
+                    if shift != 0:
+                        argument += f" - {shift}"
+                    arguments.append(argument)
+                self.expression_string += ",".join(arguments)
+
             case ast.IfElse():
-                self.expression_string += "("
+                self.expression_string += "(("
                 self.generate(ast_node.true_expr)
                 self.expression_string += ") if ("
                 self.generate(ast_node.condition)
                 self.expression_string += ") else ("
                 self.generate(ast_node.false_expr)
+                self.expression_string += "))"
+
+            case ast.Assignment():
+                self.expression_string += "("
+                self.generate(ast_node.lhs)
+                self.expression_string += ","
+                self.generate(ast_node.rhs)
                 self.expression_string += ")"
 
             case ast.IntegerConstant():
@@ -405,7 +427,7 @@ class DiscoverVariablesCodeGenerator():
                 else:
                     self.expression_string += str(ast_node.value)
             case ast.Normal():
-                self.expression_string += "scipy.stats.norm.logpdf("
+                self.expression_string += "("
                 self.generate(ast_node.variate)
                 self.expression_string += ", "
                 self.generate(ast_node.mean)
@@ -413,13 +435,13 @@ class DiscoverVariablesCodeGenerator():
                 self.generate(ast_node.std)
                 self.expression_string += ")"
             case ast.BernoulliLogit():
-                self.expression_string += "rat.math.bernoulli_logit("
+                self.expression_string += "("
                 self.generate(ast_node.variate)
                 self.expression_string += ", "
                 self.generate(ast_node.logit_p)
                 self.expression_string += ")"
             case ast.LogNormal():
-                self.expression_string += "rat.math.log_normal("
+                self.expression_string += "("
                 self.generate(ast_node.variate)
                 self.expression_string += ", "
                 self.generate(ast_node.mean)
@@ -427,7 +449,7 @@ class DiscoverVariablesCodeGenerator():
                 self.generate(ast_node.std)
                 self.expression_string += ")"
             case ast.Cauchy():
-                self.expression_string += "scipy.stats.cauchy.logpdf("
+                self.expression_string += "("
                 self.generate(ast_node.variate)
                 self.expression_string += ", "
                 self.generate(ast_node.location)
@@ -435,7 +457,7 @@ class DiscoverVariablesCodeGenerator():
                 self.generate(ast_node.scale)
                 self.expression_string += ")"
             case ast.Exponential():
-                self.expression_string += "scipy.stats.expon.logpdf("
+                self.expression_string += "("
                 self.generate(ast_node.variate)
                 self.expression_string += ", loc=0, scale="
                 self.generate(ast_node.scale)
@@ -493,70 +515,31 @@ class DiscoverVariablesCodeGenerator():
                 self.expression_string += " != "
                 self.generate(ast_node.right)
 
-            case ast.Sqrt():
-                self.expression_string += "numpy.sqrt("
-                self.generate(ast.subexpr)
-                self.expression_string += ")"
-            case ast.Log():
-                self.expression_string += "numpy.log("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Exp():
-                self.expression_string += "numpy.exp("
+            case (
+                ast.Sqrt()
+                | ast.Log()
+                | ast.Exp()
+                | ast.Floor()
+                | ast.Ceil()
+                | ast.Real()
+                | ast.Round()
+                | ast.Sin()
+                | ast.Cos()
+                | ast.Tan()
+                | ast.Arcsin()
+                | ast.Arccos()
+                | ast.Arctan()
+                | ast.Logit()
+                | ast.InverseLogit()
+            ):
+                self.expression_string += "("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
             case ast.Abs():
-                self.expression_string += "numpy.abs("
+                self.expression_string += "abs("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
-            case ast.Floor():
-                self.expression_string += "numpy.floor("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Ceil():
-                self.expression_string += "numpy.ceil("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Real():
-                self.expression_string += "numpy.array("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ", dtype = 'float')"
-            case ast.Round():
-                self.expression_string += "numpy.round("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Sin():
-                self.expression_string += "numpy.sin("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Cos():
-                self.expression_string += "numpy.cos("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Tan():
-                self.expression_string += "numpy.tan("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Arcsin():
-                self.expression_string += "numpy.arcsin("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Arccos():
-                self.expression_string += "numpy.arccos("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Arctan():
-                self.expression_string += "numpy.arctan("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Logit():
-                self.expression_string += "scipy.special.logit("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.InverseLogit():
-                self.expression_string += "scipy.special.expit("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
+            
 
             case _:
                 raise NotImplementedError()

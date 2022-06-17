@@ -152,6 +152,7 @@ class PrimeableExpr(Expr):
 
 @dataclass
 class Data(PrimeableExpr):
+    # deprecate this, use self.name directly
     def get_key(self):
         return self.name
 
@@ -168,6 +169,7 @@ class Param(PrimeableExpr):
     upper: Expr = RealConstant(float("inf"))
     assigned_by_scan: bool = False
 
+    # deprecate this, use self.name directly
     def get_key(self):
         return self.name
 

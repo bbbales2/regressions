@@ -12,7 +12,7 @@ import pandas as pd
 from . import ast
 from . import codegen_backends
 from .exceptions import CompileError, MergeError
-from .variable_table import VariableTable, VariableType
+from .variable_table import VariableTracer, VariableTable, VariableType
 from rat import variable_table
 
 
@@ -20,11 +20,13 @@ class Compiler:
     data: Union[pandas.DataFrame, Dict]
     expr_tree_list: List[ast.Expr]
     model_code_string: str
+    max_trace_iterations: int
 
-    def __init__(self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List[ast.Expr], model_code_string: str = ""):
+    def __init__(self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List[ast.Expr], model_code_string: str, max_trace_iterations : int):
         self.data = data
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string
+        self.max_trace_iterations = max_trace_iterations
         self.variable_table: VariableTable = None
         self.generated_code = ""
 
@@ -113,7 +115,7 @@ class Compiler:
                     integer_shifts.append(shift_expr.value)
                 case _:
                     try:
-                        shift_code_generator = codegen_backends.BaseCodeGenerator(self.variable_table)
+                        shift_code_generator = codegen_backends.BaseCodeGenerator()
                         shift_code_generator.generate(shift_expr)
                         folded_shift = int(eval(shift_code_generator.get_expression_string()))
                         integer_shifts.append(folded_shift)
@@ -159,6 +161,7 @@ class Compiler:
 
                             symbol.subscript.shifts = tuple(new_shift_expressions)
 
+        # Do a sweep to rename the primary variables that are renamed
         for top_expr in self.expr_tree_list:
             # Find the primary variable
             primary_symbol = self._get_primary_symbol_from_statement(top_expr)
@@ -172,51 +175,38 @@ class Compiler:
 
                 # TODO: Make property?
                 try:
-                    primary_variable.set_subscript_names(primary_subscript_names)
+                    primary_variable.rename(primary_subscript_names)
                 except AttributeError:
                     msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {primary_variable.subscripts}"
                     raise CompileError(msg, primary_symbol.range)
-            
-            code_generator = codegen_backends.DiscoverVariablesCodeGenerator()
 
-            try:
-                code_generator.generate(top_expr)
-            except MergeError as e:
-                msg = str(e)
-                raise CompileError(msg, top_expr.range)
-            arguments_string = ",".join(primary_variable.base_df.columns)
+        # Do a sweep to infer subscript names for subscripts not renamed
+        for top_expr in self.expr_tree_list:
+            for symbol in top_expr:
+                match symbol:
+                    case ast.Param():
+                        if symbol.subscript is not None:
+                            symbol_key = symbol.get_key()
+                            variable = self.variable_table[symbol_key]
 
-            generated_code = f"lambda {arguments_string} : {code_generator.expression_string}"
+                            subscript_names = tuple(column.name for column in symbol.subscript.names)
 
-            print(generated_code)
-            print("")
+                            if not variable.renamed:
+                                try:
+                                    variable.suggest_names(subscript_names)
+                                except AttributeError:
+                                    msg = f"Attempting to reference subscript of {symbol_key} as {subscript_names}, but they have already been referenced as {variable.subscripts}. The subscripts must be renamed"
+                                    raise CompileError(msg, symbol.range)
 
-        # Resolve the dataframes
+        # Perform a number of dataframe compatibility checks
         for top_expr in self.expr_tree_list:
             # Find the primary variable
             primary_symbol = self._get_primary_symbol_from_statement(top_expr)
             primary_symbol_key = primary_symbol.get_key()
 
-            try:
-                primary_variable = self.variable_table[primary_symbol_key]
-            except KeyError:
-                msg = f"Parameter {primary_symbol_key} must be used as a secondary variable before it can be used as a primary variable"
-                raise CompileError(msg, primary_symbol.range)
-
-            # Rename the primary variable
-            if primary_symbol.subscript is not None:
-                primary_subscript_names = tuple(column.name for column in primary_symbol.subscript.names)
-
-                # TODO: Make property?
-                try:
-                    primary_variable.set_subscript_names(primary_subscript_names)
-                except AttributeError:
-                    msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {primary_variable.subscripts}"
-                    raise CompileError(msg, primary_symbol.range)
-
+            primary_variable = self.variable_table[primary_symbol_key]
             primary_subscript_names = primary_variable.subscripts
 
-            # Find all secondary variables that are parameters
             for symbol in top_expr:
                 match symbol:
                     # TODO: It would be nice if these code paths were closer for Data and Params
@@ -277,8 +267,47 @@ class Compiler:
                                     msg = f"Shifted access on a secondary parameter is not allowed"
                                     raise CompileError(msg, symbol.range)
 
-                                # Add to dataframe
-                                variable.add_rows_from_dataframe(primary_variable.base_df[subscript_names])
+        # Trace the program to determine parameter domains and check data domains
+        tracers = {}
+
+        # Set the data tracers once
+        for variable_name in self.variable_table:
+            variable = self.variable_table[variable_name]
+            if variable.variable_type == VariableType.DATA:
+                tracers[variable_name] = variable.get_tracer()
+
+        for _ in range(self.max_trace_iterations):
+            # Reset all the parameter tracers
+            for variable_name in self.variable_table:
+                variable = self.variable_table[variable_name]
+                if variable.variable_type == VariableType.PARAM:
+                    tracers[variable_name] = variable.get_tracer()
+
+            for top_expr in self.expr_tree_list:
+                # Find the primary variable
+                primary_symbol = self._get_primary_symbol_from_statement(top_expr)
+                primary_symbol_key = primary_symbol.get_key()
+
+                primary_variable = self.variable_table[primary_symbol_key]
+
+                primary_df = primary_variable.base_df
+                if primary_df is not None:
+                    code_generator = codegen_backends.DiscoverVariablesCodeGenerator()
+                    code_generator.generate(top_expr)
+
+                    for row in primary_df.itertuples(index = False):
+                        eval(code_generator.expression_string, globals(), { **tracers, **row._asdict() } )
+            
+            found_new_traces = False
+            for variable_name, tracer in tracers.items():
+                variable = self.variable_table[variable_name]
+                if variable.variable_type == VariableType.PARAM:
+                    found_new_traces |= variable.ingest_new_trace(tracer)
+            
+            if not found_new_traces:
+                break
+        else:
+            raise CompileError(f"Unable to resolve subscripts after {self.max_trace_iterations} trace iterations")
 
         # Apply constraints to parameters
         for top_expr in self.expr_tree_list:
@@ -289,11 +318,11 @@ class Compiler:
 
                         # Constraints should be evaluated at compile time
                         try:
-                            lower_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.variable_table)
+                            lower_constraint_evaluator = codegen_backends.BaseCodeGenerator()
                             lower_constraint_evaluator.generate(symbol.lower)
                             lower_constraint_value = float(eval(lower_constraint_evaluator.get_expression_string()))
 
-                            upper_constraint_evaluator = codegen_backends.BaseCodeGenerator(self.variable_table)
+                            upper_constraint_evaluator = codegen_backends.BaseCodeGenerator()
                             upper_constraint_evaluator.generate(symbol.upper)
                             upper_constraint_value = float(eval(upper_constraint_evaluator.get_expression_string()))
                         except Exception as e:
@@ -485,8 +514,6 @@ class Compiler:
 
         self.build_variable_table()
 
-        self.iteratively_build_variable_table()
-
         self.variable_table.prepare_unconstrained_parameter_mapping()
 
         self.pre_codegen_checks()
@@ -498,9 +525,9 @@ class Compiler:
 
         for variable_name in self.variable_table:
             record = self.variable_table[variable_name]
-            if record.variable_type == VariableType.DATA:
-                data_dict[variable_name] = jax.numpy.array(record.to_numpy())
-            else:
+            for data_name, array in record.get_numpy_arrays():
+                data_dict[data_name] = jax.numpy.array(array)
+            if record.variable_type != VariableType.DATA:
                 if record.base_df is not None:
                     base_df_dict[variable_name] = record.base_df
                 else:
