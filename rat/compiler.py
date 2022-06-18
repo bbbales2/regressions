@@ -270,18 +270,11 @@ class Compiler:
         # Trace the program to determine parameter domains and check data domains
         tracers = {}
 
-        # Set the data tracers once
-        for variable_name in self.variable_table:
-            variable = self.variable_table[variable_name]
-            if variable.variable_type == VariableType.DATA:
-                tracers[variable_name] = variable.get_tracer()
-
         for _ in range(self.max_trace_iterations):
             # Reset all the parameter tracers
             for variable_name in self.variable_table:
                 variable = self.variable_table[variable_name]
-                if variable.variable_type == VariableType.PARAM:
-                    tracers[variable_name] = variable.get_tracer()
+                tracers[variable_name] = variable.get_tracer()
 
             for top_expr in self.expr_tree_list:
                 # Find the primary variable
