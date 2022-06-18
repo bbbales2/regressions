@@ -19,10 +19,10 @@ class IndentedString:
 
 
 class BaseCodeGenerator:
-    expression_string : IndentedString
-    indent : int
+    expression_string: IndentedString
+    indent: int
 
-    def __init__(self, indent : int = 0):
+    def __init__(self, indent: int = 0):
         self.expression_string = IndentedString(indent_level=indent)
         self.indent = indent
 
@@ -200,11 +200,11 @@ class BaseCodeGenerator:
 
 class EvaluateDensityCodeGenerator(BaseCodeGenerator):
     variable_name: str = None  # This is an internal attribute that's used to pass variable name when generating subscripts
-    variable_table : VariableTable
-    primary_symbol : ast.PrimeableExpr
-    primary_variable : VariableRecord
+    variable_table: VariableTable
+    primary_symbol: ast.PrimeableExpr
+    primary_variable: VariableRecord
 
-    def __init__(self, variable_table : VariableTable, primary_symbol : ast.PrimeableExpr = None, indent : int = 0):
+    def __init__(self, variable_table: VariableTable, primary_symbol: ast.PrimeableExpr = None, indent: int = 0):
         super().__init__(indent)
         self.variable_table = variable_table
         self.primary_symbol = primary_symbol
@@ -257,9 +257,10 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
 
 
 class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
-    lhs_used_in_rhs : bool
-    at_rhs_of_scan : bool
-    def __init__(self, variable_table : VariableTable, primary_symbol : ast.PrimeableExpr = None, indent : int = 0):
+    lhs_used_in_rhs: bool
+    at_rhs_of_scan: bool
+
+    def __init__(self, variable_table: VariableTable, primary_symbol: ast.PrimeableExpr = None, indent: int = 0):
         super().__init__(variable_table, primary_symbol, indent)
         self.lhs_used_in_rhs = False
         self.lhs_key = ""
@@ -362,9 +363,10 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
             case _:
                 super().generate(ast_node)
 
-class DiscoverVariablesCodeGenerator():
-    name_arguments : bool
-    expression_string : str
+
+class DiscoverVariablesCodeGenerator:
+    name_arguments: bool
+    expression_string: str
 
     def __init__(self):
         self.name_arguments = False
@@ -539,7 +541,6 @@ class DiscoverVariablesCodeGenerator():
                 self.expression_string += "abs("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
-            
 
             case _:
                 raise NotImplementedError()
