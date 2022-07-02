@@ -48,5 +48,5 @@ def test_primed_variable_does_not_exist_issue_89():
     made' ~ normal(mu[group], 1.0);
     """
 
-    with pytest.raises(Exception, match="primed variable does not exist"):
+    with pytest.raises(Exception, match="Subscript group not found in dataframe of primary variable made"):
         model = Model(data_df, model_string=model_string)
