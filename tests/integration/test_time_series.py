@@ -44,9 +44,9 @@ def test_optimize_time_series_non_center():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series.csv"))
 
     model_string = """
-    epsilon[i] ~ normal(0, 0.3);
-    mu[i]' = ifelse(i == 1, 0.0, real(mu[shift(i, 1)])) + epsilon[i];
     y' ~ normal(mu[i], 0.1);
+    mu[i]' = ifelse(i == 1, 0.0, real(mu[shift(i, 1)])) + epsilon[i];
+    epsilon[i] ~ normal(0, 0.3);
     """
 
     model = Model(data_df, model_string=model_string)
