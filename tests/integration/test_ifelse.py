@@ -63,7 +63,7 @@ def test_ifelse_recursive_assignment():
     # This first line more or less shouldn't matter
     offset' ~ normal(mu[school], 1000.0);
     mu[school]' = ifelse(
-        school[school] == 1,
+        school == 1,
         10.0,
         mu[shift(school, 1)] + 1.0
     ) + epsilon[school];
@@ -77,6 +77,30 @@ def test_ifelse_recursive_assignment():
 
     for row in mu_df.itertuples():
         assert row.mu == pytest.approx(9.0 + row.school, abs=1e-3, rel=1e-3)
+
+
+def test_ifelse_recursive_assignment2():
+    # this is a test for ifelse when the length of a subscript parameter is different from the # of elements in
+    # the subscript data column
+    data_df = pandas.DataFrame({"y": [1.0, 2.0, 3.0, 2.0], "group": [1, 2, 3, 2]})
+
+    model_string = """
+        # This first line more or less shouldn't matter
+        y' ~ normal(mu[group], 1.0);
+        mu[group]' = ifelse(
+            group == 1,
+            1.0,
+            mu[shift(group, 1)] + 1.0
+        ) + epsilon[group];
+        epsilon[group] ~ normal(0.0, 0.1);
+        """
+
+    model = Model(data_df, model_string)
+    fit = model.optimize()
+
+    mu_df = fit.draws("mu")
+    for row in mu_df.itertuples():
+        assert row.mu == pytest.approx(row.group, abs=1e-3, rel=1e-3)
 
 
 if __name__ == "__main__":
