@@ -1,0 +1,41 @@
+{
+	"name": "rat-language-client",
+	"description": "Rat language client",
+	"license": "GPL3",
+	"version": "0.0.1",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/bbbales2/regressions"
+	},
+	"categories": [],
+	"keywords": [
+		"multi-root ready"
+	],
+	"engines": {
+		"vscode": "^1.63.0"
+	},
+	"contributes": {
+		"languages": [
+			{
+				"id": "rat",
+				"aliases": [
+					"Rat",
+					"rat"
+				],
+				"extensions": [
+					".rat"
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "rat",
+				"scopeName": "source.rat",
+				"path": "./syntaxes/rat.tmGrammar.json"
+			}
+		]
+	},
+	"dependencies": {
+		"vsce": "^2.9.2"
+	}
+}
