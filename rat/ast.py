@@ -13,18 +13,26 @@ from .scanner import Range
 
 
 @dataclass
-class Expr:
+class ASTNode:
     range: Range = field(default=lambda: None, kw_only=True)
-    # line_index: int = field(default=-1, kw_only=True)  # line index of the original model code
-    # column_index: int = field(default=-1, kw_only=True)  # column index of the original model code
-    # end_index: int = field(default = -1, kw_only=True)  # end column index of the original model code
-    out_type: Type[types.BaseType] = field(default=types.BaseType, kw_only=True)
 
     def __iter__(self):
         yield self
 
     def __next__(self):
         raise StopIteration
+
+    def __str__(self):
+        return "ASTNode()"
+
+
+@dataclass
+class Expr(ASTNode):
+    """
+    out_type denotes the return type of the expression
+    """
+
+    out_type: Type[types.BaseType] = field(default=types.BaseType, kw_only=True)
 
     def __post_init__(self):
         """
@@ -34,6 +42,12 @@ class Expr:
 
     def __str__(self):
         return "Expr()"
+
+
+@dataclass
+class Statement(ASTNode):
+    def __str__(self):
+        return "Statement()"
 
 
 @dataclass
@@ -158,15 +172,22 @@ class Param(PrimeableExpr):
         return self.name
 
     def __post_init__(self):
-        self.out_type = types.NumericType
+        self.out_type = types.RealType
 
     def __str__(self):
         return f"Param({self.name}, subscript={self.subscript}, prime={self.prime}, lower={self.lower}, upper={self.upper}, assigned={self.assigned_by_scan})"
 
 
 @dataclass
-class Distr(Expr):
+class Distr(Statement):
+    """
+    Distributions are statements in Rat, semantically equal to incrementing the log density given a distribution and
+    a variate.
+    variate_type is used to denote whether draws from the distributions are real or integer valued.
+    """
+
     variate: Expr
+    variate_type: Type[types.BaseType] = field(default=types.BaseType, kw_only=True)
 
 
 @dataclass
@@ -183,7 +204,7 @@ class Normal(Distr):
         signatures = {
             (types.NumericType, types.NumericType): types.RealType,
         }
-        self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
+        self.variate_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
 
     def __str__(self):
         return f"Normal({self.variate}, {self.mean}, {self.std})"
@@ -200,7 +221,7 @@ class BernoulliLogit(Distr):
 
     def __post_init__(self):
         signatures = {(types.NumericType,): types.IntegerType}
-        self.out_type = types.get_output_type(signatures, (self.logit_p.out_type,))
+        self.variate_type = types.get_output_type(signatures, (self.logit_p.out_type,))
 
     def __str__(self):
         return f"BernoulliLogit({self.variate}, {self.logit_p})"
@@ -218,7 +239,7 @@ class LogNormal(Distr):
 
     def __post_init__(self):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
-        self.out_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
+        self.variate_type = types.get_output_type(signatures, (self.mean.out_type, self.std.out_type))
 
     def __str__(self):
         return f"LogNormal({self.variate}, {self.mean}, {self.std})"
@@ -236,7 +257,7 @@ class Cauchy(Distr):
 
     def __post_init__(self):
         signatures = {(types.NumericType, types.NumericType): types.RealType}
-        self.out_type = types.get_output_type(signatures, (self.location.out_type, self.scale.out_type))
+        self.variate_type = types.get_output_type(signatures, (self.location.out_type, self.scale.out_type))
 
     def __str__(self):
         return f"Cauchy({self.variate}, {self.location}, {self.scale})"
@@ -253,7 +274,7 @@ class Exponential(Distr):
 
     def __post_init__(self):
         signatures = {(types.NumericType,): types.RealType}
-        self.out_type = types.get_output_type(signatures, (self.scale.out_type,))
+        self.variate_type = types.get_output_type(signatures, (self.scale.out_type,))
 
     def __str__(self):
         return f"Exponential({self.variate}, {self.scale})"
@@ -321,6 +342,11 @@ class Mul(BinaryExpr):
 
 @dataclass
 class Pow(BinaryExpr):
+    """
+    left: base
+    right: exponent
+    """
+
     def __post_init__(self):
         signatures = {
             (types.IntegerType, types.IntegerType): types.IntegerType,
@@ -358,7 +384,79 @@ class Mod(BinaryExpr):
 
 
 @dataclass
-class Assignment(Expr):
+class LessThan(BinaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.NumericType, types.NumericType): types.BooleanType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
+
+    def __str__(self):
+        return f"LessThan({self.left}, {self.right})"
+
+
+@dataclass
+class GreaterThan(BinaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.NumericType, types.NumericType): types.BooleanType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
+
+    def __str__(self):
+        return f"GreaterThan({self.left}, {self.right})"
+
+
+@dataclass
+class GreaterThanOrEq(BinaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.NumericType, types.NumericType): types.BooleanType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
+
+    def __str__(self):
+        return f"GreaterThanOrEq({self.left}, {self.right})"
+
+
+@dataclass
+class LessThanOrEq(BinaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.NumericType, types.NumericType): types.BooleanType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
+
+    def __str__(self):
+        return f"LessThanOrEq({self.left}, {self.right})"
+
+
+@dataclass
+class EqualTo(BinaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.NumericType, types.NumericType): types.BooleanType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
+
+    def __str__(self):
+        return f"EqualTo({self.left}, {self.right})"
+
+
+@dataclass
+class NotEqualTo(BinaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.NumericType, types.NumericType): types.BooleanType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.left.out_type, self.right.out_type))
+
+    def __str__(self):
+        return f"NotEqualTo({self.left}, {self.right})"
+
+
+@dataclass
+class Assignment(Statement):
     lhs: PrimeableExpr
     rhs: Expr
 
@@ -366,14 +464,6 @@ class Assignment(Expr):
         yield self
         for expr in itertools.chain(self.lhs, self.rhs):
             yield expr
-
-    def __post_init__(self):
-        signatures = {
-            (types.IntegerType,): types.IntegerType,
-            (types.RealType,): types.RealType,
-            (types.NumericType,): types.NumericType,
-        }
-        self.out_type = types.get_output_type(signatures, (self.rhs.out_type,))
 
     def __str__(self):
         return f"Assignment({self.lhs}, {self.rhs})"
@@ -472,6 +562,20 @@ class Ceil(UnaryExpr):
 
     def __str__(self):
         return f"Ceil({self.subexpr})"
+
+
+@dataclass
+class Real(UnaryExpr):
+    def __post_init__(self):
+        signatures = {
+            (types.IntegerType,): types.RealType,
+            (types.RealType,): types.RealType,
+            (types.NumericType,): types.RealType,
+        }
+        self.out_type = types.get_output_type(signatures, (self.subexpr.out_type,))
+
+    def __str__(self):
+        return f"Real({self.subexpr})"
 
 
 @dataclass
@@ -580,6 +684,31 @@ class InverseLogit(UnaryExpr):
 
     def __str__(self):
         return f"InverseLogit({self.subexpr})"
+
+
+@dataclass
+class IfElse(Expr):
+    condition: Expr
+    true_expr: Expr
+    false_expr: Expr
+
+    def __iter__(self):
+        yield self
+        for expr in itertools.chain(self.condition, self.true_expr, self.false_expr):
+            yield expr
+
+    def __post_init__(self):
+        signatures = {
+            (types.BooleanType, types.IntegerType, types.IntegerType): types.IntegerType,
+            (types.BooleanType, types.RealType, types.RealType): types.RealType,
+            # (types.BooleanType, types.NumericType, types.NumericType): types.NumericType,
+            # this signature is not supported, because the backend, jax.lax.select, requires that the types of true
+            # and false be equal
+        }
+        self.out_type = types.get_output_type(signatures, (self.condition.out_type, self.true_expr.out_type, self.false_expr.out_type))
+
+    def __str__(self):
+        return f"IfElse({self.condition}, {self.true_expr}, {self.false_expr})"
 
 
 def search_tree(expr: Expr, *types) -> Expr:

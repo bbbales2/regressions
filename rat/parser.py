@@ -57,10 +57,13 @@ class InfixOps:
     A utility class that's used to identify and build binary operation expressions.
     Currently supported operations are:
     `ops.Sum`, `ops.Diff`, `ops.Mul`, `ops.Pow`, `ops.Mod`, `ops.Div`
+
+    Note on '~' and '='. They are not actually parsed into an AST node. They're included in InfixOps check just so
+    Parser.statement() can detect them and stop before processing them.
     """
 
-    ops = ["+", "-", "*", "^", "/", "%", "<", ">"]
-    precedence = {"+": 10, "-": 10, "*": 30, "/": 30, "^": 40, "%": 30, "<": 5, ">": 5}
+    ops = ["+", "-", "*", "^", "/", "%", "<", ">", "<=", ">=", "!=", "==", "~", "="]
+    precedence = {"+": 10, "-": 10, "*": 30, "/": 30, "^": 40, "%": 30, "<": 5, ">": 5, "<=": 5, ">=": 5, "!=": 5, "==": 5, "~": 1, "=": 1}
 
     @staticmethod
     def check(tok: Type[Token]):
@@ -79,9 +82,21 @@ class InfixOps:
         elif operator.value == "/":
             return Div(left=left, right=right, range=operator.range)
         elif operator.value == "^":
-            return Pow(base=left, exponent=right, range=operator.range)
+            return Pow(left=left, right=right, range=operator.range)
         elif operator.value == "%":
             return Mod(left=left, right=right, range=operator.range)
+        elif operator.value == "<":
+            return LessThan(left=left, right=right, range=operator.range)
+        elif operator.value == ">":
+            return GreaterThan(left=left, right=right, range=operator.range)
+        elif operator.value == "<=":
+            return LessThanOrEq(left=left, right=right, range=operator.range)
+        elif operator.value == ">=":
+            return GreaterThanOrEq(left=left, right=right, range=operator.range)
+        elif operator.value == "==":
+            return EqualTo(left=left, right=right, range=operator.range)
+        elif operator.value == "!=":
+            return NotEqualTo(left=left, right=right, range=operator.range)
         else:
             raise Exception(f"InfixOps: Unknown operator type {operator.value}")
 
@@ -116,22 +131,39 @@ class UnaryFunctions:
     A utility class that's used to identify and build unary functions.
     """
 
-    names = ["exp", "log", "abs", "floor", "ceil", "round", "sin", "cos", "tan", "arcsin", "arccos", "arctan", "logit", "inverse_logit"]
+    names = [
+        "exp",
+        "log",
+        "abs",
+        "floor",
+        "ceil",
+        "real",
+        "round",
+        "sin",
+        "cos",
+        "tan",
+        "arcsin",
+        "arccos",
+        "arctan",
+        "logit",
+        "inverse_logit",
+    ]
     precedence = {
-        "exp": 100,
-        "log": 100,
         "abs": 100,
-        "floor": 100,
+        "arccos": 100,
+        "arcsin": 100,
+        "arctan": 100,
         "ceil": 100,
+        "cos": 100,
+        "exp": 100,
+        "floor": 100,
+        "inverse_logit": 100,
+        "log": 100,
+        "logit": 100,
+        "real": 100,
         "round": 100,
         "sin": 100,
-        "cos": 100,
         "tan": 100,
-        "arcsin": 100,
-        "arccos": 100,
-        "arctan": 100,
-        "logit": 100,
-        "inverse_logit": 100,
     }
 
     @staticmethod
@@ -148,6 +180,8 @@ class UnaryFunctions:
             return Log(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "abs":
             return Abs(subexpr=subexpr, range=func_type.range)
+        elif func_type.value == "real":
+            return Real(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "floor":
             return Floor(subexpr=subexpr, range=func_type.range)
         elif func_type.value == "ceil":
@@ -385,6 +419,23 @@ class Parser:
             return exp
 
         elif isinstance(token, Identifier):  # parse data and param
+            if token.value == "ifelse":  # ifelse(boolean_expression, statement, statement)
+                self.remove()  # "ifelse"
+                self.expect_token(Special, "(")
+                self.remove()  # "("
+                expressions = self.expressions(entry_token_value="(")
+                self.expect_token(Special, ")")
+                self.remove()  # ")"
+                if len(expressions) != 3:
+                    raise ParseError(
+                        "Failed to parse inner expressions in `ifelse`. `ifelse()` must be used as a function with 3 arguments.",
+                        token.range,
+                    )
+
+                condition, true_expr, false_expr = expressions
+
+                return IfElse(condition=condition, true_expr=true_expr, false_expr=false_expr, range=token.range)
+
             if token.value in self.data_names:
                 if not is_subscript:
                     exp = Data(name=token.value, range=token.range)
@@ -602,8 +653,10 @@ class Parser:
 
     def statement(self):
         """
-        Evaluates a single statement. Statements in rat are either assignments or sampling statements. They will get
-        resolved into an `ops.Assignment` or an `ops.Distr` object.
+        Evaluates a single statement. Statements in Rat are either:
+        1. assignments
+        2. sampling statements
+        They will get resolved into an `ops.Assignment` or an `ops.Distr` object.
         :return:
         """
         return_statement = None
@@ -613,24 +666,29 @@ class Parser:
             raise ParseError("Cannot assign to a distribution.", token.range)
 
         # Step 1. evaluate lhs, assume it's expression
-        lhs = self.parse_nud(is_lhs=True)
+        # we set = and ~ to have a precedence value of 1, so setting minimum precedence to 2 makes the parser stop right
+        # before consuming them
+        # TODO: make it better
+        lhs = self.expression(is_lhs=True, min_precedence=2)
+
+        op = self.peek()
         if isinstance(lhs, Expr):
-            op = self.peek()
 
             if AssignmentOps.check(op):
+                if not isinstance(lhs, Param):
+                    raise ParseError("Can only assign values to variables!", lhs.range)
                 self.remove()  # assignment operator
                 rhs = self.expression()
                 try:
                     return_statement = AssignmentOps.generate(lhs, rhs, op)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), range)
+                    raise ParseError("Error while parsing assignment: " + str(e), op.range)
 
-            elif isinstance(op, Special) and op.value == "~":
+            elif isinstance(op, Operator) and op.value == "~":
                 # distribution declaration
-                self.expect_token(Special, "~")
+                self.expect_token(Operator, "~")
                 self.remove()  # ~
-                distribution = self.peek()
-                self.expect_token(Identifier, Distributions.names)
+                distribution = self.expect_token(Identifier, Distributions.names)
                 self.remove()  # distribution
 
                 self.expect_token(Special, "(")
@@ -641,7 +699,7 @@ class Parser:
                 try:
                     return_statement = Distributions.generate(lhs, expressions, distribution)
                 except TypeCheckError as e:
-                    raise ParseError(str(e), range)
+                    raise ParseError(str(e), distribution.range)
 
             else:
                 if op.value == "<":

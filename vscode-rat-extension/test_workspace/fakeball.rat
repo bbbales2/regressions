@@ -1,5 +1,5 @@
 #! {
-#!   "y_data" : ["y", "school"]
+#!   "y_data" : ["y", "school"],
 #!   "sigma_data" : ["sigma", "school"]
 #! }
 y' ~ normal(theta[school], sigma);

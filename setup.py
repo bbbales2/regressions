@@ -19,7 +19,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     rust_extensions=[RustExtension("rat.one_draw", binding=Binding.PyO3, debug=False)],
-    scripts=["bin/rat"],
+    scripts=["bin/rat", "bin/rat-language-server"],
     packages=setuptools.find_packages(),
     python_requires=">=3.10",
     install_requires=requirements,

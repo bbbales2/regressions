@@ -1,0 +1,26 @@
+#!/usr/bin/env python
+import logging
+import sys
+import threading
+import jsonrpcserver
+from rat import language_server
+
+from rat.language_server import read_json_rpc, write_json_rpc, LanguageServer
+
+logging.basicConfig(filename="rat-language-server.log", encoding="utf-8", level=logging.DEBUG, filemode="w")
+
+server = LanguageServer()
+
+while True:
+    message_in = read_json_rpc(sys.stdin)
+    message_out = jsonrpcserver.dispatch(message_in, methods = {
+        "initialize" : server.initialize,
+        "textDocument/semanticTokens/full" : server.semantic_tokens,
+        "textDocument/didOpen" : server.did_open,
+        "textDocument/didChange" : server.did_change,
+        "textDocument/didClose" : server.did_close
+    })
+    if message_out:
+        write_json_rpc(message_out, sys.stdout)
+    else:
+        logging.debug("No response to notification necessary")

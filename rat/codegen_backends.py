@@ -103,6 +103,30 @@ class BaseCodeGenerator:
             case ast.PrefixNegation():
                 self.expression_string += "-"
                 self.generate(ast_node.subexpr)
+            case ast.LessThan():
+                self.generate(ast_node.left)
+                self.expression_string += " < "
+                self.generate(ast_node.right)
+            case ast.GreaterThan():
+                self.generate(ast_node.left)
+                self.expression_string += " > "
+                self.generate(ast_node.right)
+            case ast.LessThanOrEq():
+                self.generate(ast_node.left)
+                self.expression_string += " <= "
+                self.generate(ast_node.right)
+            case ast.GreaterThanOrEq():
+                self.generate(ast_node.left)
+                self.expression_string += " >= "
+                self.generate(ast_node.right)
+            case ast.EqualTo():
+                self.generate(ast_node.left)
+                self.expression_string += " == "
+                self.generate(ast_node.right)
+            case ast.NotEqualTo():
+                self.generate(ast_node.left)
+                self.expression_string += " != "
+                self.generate(ast_node.right)
 
             case ast.Sqrt():
                 self.expression_string += "jax.numpy.sqrt("
@@ -121,13 +145,17 @@ class BaseCodeGenerator:
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
             case ast.Floor():
-                self.expression_string += "jx.numpy.floor("
+                self.expression_string += "jax.numpy.floor("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
             case ast.Ceil():
                 self.expression_string += "jax.numpy.ceil("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
+            case ast.Real():
+                self.expression_string += "jax.numpy.array("
+                self.generate(ast_node.subexpr)
+                self.expression_string += ", dtype = 'float')"
             case ast.Round():
                 self.expression_string += "jax.numpy.round("
                 self.generate(ast_node.subexpr)
@@ -164,12 +192,13 @@ class BaseCodeGenerator:
                 self.expression_string += "jax.scipy.special.expit("
                 self.generate(ast_node.subexpr)
                 self.expression_string += ")"
+
             case _:
                 raise NotImplementedError()
 
 
 class EvaluateDensityCodeGenerator(BaseCodeGenerator):
-    variable_name: str = None
+    variable_name: str = None  # This is an internal attribute that's used to pass variable name when generating subscripts
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -208,6 +237,17 @@ class EvaluateDensityCodeGenerator(BaseCodeGenerator):
                     self.primary_variable_name, self.variable_name, subscript_names, subscript_shifts
                 )
                 self.expression_string += f"subscripts['{subscript_key}']"
+
+            case ast.IfElse():
+                primary = self.primary_variable.name
+                self.expression_string += "rat.math.lax_select_scalar("
+                self.generate(ast_node.condition)
+                self.expression_string += ", "
+                self.generate(ast_node.true_expr)
+                self.expression_string += ", "
+                self.generate(ast_node.false_expr)
+                self.expression_string += ")"
+
             case _:
                 super().generate(ast_node)
 
@@ -217,20 +257,31 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
         super().__init__(*args, **kwargs)
         self.lhs_used_in_rhs = False
         self.lhs_key = ""
-        self.at_rhs = False
+        self.at_rhs_of_scan = False
+        # at_rhs_of_scan is used to indicate whether we are generating code for the RHS of a jax.lax.scan().
+        # scan() differ fron normal array operations because we're working elementwise on the parameter array.
+        # this means we can't just do data["a"] + parameter["b"], but instead need to index them one by one, depending
+        # on the LHS parameter's index. We do that by appending [index] to RHS variables, so that we're indexing an
+        # array. (ex. parameters["b"][1], where index = 1)
 
     def generate(self, ast_node: ast.Expr):
         match ast_node:
             case ast.Subscript():
                 super().generate(ast_node)
-                if self.at_rhs:
+                if self.at_rhs_of_scan:
+                    # This means parameters need to be treated elementwise
+                    self.expression_string += "[index]"
+            case ast.Data():
+                super().generate(ast_node)
+                if self.at_rhs_of_scan:
+                    # This means parameters need to be treated elementwise
                     self.expression_string += "[index]"
             case ast.Param():
                 param_key = ast_node.get_key()
 
                 if ast_node.subscript:
                     if param_key == self.lhs_key:
-                        if self.at_rhs:
+                        if self.at_rhs_of_scan:
                             # scan function
                             subscript = ast_node.subscript
 
@@ -285,9 +336,9 @@ class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
                         self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'][index], lambda : {zero_tuple_string}, lambda : carry)\n"
                     self.expression_string += f"    {carry_tuple_string} = carry\n"
                     self.expression_string += f"    next_value = "
-                    self.at_rhs = True
+                    self.at_rhs_of_scan = True
                     self.generate(rhs)
-                    self.at_rhs = False
+                    self.at_rhs_of_scan = False
                     self.expression_string += "\n"
                     self.expression_string += f"    return {next_carry_tuple_string}, next_value\n\n"
 
