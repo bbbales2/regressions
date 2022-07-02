@@ -293,7 +293,7 @@ class Compiler:
                     code_generator.generate(top_expr)
 
                     for row in primary_df.itertuples(index=False):
-                        lambda_row = { key : functools.partial(lambda x : x, value) for key, value in row._asdict().items() }
+                        lambda_row = {key: functools.partial(lambda x: x, value) for key, value in row._asdict().items()}
                         eval(code_generator.expression_string, globals(), {**tracers, **lambda_row})
 
             found_new_traces = False
