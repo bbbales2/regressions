@@ -434,9 +434,6 @@ class Parser:
 
                 condition, true_expr, false_expr = expressions
 
-                # parameters are not allowed in conditions.
-                if len(list(search_tree(condition, Param))) > 0:
-                    raise ParseError("Parameters are not allowed in ifelse conditions", token.range)
                 return IfElse(condition=condition, true_expr=true_expr, false_expr=false_expr, range=token.range)
 
             if token.value in self.data_names:

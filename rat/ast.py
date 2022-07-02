@@ -172,7 +172,7 @@ class Param(PrimeableExpr):
         return self.name
 
     def __post_init__(self):
-        self.out_type = types.NumericType
+        self.out_type = types.RealType
 
     def __str__(self):
         return f"Param({self.name}, subscript={self.subscript}, prime={self.prime}, lower={self.lower}, upper={self.upper}, assigned={self.assigned_by_scan})"
