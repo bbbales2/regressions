@@ -17,6 +17,7 @@ def test_ifelse_issue_90():
 
     Model(data_df, model_string)
 
+
 # https://github.com/bbbales2/regressions/issues/88
 def test_distribution_lhs_expression_issue_88():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
