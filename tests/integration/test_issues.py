@@ -1,16 +1,14 @@
-import logging
-import math
 import os
 import pathlib
 import pandas
 import pytest
 
-from rat import ast
 from rat.model import Model
 
-issue_data_dir = os.path.join(pathlib.Path(__file__).parent, "issue_data")
+test_dir = pathlib.Path(__file__).parent
+issue_data_dir = os.path.join(test_dir, "issue_data")
 
-
+# https://github.com/bbbales2/regressions/issues/90
 def test_ifelse_issue_90():
     data_df = pandas.read_csv(os.path.join(issue_data_dir, "90.csv"))
 
@@ -19,7 +17,23 @@ def test_ifelse_issue_90():
 
     Model(data_df, model_string)
 
+# https://github.com/bbbales2/regressions/issues/88
+def test_distribution_lhs_expression_issue_88():
+    data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
-if __name__ == "__main__":
-    logging.getLogger().setLevel(logging.DEBUG)
-    pytest.main([__file__, "-s", "-o", "log_cli=true"])
+    model_string = """
+    2.0 * y' - y ~ normal(theta[school], sigma);
+    theta' = mu + z[school] * tau;
+    z ~ normal(0, 1);
+    mu ~ normal(0, 5);
+    tau<lower = 0.0> ~ log_normal(0, 1);
+    """
+
+    model = Model(data_df, model_string)
+    fit = model.optimize()
+
+    mu_df = fit.draws("mu")
+    tau_df = fit.draws("tau")
+
+    assert mu_df["mu"][0] == pytest.approx(4.61934000, rel=1e-2)
+    assert tau_df["tau"][0] == pytest.approx(0.36975800, rel=1e-2)
