@@ -62,7 +62,7 @@ def test_cli_sample():
 
 
 def test_cli_multiple_files():
-    model_filename = os.path.join(test_dir, "eight_schools.rat")
+    model_filename = os.path.join(test_dir, "eight_schools_multiple_data.rat")
     y_data_filename = os.path.join(test_dir, "eight_schools_y.csv")
     sigma_data_filename = os.path.join(test_dir, "eight_schools_sigma.csv")
 
