@@ -391,13 +391,13 @@ class DiscoverVariablesCodeGenerator:
                     self.expression_string += ")"
                 else:
                     # With no subscript the variable comes from primary dataframe
-                    self.expression_string += ast_node.name
+                    self.expression_string += f"{ast_node.name}()"
             case ast.Subscript():
                 subscript_names = tuple(column.name for column in ast_node.names)
                 subscript_shifts = tuple(x.value for x in ast_node.shifts)
                 arguments = []
                 for name, shift in zip(subscript_names, subscript_shifts):
-                    argument = f"{name} = {name}" if self.name_arguments else name
+                    argument = f"{name} = {name}()" if self.name_arguments else f"{name}()"
                     if shift != 0:
                         argument += f" - {shift}"
                     arguments.append(argument)

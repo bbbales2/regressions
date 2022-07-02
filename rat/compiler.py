@@ -1,5 +1,7 @@
+from ast import Lambda
 from codeop import Compile
 import itertools
+import functools
 import pandas
 import jax
 import jax.numpy
@@ -291,7 +293,8 @@ class Compiler:
                     code_generator.generate(top_expr)
 
                     for row in primary_df.itertuples(index=False):
-                        eval(code_generator.expression_string, globals(), {**tracers, **row._asdict()})
+                        lambda_row = { key : functools.partial(lambda x : x, value) for key, value in row._asdict().items() }
+                        eval(code_generator.expression_string, globals(), {**tracers, **lambda_row})
 
             found_new_traces = False
             for variable_name, tracer in tracers.items():

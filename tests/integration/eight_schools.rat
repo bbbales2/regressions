@@ -1,4 +1,4 @@
-y' ~ normal(theta[school], sigma);
+y' ~ normal(theta[school], sigma[school]);
 theta' = mu + z[school] * tau;
 z ~ normal(0, 1);
 mu ~ normal(0, 5);
