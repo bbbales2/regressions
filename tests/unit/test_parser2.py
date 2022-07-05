@@ -19,16 +19,17 @@ import rat.ast2 as ast2
 
 test_dir = pathlib.Path(__file__).parent
 
+
 class VariableWalker(RatWalker):
-    def walk_Variable(self, node : ast2.Variable):
+    def walk_Variable(self, node: ast2.Variable):
         print(node.name)
 
 
-def get_primary_symbol_key(statement : ast2.Statement):
+def get_primary_symbol_key(statement: ast2.Statement):
     @dataclass
     class PrimaryWalker(RatWalker):
-        marked : ast2.Variable = None
-        candidates : List[ast2.Variable] = field(default_factory=list)
+        marked: ast2.Variable = None
+        candidates: List[ast2.Variable] = field(default_factory=list)
 
         def walk_Variable(self, node: ast2.Variable):
             if node.prime:
@@ -38,7 +39,7 @@ def get_primary_symbol_key(statement : ast2.Statement):
                     raise Exception("etc. etc.1")
             else:
                 self.candidates.append(node)
-    
+
     walker = PrimaryWalker()
     walker.walk(statement)
     marked = walker.marked
@@ -46,17 +47,18 @@ def get_primary_symbol_key(statement : ast2.Statement):
 
     if marked != None:
         return marked.name
-    
+
     if len(candidates) == 1:
         return candidates[0].name
-    
+
     if len(candidates) > 1:
         raise Exception("etc. etc.2")
 
     if len(candidates) == 0:
         raise Exception("etc. etc.3")
 
-def discover_subscript_names(program : ast2.Program):
+
+def discover_subscript_names(program: ast2.Program):
     @dataclass
     class PrimaryWalker(RatWalker):
         def walk_Variable(self, node: ast2.Variable):
@@ -70,7 +72,7 @@ def discover_subscript_names(program : ast2.Program):
 
         walker = PrimaryWalker(primary_name)
         walker.walk(program)
-    
+
     for statement in program.ast:
         primary_name = get_primary_symbol_key(statement)
 
@@ -78,17 +80,15 @@ def discover_subscript_names(program : ast2.Program):
         walker.walk(program)
 
 
-
-
 def test_grammar():
     with open(os.path.join(test_dir, "grammar.rat")) as f:
         text = f.read()
 
     semantics = ModelBuilderSemantics()
-    parser = RatParser(semantics = semantics)
-    program = (lambda : parser.parse(text))()
+    parser = RatParser(semantics=semantics)
+    program = (lambda: parser.parse(text))()
 
-    #for statement in program.ast:
+    # for statement in program.ast:
     #    print(get_primary_symbol_key(statement))
 
     parser = tatsu.compile(grammar())

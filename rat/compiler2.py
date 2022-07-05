@@ -20,11 +20,11 @@ from .position_and_range import Position, Range
 
 @dataclass
 class StatementInfo:
-    statement : ast2.Statement
-    primary : ast2.Variable
+    statement: ast2.Statement
+    primary: ast2.Variable
 
 
-def _get_subscript_names(node : ast2.Variable) -> List[str]:
+def _get_subscript_names(node: ast2.Variable) -> List[str]:
     """
     Examine every subscript argument to see if it has only one named variable
 
@@ -32,23 +32,23 @@ def _get_subscript_names(node : ast2.Variable) -> List[str]:
     """
     if node.arglist is None:
         return None
-    
+
     def combine(names):
-        return functools.reduce(lambda x, y : x + y, filter(None, names))
+        return functools.reduce(lambda x, y: x + y, filter(None, names))
 
     class NameWalker(RatWalker):
-        def walk_Logical(self, node : ast2.Logical):
+        def walk_Logical(self, node: ast2.Logical):
             return combine([self.walk(node.left), self.walk(node.right)])
 
-        def walk_Binary(self, node : ast2.Binary):
+        def walk_Binary(self, node: ast2.Binary):
             return combine([self.walk(node.left), self.walk(node.right)])
-        
-        def walk_FunctionCall(self, node : ast2.FunctionCall):
+
+        def walk_FunctionCall(self, node: ast2.FunctionCall):
             return combine([self.walk(arg) for arg in node.arglist])
 
-        def walk_Variable(self, node : ast2.Variable):
+        def walk_Variable(self, node: ast2.Variable):
             return set([node.name])
-    
+
     names = []
     walker = NameWalker()
     for arg in node.arglist:
@@ -69,11 +69,9 @@ class RatCompiler:
     max_trace_iterations: int
     variable_table: VariableTable
     generated_code: str
-    statements : List[StatementInfo]
+    statements: List[StatementInfo]
 
-    def __init__(
-        self, data: Union[pandas.DataFrame, Dict], program: ast2.Program, model_code_string: str, max_trace_iterations: int
-    ):
+    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast2.Program, model_code_string: str, max_trace_iterations: int):
         self.data = data
         self.program = program
         self.model_code_string = model_code_string
@@ -81,7 +79,7 @@ class RatCompiler:
         self.variable_table: VariableTable = None
         self.generated_code = ""
         self.statements = []
-    
+
     def get_data_names(self) -> Set[str]:
         """
         Get the names of all the input dataframe columns
@@ -95,19 +93,20 @@ class RatCompiler:
                     names |= set(df.columns)
                 return names
 
-    def _get_primary_ast_variable(self, statement : ast2.Statement):
+    def _get_primary_ast_variable(self, statement: ast2.Statement):
         """
-         Compute the primary variable reference in a line of code with the rules:
-         1. There can only be one primary variable reference (priming two references to the same variable is still an error)
-         2. If a variable is marked as primary, then it is the primary variable.
-         3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
-         4. If there are no variables with dataframes, the leftmost one is the primary one
-         5. It is an error if no primary variable can be identified
+        Compute the primary variable reference in a line of code with the rules:
+        1. There can only be one primary variable reference (priming two references to the same variable is still an error)
+        2. If a variable is marked as primary, then it is the primary variable.
+        3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
+        4. If there are no variables with dataframes, the leftmost one is the primary one
+        5. It is an error if no primary variable can be identified
         """
+
         @dataclass
         class PrimaryWalker(RatWalker):
-            marked : ast2.Variable = None
-            candidates : List[ast2.Variable] = field(default_factory = list)
+            marked: ast2.Variable = None
+            candidates: List[ast2.Variable] = field(default_factory=list)
 
             def walk_Variable(self, node: ast2.Variable):
                 if node.prime:
@@ -118,7 +117,7 @@ class RatCompiler:
                         raise CompileError(msg, node)
                 else:
                     self.candidates.append(node)
-        
+
         walker = PrimaryWalker()
         walker.walk(statement)
         marked = walker.marked
@@ -126,16 +125,16 @@ class RatCompiler:
 
         if marked != None:
             return marked
-        
+
         if len(candidates) == 1:
             return candidates[0]
-        
+
         if len(candidates) > 1:
             if len(set(candidate.name for candidate in candidates)) == 1:
                 msg = f"No marked primary variable but found multiple references to {candidates[0].name}. One reference should be marked manually"
                 raise CompileError(msg, candidates[0])
             else:
-                msg = f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are candidates. A primary variable should be marked manually"                
+                msg = f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are candidates. A primary variable should be marked manually"
                 raise CompileError(msg, candidates[0])
 
         if len(candidates) == 0:
@@ -148,11 +147,11 @@ class RatCompiler:
         """
         for ast_statement in self.program.ast.statements:
             primary = self._get_primary_ast_variable(ast_statement)
-            self.statements.append(StatementInfo(statement = ast_statement, primary = primary))
+            self.statements.append(StatementInfo(statement=ast_statement, primary=primary))
 
         # figure out which symbols will have dataframes
-        #has_dataframe = set()
-        #for top_expr in self.expr_tree_list:
+        # has_dataframe = set()
+        # for top_expr in self.expr_tree_list:
         #    for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
         #        if isinstance(primeable_symbol, ast.Data) or primeable_symbol.subscript is not None:
         #            has_dataframe.add(primeable_symbol.get_key())
@@ -166,11 +165,11 @@ class RatCompiler:
         # Add entries to the variable table for all ast variables
         @dataclass
         class CreateVariableWalker(RatWalker):
-            data_names : Set[str]
-            variable_table : VariableTable
-            left_hand_of_assignment : bool = False
+            data_names: Set[str]
+            variable_table: VariableTable
+            left_hand_of_assignment: bool = False
 
-            def walk_Statement(self, node : ast2.Statement):
+            def walk_Statement(self, node: ast2.Statement):
                 if node.op == "=":
                     old_left_hand_of_assignment = self.left_hand_of_assignment
                     self.left_hand_of_assignment = True
@@ -180,21 +179,20 @@ class RatCompiler:
                     self.walk(node.left)
                 self.walk(node.right)
 
-            def walk_Variable(self, node : ast2.Variable):
+            def walk_Variable(self, node: ast2.Variable):
                 if node.name in data_names:
-                    self.variable_table.insert(variable_name = node.name, variable_type=VariableType.DATA)
+                    self.variable_table.insert(variable_name=node.name, variable_type=VariableType.DATA)
                 else:
                     # Overwrite table entry for assigned parameters (so they don't get turned back into regular parameters)
                     if self.left_hand_of_assignment:
-                        self.variable_table.insert(variable_name = node.name, variable_type=VariableType.ASSIGNED_PARAM)
+                        self.variable_table.insert(variable_name=node.name, variable_type=VariableType.ASSIGNED_PARAM)
                     else:
                         if node.name not in self.variable_table:
-                            self.variable_table.insert(variable_name = node.name, variable_type=VariableType.PARAM)
-        
+                            self.variable_table.insert(variable_name=node.name, variable_type=VariableType.PARAM)
+
         data_names = self.get_data_names()
         walker = CreateVariableWalker(data_names, self.variable_table)
         walker.walk(self.program)
-
 
         # Do a sweep to rename the primary variables as necessary
         for statement_info in self.statements:
@@ -212,7 +210,6 @@ class RatCompiler:
                     msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {primary_variable.subscripts}"
                     raise CompileError(msg, primary_ast_variable)
 
-
         # Do a sweep to infer subscript names for subscripts not renamed
         for statement_info in self.statements:
             # Find the primary variable
@@ -222,9 +219,10 @@ class RatCompiler:
 
             @dataclass
             class InferSubscriptNameWalker(RatWalker):
-                primary_name : str
-                variable_table : VariableTable
-                def walk_Variable(self, node : ast2.Variable):
+                primary_name: str
+                variable_table: VariableTable
+
+                def walk_Variable(self, node: ast2.Variable):
                     if node.name != self.primary_name:
                         variable = self.variable_table[node.name]
                         subscript_names = _get_subscript_names(node)
@@ -239,7 +237,6 @@ class RatCompiler:
             walker = InferSubscriptNameWalker(primary_ast_variable.name, self.variable_table)
             walker.walk(statement)
 
-
         # Perform a number of dataframe compatibility checks
         for statement_info in self.statements:
             # Find the primary variable
@@ -249,20 +246,21 @@ class RatCompiler:
             primary_subscript_names = primary_variable.subscripts
 
             data_names = self.get_data_names() | set(primary_subscript_names)
-            
+
             @dataclass
             class DataframeCompatibilityWalker(RatWalker):
-                primary_name : str
-                data_names : List[str]
-                variable_table : VariableTable
-                def walk_Variable(self, node : ast2.Variable):
+                primary_name: str
+                data_names: List[str]
+                variable_table: VariableTable
+
+                def walk_Variable(self, node: ast2.Variable):
                     # TODO: It would be nice if these code paths were closer for Data and Params
                     variable = self.variable_table[node.name]
                     primary_variable = self.variable_table[self.primary_name]
 
                     subscript_names = _get_subscript_names(node)
                     primary_subscript_names = primary_variable.subscripts
-                                    
+
                     if subscript_names is not None:
                         # Check that number/names of subscripts are compatible with primary variable
                         for name, arg in zip(subscript_names, node.arglist):
@@ -270,7 +268,7 @@ class RatCompiler:
                                 dataframe_name = self.variable_table.get_dataframe_name(self.primary_name)
                                 msg = f"Subscript {name} not found in dataframe {dataframe_name} (associated with primary variable {self.primary_name})"
                                 raise CompileError(msg, arg)
-                                    
+
                     if node.name in self.data_names:
                         # If the target variable is data, then assume the subscripts here are
                         # referencing columns of the dataframe by name
@@ -279,7 +277,9 @@ class RatCompiler:
                             for name, arg in zip(subscript_names, node.arglist):
                                 if name not in variable.subscripts:
                                     dataframe_name = self.variable_table.get_dataframe_name(node.name)
-                                    msg = f"Subscript {name} not found in dataframe {dataframe_name} (associated with variable {symbol_key})"
+                                    msg = (
+                                        f"Subscript {name} not found in dataframe {dataframe_name} (associated with variable {symbol_key})"
+                                    )
                                     raise CompileError(msg, arg)
                     else:
                         subscript_names = _get_subscript_names(node)
@@ -302,14 +302,14 @@ class RatCompiler:
                             # Extra checks for secondary variables
                             # TODO: Is this necessary?
                             # if symbol_key != primary_symbol_key:
-                                # TODO: This should probably be supported in the future
-                                # right now I'm leaving it off because I'm not quite sure
-                                # what the behavior should be and I don't have an example
-                                # model in mind (my guess is access should give zeros)
+                            # TODO: This should probably be supported in the future
+                            # right now I'm leaving it off because I'm not quite sure
+                            # what the behavior should be and I don't have an example
+                            # model in mind (my guess is access should give zeros)
                             #     if any(shift != 0 for shift in shifts):
                             #         msg = f"Shifted access on a secondary parameter is not allowed"
                             #         raise CompileError(msg, symbol.range)
-            
+
             walker = DataframeCompatibilityWalker(primary_ast_variable.name, data_names, self.variable_table)
             walker.walk(statement)
 
@@ -350,8 +350,9 @@ class RatCompiler:
         # Apply constraints to parameters
         @dataclass
         class ConstraintWalker(RatWalker):
-            variable_table : VariableTable
-            def walk_Variable(self, node : ast2.Variable):
+            variable_table: VariableTable
+
+            def walk_Variable(self, node: ast2.Variable):
                 variable = self.variable_table[node.name]
                 if variable.variable_type == VariableType.PARAM and node.constraints is not None:
                     # Constraints should be evaluated at compile time
@@ -376,7 +377,7 @@ class RatCompiler:
                                 lower_constraint_value = right_constraint_value
                             else:
                                 upper_constraint_value = right_constraint_value
-                        
+
                     except Exception as e:
                         error_msg = f"Failed evaluating constraints for parameter {node.name}, ({e})"
                         raise CompileError(error_msg, node) from e
@@ -386,7 +387,7 @@ class RatCompiler:
                     except AttributeError:
                         msg = f"Attempting to set constraints of {node.name} to ({lower_constraint_value}, {upper_constraint_value}) but they are already set to ({variable.constraint_lower}, {variable.constraint_upper})"
                         raise CompileError(msg, node)
-        
+
         walker = ConstraintWalker(self.variable_table)
         walker.walk(self.program)
 
@@ -395,9 +396,10 @@ class RatCompiler:
 
         @dataclass
         class FindAndExplodeWalker(RatWalker):
-            search_name : str
-            error_msg : str
-            def walk_Variable(self, node : ast2.Variable):
+            search_name: str
+            error_msg: str
+
+            def walk_Variable(self, node: ast2.Variable):
                 if self.search_name == node.name:
                     raise CompileError(self.error_msg, node)
 
@@ -410,7 +412,7 @@ class RatCompiler:
             # 1. If the variable on the left appears also on the right, mark this
             #   statement to be code-gen'd with a scan and also make sure that
             #   the right hand side is shifted appropriately
-            if statement.op == '=':
+            if statement.op == "=":
                 lhs = statement.left
                 msg = f"The left hand side of an assignment must be a non-data variable"
                 if not isinstance(lhs, ast2.Variable):
@@ -458,17 +460,17 @@ class RatCompiler:
                         walker.walk(following_statement_info.statement)
 
             # 3. Parameters cannot be used after they are assigned
-            if statement_info.statement == '=':
+            if statement_info.statement == "=":
                 msg = f"Parameter {assigned_name} is assigned on line {line_index} but used after. A variable cannot be used after it is assigned"
                 walker = FindAndExplodeWalker(assigned_name, msg)
                 for j in range(line_index + 1, N_lines):
                     walker.walk(self.statements[j].statement)
 
-
         @dataclass
         class IfElsePredicateCheckWalker(RatWalker):
-            variable_table : VariableTable
-            inside_predicate : bool = False
+            variable_table: VariableTable
+            inside_predicate: bool = False
+
             def walk_IfElse(self, node: ast2.IfElse):
                 old_inside_predicate = self.inside_predicate
                 self.inside_predicate = True
@@ -478,7 +480,7 @@ class RatCompiler:
                 self.walk(node.left)
                 self.walk(node.right)
 
-            def walk_Variable(self, node : ast2.Variable):
+            def walk_Variable(self, node: ast2.Variable):
                 if self.inside_predicate and self.variable_table[node.name] != VariableType.DATA:
                     msg = f"Non-data variables cannot appear in ifelse conditions"
                     raise CompileError(self.error_msg, node)

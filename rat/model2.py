@@ -100,8 +100,8 @@ class Model:
                 raise Exception("Data must be a pandas DataFrame or a dictionary")
 
         semantics = ModelBuilderSemantics()
-        parser = RatParser(semantics = semantics)
-        program = (lambda : parser.parse(model_string))()
+        parser = RatParser(semantics=semantics)
+        program = (lambda: parser.parse(model_string))()
 
         compiler = RatCompiler(data, program, model_string, max_trace_iterations=max_trace_iterations)
 
