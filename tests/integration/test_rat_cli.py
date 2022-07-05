@@ -1,18 +1,10 @@
 import logging
-import numpy
 import os
 import pathlib
-import pandas
 import pytest
 import tempfile
 
-from rat import ast
-from rat import compiler
-from rat.model import Model
-from rat.parser import Parser
 from rat.fit import load
-from pathlib import Path
-import shlex
 import subprocess
 import sys
 

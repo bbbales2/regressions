@@ -10,9 +10,7 @@ import plotnine
 import time
 
 from rat import nuts
-from rat import compiler
 from rat.model import Model
-from rat.parser import Parser
 from pathlib import Path
 
 test_dir = pathlib.Path(__file__).parent

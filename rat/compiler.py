@@ -20,12 +20,12 @@ from rat import variable_table
 
 class Compiler:
     data: Union[pandas.DataFrame, Dict]
-    expr_tree_list: List[ast.Expr]
+    expr_tree_list: List
     model_code_string: str
     max_trace_iterations: int
 
     def __init__(
-        self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List[ast.Expr], model_code_string: str, max_trace_iterations: int
+        self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List, model_code_string: str, max_trace_iterations: int
     ):
         self.data = data
         self.expr_tree_list = expr_tree_list
@@ -34,7 +34,7 @@ class Compiler:
         self.variable_table: VariableTable = None
         self.generated_code = ""
 
-    def _get_primary_symbol_from_statement(self, top_expr: ast.Expr):
+    def _get_primary_symbol_from_statement(self, top_expr):
         """
         Get the primary symbol in a statement. This assumes that the statement has
         only one primary symbol

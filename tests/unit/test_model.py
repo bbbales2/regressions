@@ -6,7 +6,6 @@ import pandas
 import pytest
 import tempfile
 
-from rat import compiler
 from rat.model import Model
 from rat.parser import Parser
 from pathlib import Path

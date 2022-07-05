@@ -2,8 +2,7 @@ import jax.numpy
 import pytest
 
 import rat.parser
-from rat.parser import Parser, ParseError
-from rat.scanner import Scanner
+from rat.parser import RatParser
 from rat.ast import *
 
 

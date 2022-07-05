@@ -7,7 +7,6 @@ import pytest
 
 from rat import ast
 from rat.model import Model
-from rat.ast import IntegerConstant, SubscriptColumn
 from pathlib import Path
 
 test_dir = pathlib.Path(__file__).parent

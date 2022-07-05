@@ -6,7 +6,7 @@ import pytest
 import time
 
 from rat import ast
-from rat.compiler import CompileError
+from rat.compiler2 import CompileError
 from rat.model import Model
 
 test_dir = pathlib.Path(__file__).parent

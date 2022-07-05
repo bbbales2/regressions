@@ -35,9 +35,9 @@ def _get_subscript_names(node : ast.Variable) -> List[str]:
     """
     if node.arglist is None:
         return None
-    
+
     def combine(names):
-        return functools.reduce(lambda x, y : x + y, filter(None, names))
+        return functools.reduce(lambda x, y: x + y, filter(None, names))
 
     class NameWalker(RatWalker):
         def walk_Logical(self, node : ast.Logical):
@@ -51,7 +51,7 @@ def _get_subscript_names(node : ast.Variable) -> List[str]:
 
         def walk_Variable(self, node : ast.Variable):
             return set([node.name])
-    
+
     names = []
     walker = NameWalker()
     for arg in node.arglist:
@@ -120,7 +120,7 @@ class RatCompiler:
     variable_table: VariableTable
     subscript_table: SubscriptTable
     generated_code: str
-    statements : List[StatementInfo]
+    statements: List[StatementInfo]
 
     def __init__(
         self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str, max_trace_iterations: int
@@ -133,7 +133,7 @@ class RatCompiler:
         self.subscript_table = None
         self.generated_code = ""
         self.statements = []
-    
+
     def get_data_names(self) -> Set[str]:
         """
         Get the names of all the input dataframe columns
@@ -156,8 +156,8 @@ class RatCompiler:
             self.statements.append(StatementInfo(statement = ast_statement, primary = primary))
 
         # figure out which symbols will have dataframes
-        #has_dataframe = set()
-        #for top_expr in self.expr_tree_list:
+        # has_dataframe = set()
+        # for top_expr in self.expr_tree_list:
         #    for primeable_symbol in ast.search_tree(top_expr, ast.PrimeableExpr):
         #        if isinstance(primeable_symbol, ast.Data) or primeable_symbol.subscript is not None:
         #            has_dataframe.add(primeable_symbol.get_key())
@@ -171,9 +171,9 @@ class RatCompiler:
         # Add entries to the variable table for all ast variables
         @dataclass
         class CreateVariableWalker(RatWalker):
-            data_names : Set[str]
-            variable_table : VariableTable
-            left_hand_of_assignment : bool = False
+            data_names: Set[str]
+            variable_table: VariableTable
+            left_hand_of_assignment: bool = False
 
             def walk_Statement(self, node : ast.Statement):
                 if node.op == "=":
@@ -187,19 +187,18 @@ class RatCompiler:
 
             def walk_Variable(self, node : ast.Variable):
                 if node.name in data_names:
-                    self.variable_table.insert(variable_name = node.name, variable_type=VariableType.DATA)
+                    self.variable_table.insert(variable_name=node.name, variable_type=VariableType.DATA)
                 else:
                     # Overwrite table entry for assigned parameters (so they don't get turned back into regular parameters)
                     if self.left_hand_of_assignment:
-                        self.variable_table.insert(variable_name = node.name, variable_type=VariableType.ASSIGNED_PARAM)
+                        self.variable_table.insert(variable_name=node.name, variable_type=VariableType.ASSIGNED_PARAM)
                     else:
                         if node.name not in self.variable_table:
-                            self.variable_table.insert(variable_name = node.name, variable_type=VariableType.PARAM)
-        
+                            self.variable_table.insert(variable_name=node.name, variable_type=VariableType.PARAM)
+
         data_names = self.get_data_names()
         walker = CreateVariableWalker(data_names, self.variable_table)
         walker.walk(self.program)
-
 
         # Do a sweep to rename the primary variables as necessary
         for statement_info in self.statements:
@@ -216,7 +215,6 @@ class RatCompiler:
                 except AttributeError:
                     msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been renamed to {primary_variable.subscripts}"
                     raise CompileError(msg, primary_ast_variable)
-
 
         # Do a sweep to infer subscript names for subscripts not renamed
         for statement_info in self.statements:
@@ -244,7 +242,6 @@ class RatCompiler:
             walker = InferSubscriptNameWalker(primary_ast_variable.name, self.variable_table)
             walker.walk(statement)
 
-
         # Perform a number of dataframe compatibility checks
         for statement_info in self.statements:
             # Find the primary variable
@@ -254,7 +251,7 @@ class RatCompiler:
             primary_subscript_names = primary_variable.subscripts
 
             data_names = self.get_data_names() | set(primary_subscript_names)
-            
+
             @dataclass
             class DataframeCompatibilityWalker(RatWalker):
                 primary_name : str
@@ -267,7 +264,7 @@ class RatCompiler:
 
                     subscript_names = _get_subscript_names(node)
                     primary_subscript_names = primary_variable.subscripts
-                                    
+
                     if subscript_names is not None:
                         # Check that number/names of subscripts are compatible with primary variable
                         for name, arg in zip(subscript_names, node.arglist):
@@ -275,7 +272,7 @@ class RatCompiler:
                                 dataframe_name = self.variable_table.get_dataframe_name(self.primary_name)
                                 msg = f"Subscript {name} not found in dataframe {dataframe_name} (associated with primary variable {self.primary_name})"
                                 raise CompileError(msg, arg)
-                                    
+
                     if node.name in self.data_names:
                         # If the target variable is data, then assume the subscripts here are
                         # referencing columns of the dataframe by name
@@ -307,14 +304,14 @@ class RatCompiler:
                             # Extra checks for secondary variables
                             # TODO: Is this necessary?
                             # if symbol_key != primary_symbol_key:
-                                # TODO: This should probably be supported in the future
-                                # right now I'm leaving it off because I'm not quite sure
-                                # what the behavior should be and I don't have an example
-                                # model in mind (my guess is access should give zeros)
+                            # TODO: This should probably be supported in the future
+                            # right now I'm leaving it off because I'm not quite sure
+                            # what the behavior should be and I don't have an example
+                            # model in mind (my guess is access should give zeros)
                             #     if any(shift != 0 for shift in shifts):
                             #         msg = f"Shifted access on a secondary parameter is not allowed"
                             #         raise CompileError(msg, symbol.range)
-            
+
             walker = DataframeCompatibilityWalker(primary_ast_variable.name, data_names, self.variable_table)
             walker.walk(statement)
 
@@ -381,7 +378,7 @@ class RatCompiler:
                                 lower_constraint_value = right_constraint_value
                             else:
                                 upper_constraint_value = right_constraint_value
-                        
+
                     except Exception as e:
                         error_msg = f"Failed evaluating constraints for parameter {node.name}, ({e})"
                         raise CompileError(error_msg, node) from e
@@ -391,7 +388,7 @@ class RatCompiler:
                     except AttributeError:
                         msg = f"Attempting to set constraints of {node.name} to ({lower_constraint_value}, {upper_constraint_value}) but they are already set to ({variable.constraint_lower}, {variable.constraint_upper})"
                         raise CompileError(msg, node)
-        
+
         walker = ConstraintWalker(self.variable_table)
         walker.walk(self.program)
 
