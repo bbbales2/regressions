@@ -1,24 +1,22 @@
 from concurrent.futures import ThreadPoolExecutor
 import functools
-import itertools
 import importlib.util
 import jax
 import jax.experimental.host_callback
-import numbers
 import numpy
 import os
 import pandas
 import scipy.optimize
 import tempfile
-import time
 import types
-from typing import Callable, List, Dict, Union
-from tqdm import tqdm
+from typing import Callable, Dict, Union
+from tatsu.model import ModelBuilderSemantics
 
-from . import compiler
-from . import ast
-from .scanner import Scanner
-from .parser import Parser
+from rat import subscript_table
+
+from .compiler2 import RatCompiler
+from .parser import RatParser
+from .variable_table import VariableTable, VariableType
 from . import fit
 from . import nuts
 
@@ -69,8 +67,7 @@ class Model:
     def __init__(
         self,
         data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
-        model_string: str = None,
-        parsed_lines: List[ast.Expr] = None,
+        model_string: str,
         max_trace_iterations: int = 50,
         compile_path: str = None,
         overwrite: bool = False,
@@ -105,30 +102,21 @@ class Model:
             case _:
                 raise Exception("Data must be a pandas DataFrame or a dictionary")
 
-        if model_string is not None:
-            if parsed_lines is not None:
-                raise Exception("Only one of model_string and parsed_lines can be non-None")
+        # Parse the model to get AST
+        semantics = ModelBuilderSemantics()
+        parser = RatParser(semantics = semantics)
+        # TODO: This lambda is just here to make sure pylance formatting works -- should work
+        # without it as well
+        program_ast = (lambda : parser.parse(model_string))()
 
-            parsed_lines = []
-            scanned_lines = Scanner(model_string).scan()
-            for scanned_line in scanned_lines:
-                parsed_lines.append(Parser(scanned_line, data_names, model_string).statement())
-        else:
-            if parsed_lines is None:
-                raise Exception("At least one of model_string or parsed_lines must be non-None")
+        # Compile the model
+        compiler = RatCompiler(data, program_ast, model_string, max_trace_iterations=max_trace_iterations)
+        model_source_string, variable_table, subscript_table = compiler.compile()
 
-        (
-            data_dict,
-            base_df_dict,
-            subscript_indices_dict,
-            first_in_group_indicators,
-            model_source_string,
-        ) = compiler.Compiler(data, parsed_lines, model_string, max_trace_iterations=max_trace_iterations).compile()
-
+        # Write model source to file and compile and import it
         if compile_path is None:
             self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")
 
-            # Write model source to file and compile and import it
             model_source_file = os.path.join(self.working_dir.name, "model_source.py")
         else:
             self.working_dir = os.path.dirname(compile_path)
@@ -148,22 +136,30 @@ class Model:
         spec.loader.exec_module(compiled_model)
         self.compiled_model = compiled_model
 
-        self.base_df_dict = base_df_dict
-
-        # Copy data to jax device
+        self.base_df_dict = {}
         self.device_data = {}
-        for name, data in data_dict.items():
-            self.device_data[name] = jax.device_put(data)
-
-        # Copy subscript indices to jax device
         self.device_subscript_indices = {}
-        for name, index_arr in subscript_indices_dict.items():
-            self.device_subscript_indices[name] = jax.device_put(index_arr)
+
+        for variable_name in variable_table:
+            record = variable_table[variable_name]
+            # The base_dfs are used for putting together the output
+            if record.variable_type != VariableType.DATA:
+                if record.base_df is not None:
+                    self.base_df_dict[variable_name] = record.base_df
+                else:
+                    self.base_df_dict[variable_name] = pandas.DataFrame()
+
+            # Copy data to jax device
+            for name, data in record.get_numpy_arrays():
+                self.device_data[name] = jax.device_put(data)
+
+        for record in subscript_table.values():
+            # Copy subscript indices to jax device
+            self.device_subscript_indices[record.name] = jax.device_put(record.array)
 
         # Copy first in group indicators to jax device
+        # TODO: Remove?
         self.device_first_in_group_indicators = {}
-        for name, first_in_group_indicator in first_in_group_indicators.items():
-            self.device_first_in_group_indicators[name] = jax.device_put(first_in_group_indicator)
 
         self.log_density_jax = jax.jit(functools.partial(self._log_density, True))
         self.log_density_jax_no_jac = jax.jit(functools.partial(self._log_density, False))

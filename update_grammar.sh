@@ -1,1 +1,1 @@
-tatsu rat/grammar.ebnf --outfile rat/parser2.py --object-model-outfile rat/ast2.py
+tatsu rat/grammar.ebnf --outfile rat/parser.py --object-model-outfile rat/ast.py

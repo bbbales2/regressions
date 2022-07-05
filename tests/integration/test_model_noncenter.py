@@ -6,7 +6,7 @@ import pandas
 import pytest
 
 from rat import ast
-from rat.model2 import Model
+from rat.model import Model
 
 test_dir = pathlib.Path(__file__).parent
 
@@ -39,6 +39,7 @@ def sample_fit(eight_schools_model):
 def test_optimize_eight_schools(optimization_fit):
     mu_df = optimization_fit.draws("mu")
     z_df = optimization_fit.draws("z")
+    theta_df = optimization_fit.draws("theta")
     tau_df = optimization_fit.draws("tau")
 
     ref_z = [
@@ -65,6 +66,7 @@ def test_optimize_eight_schools(optimization_fit):
 
     assert mu_df["mu"][0] == pytest.approx(4.61934000, rel=1e-2)
     assert tau_df["tau"][0] == pytest.approx(0.36975800, rel=1e-2)
+    assert theta_df["theta"].to_list() == pytest.approx(ref_theta_mean, rel=1e-2, abs=1e-3)
     assert z_df["z"].to_list() == pytest.approx(ref_z, rel=1e-2, abs=1e-3)
 
 

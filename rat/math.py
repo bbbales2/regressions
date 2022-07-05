@@ -1,11 +1,16 @@
 import jax
-
+import jax.scipy
 
 def bernoulli_logit(y, logit_p):
     log_p = -jax.numpy.log1p(jax.numpy.exp(-logit_p))
     log1m_p = -logit_p + log_p
     return jax.numpy.where(y == 0, log1m_p, log_p)
 
+def normal(y, mu, sigma):
+    return jax.scipy.stats.norm.logpdf(y, mu, sigma)
+
+def cauchy(y, loc, scale):
+    return jax.scipy.stats.cauchy.logpdf(y, loc, scale)
 
 def log_normal(y, mu, sigma):
     logy = jax.numpy.log(y)

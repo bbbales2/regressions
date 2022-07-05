@@ -15,22 +15,22 @@ from tatsu.model import ModelBuilderSemantics
 from rat.grammar import grammar
 from rat.parser2 import RatParser
 from rat.walker import RatWalker
-import rat.ast2 as ast2
+import rat.ast as ast
 
 test_dir = pathlib.Path(__file__).parent
 
 class VariableWalker(RatWalker):
-    def walk_Variable(self, node : ast2.Variable):
+    def walk_Variable(self, node : ast.Variable):
         print(node.name)
 
 
-def get_primary_symbol_key(statement : ast2.Statement):
+def get_primary_symbol_key(statement : ast.Statement):
     @dataclass
     class PrimaryWalker(RatWalker):
-        marked : ast2.Variable = None
-        candidates : List[ast2.Variable] = field(default_factory=list)
+        marked : ast.Variable = None
+        candidates : List[ast.Variable] = field(default_factory=list)
 
-        def walk_Variable(self, node: ast2.Variable):
+        def walk_Variable(self, node: ast.Variable):
             if node.prime:
                 if self.marked == None:
                     self.marked = node
@@ -56,10 +56,10 @@ def get_primary_symbol_key(statement : ast2.Statement):
     if len(candidates) == 0:
         raise Exception("etc. etc.3")
 
-def discover_subscript_names(program : ast2.Program):
+def discover_subscript_names(program : ast.Program):
     @dataclass
     class PrimaryWalker(RatWalker):
-        def walk_Variable(self, node: ast2.Variable):
+        def walk_Variable(self, node: ast.Variable):
             if node.name == self.primary_name:
                 print("ensure: ", node.name, node.arglist)
             else:

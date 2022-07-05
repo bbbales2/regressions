@@ -99,10 +99,12 @@ class VariableRecord:
 
     subscripts_requested_as_data: set = field(default_factory=lambda: set())
 
+    _lookup_cache: dict = field(default_factory=dict)
+
     @property
     def subscripts(self):
         if self.base_df is not None:
-            return tuple(self.base_df.columns)
+            return tuple(column for column in self.base_df.columns if column != self.name)
         else:
             return ()
 
@@ -171,6 +173,10 @@ class VariableRecord:
 
             self.base_df = new_base_df.sort_values(list(new_base_df.columns)).reset_index(drop=True)
 
+            self._lookup_cache = {}
+            for row in self.base_df.itertuples(index = True, name = None):
+                self._lookup_cache[row[1:]] = row[0]
+
             return (previous_len != inner_join_len) | (new_len != inner_join_len)
 
     def set_constraints(self, constraint_lower: float, constraint_upper: float):
@@ -204,10 +210,17 @@ class VariableRecord:
             raise ValueError(f"Internal compiler error: {column} not found among subscripts")
         self.subscripts_requested_as_data.add(column)
         return self.subscript_as_data_name(column)
-
-    def get_numpy_arrays(self) -> Iterable[numpy.ndarray]:
+    
+    def get_numpy_names(self) -> Iterable[str]:
         """
-        Materialize data variable as a numpy array
+        Get names of to-be-materialized data variables
+        """
+        for subscript in self.subscripts:
+            yield self.subscript_as_data_name(subscript)
+
+    def get_numpy_arrays(self) -> Iterable[Tuple[str, numpy.ndarray]]:
+        """
+        Materialize data variable as numpy arrays
         """
 
         def replace_int_types(array: numpy.ndarray) -> numpy.ndarray:
@@ -221,10 +234,15 @@ class VariableRecord:
             series = self.base_df[self.name]
             yield self.name, replace_int_types(series)
 
-        for column in self.subscripts_requested_as_data:
+        for column in self.subscripts:
             series = self.base_df[column]
             yield self.subscript_as_data_name(column), replace_int_types(series)
 
+    def lookup(self, *args):
+        if args in self._lookup_cache:
+            return self._lookup_cache[args]
+        else:
+            return -1
 
 class VariableTable:
     variable_dict: Dict[str, VariableRecord]
