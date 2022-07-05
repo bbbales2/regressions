@@ -289,18 +289,17 @@ class VariableTable:
         """
         Insert a variable record. If it is data, attach an input dataframe to it
         """
-        if variable_name not in self.variable_dict:
-            if variable_type == VariableType.DATA:
-                base_df = self.data[self.get_dataframe_name(variable_name)]
-            else:
-                base_df = None
+        if variable_type == VariableType.DATA:
+            base_df = self.data[self.get_dataframe_name(variable_name)]
+        else:
+            base_df = None
 
-            # Insert if new
-            self.variable_dict[variable_name] = VariableRecord(
-                variable_name,
-                variable_type,
-                base_df,
-            )
+        # Insert if new
+        self.variable_dict[variable_name] = VariableRecord(
+            variable_name,
+            variable_type,
+            base_df,
+        )
 
     def __contains__(self, name: str) -> bool:
         return name in self.variable_dict

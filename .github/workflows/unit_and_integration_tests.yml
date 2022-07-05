@@ -19,6 +19,7 @@ jobs:
       run: |
         pip install .
         pip install pytest
+	bash update_grammar.sh
     - name: Run unit tests
       run: |
         pytest tests/unit 

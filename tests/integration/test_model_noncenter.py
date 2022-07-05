@@ -6,7 +6,7 @@ import pandas
 import pytest
 
 from rat import ast
-from rat.model import Model
+from rat.model2 import Model
 
 test_dir = pathlib.Path(__file__).parent
 
