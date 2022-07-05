@@ -23,11 +23,11 @@ from rat import subscript_table
 
 @dataclass
 class StatementInfo:
-    statement : ast.Statement
-    primary : ast.Variable
+    statement: ast.Statement
+    primary: ast.Variable
 
 
-def _get_subscript_names(node : ast.Variable) -> List[str]:
+def _get_subscript_names(node: ast.Variable) -> List[str]:
     """
     Examine every subscript argument to see if it has only one named variable
 
@@ -40,16 +40,16 @@ def _get_subscript_names(node : ast.Variable) -> List[str]:
         return functools.reduce(lambda x, y: x + y, filter(None, names))
 
     class NameWalker(RatWalker):
-        def walk_Logical(self, node : ast.Logical):
+        def walk_Logical(self, node: ast.Logical):
             return combine([self.walk(node.left), self.walk(node.right)])
 
-        def walk_Binary(self, node : ast.Binary):
+        def walk_Binary(self, node: ast.Binary):
             return combine([self.walk(node.left), self.walk(node.right)])
-        
-        def walk_FunctionCall(self, node : ast.FunctionCall):
+
+        def walk_FunctionCall(self, node: ast.FunctionCall):
             return combine([self.walk(arg) for arg in node.arglist])
 
-        def walk_Variable(self, node : ast.Variable):
+        def walk_Variable(self, node: ast.Variable):
             return set([node.name])
 
     names = []
@@ -64,19 +64,21 @@ def _get_subscript_names(node : ast.Variable) -> List[str]:
             return None
     return names
 
-def _get_primary_ast_variable(statement : ast.Statement) -> ast.Variable:
+
+def _get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
     """
-        Compute the primary variable reference in a line of code with the rules:
-        1. There can only be one primary variable reference (priming two references to the same variable is still an error)
-        2. If a variable is marked as primary, then it is the primary variable.
-        3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
-        4. If there are no variables with dataframes, the leftmost one is the primary one
-        5. It is an error if no primary variable can be identified
+    Compute the primary variable reference in a line of code with the rules:
+    1. There can only be one primary variable reference (priming two references to the same variable is still an error)
+    2. If a variable is marked as primary, then it is the primary variable.
+    3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
+    4. If there are no variables with dataframes, the leftmost one is the primary one
+    5. It is an error if no primary variable can be identified
     """
+
     @dataclass
     class PrimaryWalker(RatWalker):
-        marked : ast.Variable = None
-        candidates : List[ast.Variable] = field(default_factory = list)
+        marked: ast.Variable = None
+        candidates: List[ast.Variable] = field(default_factory=list)
 
         def walk_Variable(self, node: ast.Variable):
             if node.prime:
@@ -87,7 +89,7 @@ def _get_primary_ast_variable(statement : ast.Statement) -> ast.Variable:
                     raise CompileError(msg, node)
             else:
                 self.candidates.append(node)
-    
+
     walker = PrimaryWalker()
     walker.walk(statement)
     marked = walker.marked
@@ -95,16 +97,18 @@ def _get_primary_ast_variable(statement : ast.Statement) -> ast.Variable:
 
     if marked != None:
         return marked
-    
+
     if len(candidates) == 1:
         return candidates[0]
-    
+
     if len(candidates) > 1:
         if len(set(candidate.name for candidate in candidates)) == 1:
-            msg = f"No marked primary variable but found multiple references to {candidates[0].name}. One reference should be marked manually"
+            msg = (
+                f"No marked primary variable but found multiple references to {candidates[0].name}. One reference should be marked manually"
+            )
             raise CompileError(msg, candidates[0])
         else:
-            msg = f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are candidates. A primary variable should be marked manually"                
+            msg = f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are candidates. A primary variable should be marked manually"
             raise CompileError(msg, candidates[0])
 
     if len(candidates) == 0:
@@ -122,9 +126,7 @@ class RatCompiler:
     generated_code: str
     statements: List[StatementInfo]
 
-    def __init__(
-        self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str, max_trace_iterations: int
-    ):
+    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str, max_trace_iterations: int):
         self.data = data
         self.program = program
         self.model_code_string = model_code_string
@@ -153,7 +155,7 @@ class RatCompiler:
         """
         for ast_statement in self.program.ast.statements:
             primary = _get_primary_ast_variable(ast_statement)
-            self.statements.append(StatementInfo(statement = ast_statement, primary = primary))
+            self.statements.append(StatementInfo(statement=ast_statement, primary=primary))
 
         # figure out which symbols will have dataframes
         # has_dataframe = set()
@@ -175,7 +177,7 @@ class RatCompiler:
             variable_table: VariableTable
             left_hand_of_assignment: bool = False
 
-            def walk_Statement(self, node : ast.Statement):
+            def walk_Statement(self, node: ast.Statement):
                 if node.op == "=":
                     old_left_hand_of_assignment = self.left_hand_of_assignment
                     self.left_hand_of_assignment = True
@@ -185,7 +187,7 @@ class RatCompiler:
                     self.walk(node.left)
                 self.walk(node.right)
 
-            def walk_Variable(self, node : ast.Variable):
+            def walk_Variable(self, node: ast.Variable):
                 if node.name in data_names:
                     self.variable_table.insert(variable_name=node.name, variable_type=VariableType.DATA)
                 else:
@@ -225,9 +227,10 @@ class RatCompiler:
 
             @dataclass
             class InferSubscriptNameWalker(RatWalker):
-                primary_name : str
-                variable_table : VariableTable
-                def walk_Variable(self, node : ast.Variable):
+                primary_name: str
+                variable_table: VariableTable
+
+                def walk_Variable(self, node: ast.Variable):
                     if node.name != self.primary_name:
                         variable = self.variable_table[node.name]
                         subscript_names = _get_subscript_names(node)
@@ -254,10 +257,11 @@ class RatCompiler:
 
             @dataclass
             class DataframeCompatibilityWalker(RatWalker):
-                primary_name : str
-                data_names : List[str]
-                variable_table : VariableTable
-                def walk_Variable(self, node : ast.Variable):
+                primary_name: str
+                data_names: List[str]
+                variable_table: VariableTable
+
+                def walk_Variable(self, node: ast.Variable):
                     # TODO: It would be nice if these code paths were closer for Data and Params
                     variable = self.variable_table[node.name]
                     primary_variable = self.variable_table[self.primary_name]
@@ -352,8 +356,9 @@ class RatCompiler:
         # Apply constraints to parameters
         @dataclass
         class ConstraintWalker(RatWalker):
-            variable_table : VariableTable
-            def walk_Variable(self, node : ast.Variable):
+            variable_table: VariableTable
+
+            def walk_Variable(self, node: ast.Variable):
                 variable = self.variable_table[node.name]
                 if variable.variable_type == VariableType.PARAM and node.constraints is not None:
                     # Constraints should be evaluated at compile time
@@ -395,15 +400,15 @@ class RatCompiler:
         # Allocate space for the unconstrained to constrained mapping
         self.variable_table.prepare_unconstrained_parameter_mapping()
 
-
     def _pre_codegen_checks(self):
         N_lines = len(self.statements)
 
         @dataclass
         class FindAndExplodeWalker(RatWalker):
-            search_name : str
-            error_msg : str
-            def walk_Variable(self, node : ast.Variable):
+            search_name: str
+            error_msg: str
+
+            def walk_Variable(self, node: ast.Variable):
                 if self.search_name == node.name:
                     raise CompileError(self.error_msg, node)
 
@@ -418,21 +423,22 @@ class RatCompiler:
             #   the right hand side is shifted appropriately
             @dataclass
             class CheckAssignedVariableWalker(NodeWalker):
-                variable_table : VariableTable
-                msg : str = f"The left hand side of an assignment must be a non-data variable"
-                def walk_Statement(self, node : ast.Statement):
+                variable_table: VariableTable
+                msg: str = f"The left hand side of an assignment must be a non-data variable"
+
+                def walk_Statement(self, node: ast.Statement):
                     if node.op == "=":
                         assigned_name = self.walk(node.left)
                         if not assigned_name:
                             raise CompileError(self.msg, node.left)
                         return assigned_name
 
-                def walk_Variable(self, node : ast.Variable):
+                def walk_Variable(self, node: ast.Variable):
                     if self.variable_table[node.name].variable_type == VariableType.DATA:
                         raise CompileError(self.msg, node)
                     else:
                         return node.name
-            
+
             walker = CheckAssignedVariableWalker(self.variable_table)
             assigned_name = walker.walk(statement)
 
@@ -440,16 +446,17 @@ class RatCompiler:
             #   function call
             @dataclass
             class CheckSamplingFunctionWalker(NodeWalker):
-                variable_table : VariableTable
-                msg : str = f"The right hand side of a sampling statement must be a function"
-                def walk_Statement(self, node : ast.Statement):
+                variable_table: VariableTable
+                msg: str = f"The right hand side of a sampling statement must be a function"
+
+                def walk_Statement(self, node: ast.Statement):
                     if node.op == "~":
                         if not self.walk(node.right):
                             raise CompileError(self.msg, node.right)
 
-                def walk_FunctionCall(self, node : ast.FunctionCall):
+                def walk_FunctionCall(self, node: ast.FunctionCall):
                     return True
-            
+
             walker = CheckSamplingFunctionWalker(self.variable_table)
             walker.walk(statement)
 
@@ -464,18 +471,18 @@ class RatCompiler:
                         walker.walk(following_statement_info.statement)
 
             # 4. Parameters cannot be used after they are assigned
-            if statement.op == '=':
+            if statement.op == "=":
                 msg = f"Parameter {assigned_name} is assigned on line {line_index} but used after. A variable cannot be used after it is assigned"
                 walker = FindAndExplodeWalker(assigned_name, msg)
                 for j in range(line_index + 1, N_lines):
                     walker.walk(self.statements[j].statement)
 
-
         # 5. Check that the predicate of IfElse statement contains no parameters
         @dataclass
         class IfElsePredicateCheckWalker(RatWalker):
-            variable_table : VariableTable
-            inside_predicate : bool = False
+            variable_table: VariableTable
+            inside_predicate: bool = False
+
             def walk_IfElse(self, node: ast.IfElse):
                 old_inside_predicate = self.inside_predicate
                 self.inside_predicate = True
@@ -485,20 +492,20 @@ class RatCompiler:
                 self.walk(node.left)
                 self.walk(node.right)
 
-            def walk_Variable(self, node : ast.Variable):
+            def walk_Variable(self, node: ast.Variable):
                 if self.inside_predicate and self.variable_table[node.name] != VariableType.DATA:
                     msg = f"Non-data variables cannot appear in ifelse conditions"
                     raise CompileError(self.error_msg, node)
 
         walker = IfElsePredicateCheckWalker(self.variable_table)
         walker.walk(self.program)
-    
+
     def _build_subscript_table(self):
         @dataclass
         class SubscriptTableWalker(RatWalker):
-            variable_table : VariableTable
-            subscript_table_code : dict = field(default_factory=dict)
-            subscript_table : SubscriptTable = field(default_factory = SubscriptTable)
+            variable_table: VariableTable
+            subscript_table_code: dict = field(default_factory=dict)
+            subscript_table: SubscriptTable = field(default_factory=SubscriptTable)
 
             def walk_Statement(self, node: ast.Statement):
                 primary_node = _get_primary_ast_variable(node)
@@ -512,9 +519,9 @@ class RatCompiler:
                     self.walk(node.right)
 
                     for node, argcode in self.subscript_table_code.items():
-                        self.subscript_table.insert(node, numpy.zeros(len(primary_df), dtype = "int32"))
+                        self.subscript_table.insert(node, numpy.zeros(len(primary_df), dtype="int32"))
                         for i, row in enumerate(primary_df.itertuples(index=False)):
-                            lambda_row = { name : (lambda : value) for name, value in row._asdict().items() }
+                            lambda_row = {name: (lambda: value) for name, value in row._asdict().items()}
                             args = eval(argcode, globals(), lambda_row)
                             self.subscript_table[node].array[i] = self.variable_table[node.name].lookup(*args)
 
@@ -528,7 +535,7 @@ class RatCompiler:
         walker.walk(self.program)
         self.subscript_table = walker.subscript_table
 
-    def codegen_constrain_parameters(self, writer : IndentWriter):
+    def codegen_constrain_parameters(self, writer: IndentWriter):
         writer.writeline("def constrain_parameters(unconstrained_parameter_vector, pad=True):")
         with writer.indent():
             writer.writeline("unconstrained_parameters = {}")
@@ -556,11 +563,17 @@ class RatCompiler:
 
                 if record.constraint_lower > float("-inf") or record.constraint_upper < float("inf"):
                     if record.constraint_lower > float("-inf") and record.constraint_upper == float("inf"):
-                        writer.writeline(f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.lower({unconstrained_reference}, {record.constraint_lower})")
+                        writer.writeline(
+                            f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.lower({unconstrained_reference}, {record.constraint_lower})"
+                        )
                     elif record.constraint_lower == float("inf") and record.constraint_upper < float("inf"):
-                        writer.writeline(f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.upper({unconstrained_reference}, {record.constraint_upper})")
+                        writer.writeline(
+                            f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.upper({unconstrained_reference}, {record.constraint_upper})"
+                        )
                     elif record.constraint_lower > float("-inf") and record.constraint_upper < float("inf"):
-                        writer.writeline(f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.finite({unconstrained_reference}, {record.constraint_lower}, {record.constraint_upper})")
+                        writer.writeline(
+                            f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.finite({unconstrained_reference}, {record.constraint_lower}, {record.constraint_upper})"
+                        )
 
                     writer.writeline("jacobian_adjustments += jax.numpy.sum(constraints_jacobian_adjustment)")
                 else:
@@ -574,12 +587,13 @@ class RatCompiler:
             writer.writeline()
             writer.writeline("return jacobian_adjustments, parameters")
 
-    def codegen_transform_parameters(self, writer : IndentWriter):
+    def codegen_transform_parameters(self, writer: IndentWriter):
         @dataclass
         class TransformedParametersCodeGenerator(RatWalker):
-            variable_table : VariableTable
-            subscript_table : SubscriptTable
-            code : IndentWriter = field(default_factory = IndentWriter)
+            variable_table: VariableTable
+            subscript_table: SubscriptTable
+            code: IndentWriter = field(default_factory=IndentWriter)
+
             def walk_Program(self, node: ast.Program):
                 self.code.writeline("def transform_parameters(data, subscript_indices, first_in_group_indicators, parameters):")
                 with self.code.indent():
@@ -619,13 +633,14 @@ class RatCompiler:
         walker = TransformedParametersCodeGenerator(self.variable_table, self.subscript_table, writer)
         walker.walk(self.program)
 
-    def codegen_evaluate_densities(self, writer : IndentWriter):
+    def codegen_evaluate_densities(self, writer: IndentWriter):
         @dataclass
         class EvaluateDensityCodeGenerator(RatWalker):
-            variable_table : VariableTable
-            subscript_table : SubscriptTable
-            code : IndentWriter = field(default_factory = IndentWriter)
-            def walk_Program(self, node : ast.Program):
+            variable_table: VariableTable
+            subscript_table: SubscriptTable
+            code: IndentWriter = field(default_factory=IndentWriter)
+
+            def walk_Program(self, node: ast.Program):
                 self.code.writeline("def evaluate_densities(data, subscript_indices, parameters):")
                 with self.code.indent():
                     self.code.writeline("target = 0.0")
@@ -635,7 +650,7 @@ class RatCompiler:
                     self.code.writeline("return target")
                 return self.code.string
 
-            def walk_Statement(self, node : ast.Statement):
+            def walk_Statement(self, node: ast.Statement):
                 if node.op == "=":
                     return
 
@@ -650,7 +665,7 @@ class RatCompiler:
                 self.code.writeline(f"def mapper({','.join(passed_as_argument + walker.extra_subscripts)}):")
                 with self.code.indent():
                     self.code.writeline(f"return {code}")
-                
+
                 if primary_variable.variable_type == VariableType.DATA:
                     primary_variable_reference = f"data['{primary_name}']"
                 else:
@@ -661,7 +676,9 @@ class RatCompiler:
                     data_references = ",".join(f"data['{name}']" for name in data_names)
 
                     subscript_references = ",".join(f"subscript_indices['{name}']" for name in walker.extra_subscripts)
-                    self.code.writeline(f"target += jax.numpy.sum(vmap(mapper)({primary_variable_reference},{data_references},{subscript_references}))")
+                    self.code.writeline(
+                        f"target += jax.numpy.sum(vmap(mapper)({primary_variable_reference},{data_references},{subscript_references}))"
+                    )
                 else:
                     self.code.writeline(f"target += mapper({primary_variable_reference})")
                 self.code.writeline()
@@ -687,7 +704,7 @@ class RatCompiler:
         self.codegen_transform_parameters(writer)
         writer.writeline()
         self.codegen_evaluate_densities(writer)
-        
+
         return writer.string
 
     def compile(self):

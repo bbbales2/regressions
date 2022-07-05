@@ -25,10 +25,7 @@ class ModelBase(Node):
 
 class RatModelBuilderSemantics(ModelBuilderSemantics):
     def __init__(self, context=None, types=None):
-        types = [
-            t for t in globals().values()
-            if type(t) is type and issubclass(t, ModelBase)
-        ] + (types or [])
+        types = [t for t in globals().values() if type(t) is type and issubclass(t, ModelBase)] + (types or [])
         super(RatModelBuilderSemantics, self).__init__(context=context, types=types)
 
 

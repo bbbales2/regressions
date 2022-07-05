@@ -174,7 +174,7 @@ class VariableRecord:
             self.base_df = new_base_df.sort_values(list(new_base_df.columns)).reset_index(drop=True)
 
             self._lookup_cache = {}
-            for row in self.base_df.itertuples(index = True, name = None):
+            for row in self.base_df.itertuples(index=True, name=None):
                 self._lookup_cache[row[1:]] = row[0]
 
             return (previous_len != inner_join_len) | (new_len != inner_join_len)
@@ -210,7 +210,7 @@ class VariableRecord:
             raise ValueError(f"Internal compiler error: {column} not found among subscripts")
         self.subscripts_requested_as_data.add(column)
         return self.subscript_as_data_name(column)
-    
+
     def get_numpy_names(self) -> Iterable[str]:
         """
         Get names of to-be-materialized data variables
@@ -243,6 +243,7 @@ class VariableRecord:
             return self._lookup_cache[args]
         else:
             return -1
+
 
 class VariableTable:
     variable_dict: Dict[str, VariableRecord]

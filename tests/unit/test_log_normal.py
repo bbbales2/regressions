@@ -18,4 +18,3 @@ def test_log_normal_values():
 
     # stats::dlnorm(1.7, 0.3, 2.2, log = TRUE)
     assert log_normal(y, mu, sigma) == pytest.approx(-2.243519)
-

@@ -104,10 +104,10 @@ class Model:
 
         # Parse the model to get AST
         semantics = ModelBuilderSemantics()
-        parser = RatParser(semantics = semantics)
+        parser = RatParser(semantics=semantics)
         # TODO: This lambda is just here to make sure pylance formatting works -- should work
         # without it as well
-        program_ast = (lambda : parser.parse(model_string))()
+        program_ast = (lambda: parser.parse(model_string))()
 
         # Compile the model
         compiler = RatCompiler(data, program_ast, model_string, max_trace_iterations=max_trace_iterations)

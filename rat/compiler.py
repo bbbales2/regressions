@@ -24,9 +24,7 @@ class Compiler:
     model_code_string: str
     max_trace_iterations: int
 
-    def __init__(
-        self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List, model_code_string: str, max_trace_iterations: int
-    ):
+    def __init__(self, data: Union[pandas.DataFrame, Dict], expr_tree_list: List, model_code_string: str, max_trace_iterations: int):
         self.data = data
         self.expr_tree_list = expr_tree_list
         self.model_code_string = model_code_string

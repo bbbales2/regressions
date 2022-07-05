@@ -21,15 +21,15 @@ test_dir = pathlib.Path(__file__).parent
 
 
 class VariableWalker(RatWalker):
-    def walk_Variable(self, node : ast.Variable):
+    def walk_Variable(self, node: ast.Variable):
         print(node.name)
 
 
-def get_primary_symbol_key(statement : ast.Statement):
+def get_primary_symbol_key(statement: ast.Statement):
     @dataclass
     class PrimaryWalker(RatWalker):
-        marked : ast.Variable = None
-        candidates : List[ast.Variable] = field(default_factory=list)
+        marked: ast.Variable = None
+        candidates: List[ast.Variable] = field(default_factory=list)
 
         def walk_Variable(self, node: ast.Variable):
             if node.prime:
@@ -57,7 +57,8 @@ def get_primary_symbol_key(statement : ast.Statement):
     if len(candidates) == 0:
         raise Exception("etc. etc.3")
 
-def discover_subscript_names(program : ast.Program):
+
+def discover_subscript_names(program: ast.Program):
     @dataclass
     class PrimaryWalker(RatWalker):
         def walk_Variable(self, node: ast.Variable):
