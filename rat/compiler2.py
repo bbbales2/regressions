@@ -516,7 +516,7 @@ class RatCompiler:
                 if primary_df is not None:
                     # Generate code for all the subscripts
                     self.subscript_table_code = {}
-                
+
                     self.walk(node.left)
                     self.walk(node.right)
 
@@ -611,16 +611,13 @@ class RatCompiler:
                 primary_node = _get_primary_ast_variable(node)
                 primary_name = primary_node.name
                 primary_variable = self.variable_table[primary_name]
-                pass_primary_as_argument = (
-                    primary_variable.variable_type != VariableType.DATA
-                    and node.left.name != primary_name
-                )
+                pass_primary_as_argument = primary_variable.variable_type != VariableType.DATA and node.left.name != primary_name
 
                 if pass_primary_as_argument:
                     passed_as_argument = [primary_name] + list(primary_variable.subscripts)
                 else:
                     passed_as_argument = list(primary_variable.subscripts)
-        
+
                 walker = BaseCodeGenerator(self.variable_table, self.subscript_table, passed_as_argument)
                 code = walker.walk(node.right)
                 self.code.writeline(f"def mapper({','.join(passed_as_argument + walker.extra_subscripts)}):")
@@ -640,9 +637,9 @@ class RatCompiler:
                     data_names = primary_variable.get_numpy_names()
 
                     references = ",".join(
-                        primary_variable_reference +
-                        [f"data['{name}']" for name in data_names] +
-                        [f"subscript_indices['{name}']" for name in walker.extra_subscripts]
+                        primary_variable_reference
+                        + [f"data['{name}']" for name in data_names]
+                        + [f"subscript_indices['{name}']" for name in walker.extra_subscripts]
                     )
 
                     self.code.writeline(f"parameters['{node.left.name}'] = vmap(mapper)({references})")
@@ -701,14 +698,12 @@ class RatCompiler:
                     data_names = primary_variable.get_numpy_names()
 
                     references = ",".join(
-                        primary_variable_reference +
-                        [f"data['{name}']" for name in data_names] +
-                        [f"subscript_indices['{name}']" for name in walker.extra_subscripts]
+                        primary_variable_reference
+                        + [f"data['{name}']" for name in data_names]
+                        + [f"subscript_indices['{name}']" for name in walker.extra_subscripts]
                     )
 
-                    self.code.writeline(
-                        f"target += jax.numpy.sum(vmap(mapper)({references}))"
-                    )
+                    self.code.writeline(f"target += jax.numpy.sum(vmap(mapper)({references}))")
                 else:
                     references = ",".join(primary_variable_reference)
                     self.code.writeline(f"target += mapper({references})")

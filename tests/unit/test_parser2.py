@@ -84,9 +84,9 @@ def test_grammar():
     with open(os.path.join(test_dir, "grammar.rat")) as f:
         text = f.read()
 
-    #semantics = ModelBuilderSemantics()
-    #parser = RatParser(semantics=semantics)
-    #program = (lambda: parser.parse(text))()
+    # semantics = ModelBuilderSemantics()
+    # parser = RatParser(semantics=semantics)
+    # program = (lambda: parser.parse(text))()
 
     # for statement in program.ast:
     #    print(get_primary_symbol_key(statement))

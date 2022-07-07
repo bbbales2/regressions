@@ -10,13 +10,12 @@ from rat.model import Model
 test_dir = pathlib.Path(__file__).parent
 
 
-
 def test_optimize_unknown_subscript():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     model_string = "y' ~ normal(theta[rabbit], sigma);"
 
-    with pytest.raises(Exception, match = "Subscript rabbit not found in dataframe"):
+    with pytest.raises(Exception, match="Subscript rabbit not found in dataframe"):
         model = Model(data_df, model_string)
 
 

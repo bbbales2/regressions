@@ -43,10 +43,10 @@ class VariableTracer:
 
 
 class DataTracer(VariableTracer):
-    df : pandas.DataFrame
-    output_column_name : str
+    df: pandas.DataFrame
+    output_column_name: str
 
-    def __init__(self, df: pandas.DataFrame, output_column_name : str):
+    def __init__(self, df: pandas.DataFrame, output_column_name: str):
         self.df = df
         self.output_column_name = output_column_name
         self.args_set = set()
