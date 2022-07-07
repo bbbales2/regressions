@@ -43,13 +43,17 @@ class VariableTracer:
 
 
 class DataTracer(VariableTracer):
-    def __init__(self, df: pandas.DataFrame):
+    df : pandas.DataFrame
+    output_column_name : str
+
+    def __init__(self, df: pandas.DataFrame, output_column_name : str):
         self.df = df
+        self.output_column_name = output_column_name
         self.args_set = set()
         for args in self.df.itertuples(index=False, name=None):
             self.args_set.add(args)
 
-    def __call__(self, output_column_name, **kwargs):
+    def __call__(self, **kwargs):
         row_selector = numpy.logical_and.reduce([self.df[column] == value for column, value in kwargs.items()])
 
         row_df = self.df[row_selector]
@@ -59,7 +63,7 @@ class DataTracer(VariableTracer):
         elif len(row_df) > 1:
             raise ValueError(f"Internal compiler error: Data is not defined uniquely for {kwargs}")
         # TODO: This is here so that code generation can work without worrying about types
-        return row_df.iloc[0][output_column_name]
+        return row_df.iloc[0][self.output_column_name]
 
 
 @dataclass()
@@ -104,7 +108,7 @@ class VariableRecord:
     @property
     def subscripts(self):
         if self.base_df is not None:
-            return tuple(column for column in self.base_df.columns if column != self.name)
+            return tuple(self.base_df.columns)
         else:
             return ()
 
@@ -145,7 +149,7 @@ class VariableRecord:
         Generate a tracer
         """
         if self.variable_type == VariableType.DATA:
-            return DataTracer(self.base_df)
+            return DataTracer(self.base_df, self.name)
         else:
             return VariableTracer()
 

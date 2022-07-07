@@ -1,6 +1,5 @@
 import pandas
 import pytest
-from rat.scanner import Scanner
 from rat.parser import RatParser
 from rat.math import log_normal
 

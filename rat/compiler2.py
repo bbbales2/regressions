@@ -145,7 +145,7 @@ class RatCompiler:
                 return set(self.data.columns)
             case _:
                 names = set()
-                for df in self.data:
+                for df in self.data.values():
                     names |= set(df.columns)
                 return names
 
@@ -235,7 +235,7 @@ class RatCompiler:
                         variable = self.variable_table[node.name]
                         subscript_names = _get_subscript_names(node)
 
-                        if not variable.renamed and subscript_names is not None:
+                        if variable.variable_type != VariableType.DATA and not variable.renamed and subscript_names is not None:
                             try:
                                 variable.suggest_names(subscript_names)
                             except AttributeError:
@@ -495,7 +495,7 @@ class RatCompiler:
             def walk_Variable(self, node: ast.Variable):
                 if self.inside_predicate and self.variable_table[node.name] != VariableType.DATA:
                     msg = f"Non-data variables cannot appear in ifelse conditions"
-                    raise CompileError(self.error_msg, node)
+                    raise CompileError(msg, node)
 
         walker = IfElsePredicateCheckWalker(self.variable_table)
         walker.walk(self.program)
@@ -514,16 +514,18 @@ class RatCompiler:
                 # Only worry about tracing subscripts if there's a dataframe
                 primary_df = primary_variable.base_df
                 if primary_df is not None:
-                    # Generate code for all the subscripts on this line
+                    # Generate code for all the subscripts
+                    self.subscript_table_code = {}
+                
                     self.walk(node.left)
                     self.walk(node.right)
 
-                    for node, argcode in self.subscript_table_code.items():
-                        self.subscript_table.insert(node, numpy.zeros(len(primary_df), dtype="int32"))
+                    for subscript_node, argcode in self.subscript_table_code.items():
+                        self.subscript_table.insert(subscript_node, numpy.zeros(len(primary_df), dtype="int32"))
                         for i, row in enumerate(primary_df.itertuples(index=False)):
                             lambda_row = {name: (lambda: value) for name, value in row._asdict().items()}
                             args = eval(argcode, globals(), lambda_row)
-                            self.subscript_table[node].array[i] = self.variable_table[node.name].lookup(*args)
+                            self.subscript_table[subscript_node].array[i] = self.variable_table[subscript_node.name].lookup(*args)
 
             def walk_Variable(self, node: ast.Variable):
                 if node.arglist:
@@ -607,12 +609,21 @@ class RatCompiler:
                     return
 
                 primary_node = _get_primary_ast_variable(node)
-                primary_variable = self.variable_table[primary_node.name]
-                subscripts = list(primary_variable.subscripts)
+                primary_name = primary_node.name
+                primary_variable = self.variable_table[primary_name]
+                pass_primary_as_argument = (
+                    primary_variable.variable_type != VariableType.DATA
+                    and node.left.name != primary_name
+                )
 
-                walker = BaseCodeGenerator(self.variable_table, self.subscript_table, subscripts)
+                if pass_primary_as_argument:
+                    passed_as_argument = [primary_name] + list(primary_variable.subscripts)
+                else:
+                    passed_as_argument = list(primary_variable.subscripts)
+        
+                walker = BaseCodeGenerator(self.variable_table, self.subscript_table, passed_as_argument)
                 code = walker.walk(node.right)
-                self.code.writeline(f"def mapper({','.join(subscripts + walker.extra_subscripts)}):")
+                self.code.writeline(f"def mapper({','.join(passed_as_argument + walker.extra_subscripts)}):")
                 with self.code.indent():
                     self.code.writeline(f"return {code}")
 
@@ -620,14 +631,24 @@ class RatCompiler:
                     msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
                     raise CompileError(msg, node)
 
+                if pass_primary_as_argument:
+                    primary_variable_reference = [f"parameters['{primary_name}']"]
+                else:
+                    primary_variable_reference = []
+
                 if primary_variable.base_df is not None:
                     data_names = primary_variable.get_numpy_names()
-                    data_references = ",".join(f"data['{name}']" for name in data_names)
 
-                    subscript_references = ",".join(f"subscript_indices['{name}']" for name in walker.extra_subscripts)
-                    self.code.writeline(f"parameters['{node.left.name}'] = vmap(mapper)({data_references}, {subscript_references})")
+                    references = ",".join(
+                        primary_variable_reference +
+                        [f"data['{name}']" for name in data_names] +
+                        [f"subscript_indices['{name}']" for name in walker.extra_subscripts]
+                    )
+
+                    self.code.writeline(f"parameters['{node.left.name}'] = vmap(mapper)({references})")
                 else:
-                    self.code.writeline(f"parameters['{node.left.name}'] = mapper()")
+                    references = ",".join(primary_variable_reference)
+                    self.code.writeline(f"parameters['{node.left.name}'] = mapper({references})")
                 self.code.writeline()
 
         walker = TransformedParametersCodeGenerator(self.variable_table, self.subscript_table, writer)
@@ -657,7 +678,12 @@ class RatCompiler:
                 primary_node = _get_primary_ast_variable(node)
                 primary_name = primary_node.name
                 primary_variable = self.variable_table[primary_name]
-                passed_as_argument = [primary_name] + list(primary_variable.subscripts)
+                pass_primary_as_argument = primary_variable.variable_type != VariableType.DATA
+
+                if pass_primary_as_argument:
+                    passed_as_argument = [primary_name] + list(primary_variable.subscripts)
+                else:
+                    passed_as_argument = list(primary_variable.subscripts)
 
                 walker = BaseCodeGenerator(self.variable_table, self.subscript_table, passed_as_argument)
                 code = walker.walk(node)
@@ -666,21 +692,26 @@ class RatCompiler:
                 with self.code.indent():
                     self.code.writeline(f"return {code}")
 
-                if primary_variable.variable_type == VariableType.DATA:
-                    primary_variable_reference = f"data['{primary_name}']"
+                if pass_primary_as_argument:
+                    primary_variable_reference = [f"parameters['{primary_name}']"]
                 else:
-                    primary_variable_reference = f"parameters['{primary_name}']"
+                    primary_variable_reference = []
 
                 if primary_variable.base_df is not None:
                     data_names = primary_variable.get_numpy_names()
-                    data_references = ",".join(f"data['{name}']" for name in data_names)
 
-                    subscript_references = ",".join(f"subscript_indices['{name}']" for name in walker.extra_subscripts)
+                    references = ",".join(
+                        primary_variable_reference +
+                        [f"data['{name}']" for name in data_names] +
+                        [f"subscript_indices['{name}']" for name in walker.extra_subscripts]
+                    )
+
                     self.code.writeline(
-                        f"target += jax.numpy.sum(vmap(mapper)({primary_variable_reference},{data_references},{subscript_references}))"
+                        f"target += jax.numpy.sum(vmap(mapper)({references}))"
                     )
                 else:
-                    self.code.writeline(f"target += mapper({primary_variable_reference})")
+                    references = ",".join(primary_variable_reference)
+                    self.code.writeline(f"target += mapper({references})")
                 self.code.writeline()
 
         walker = EvaluateDensityCodeGenerator(self.variable_table, self.subscript_table, writer)

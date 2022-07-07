@@ -12,7 +12,7 @@ expression =
     | addition_expression
 ;
 
-logical::Logical = left:addition_expression op:("==" | "<" | ">" | "<=" | ">=") ~ right:expression;
+logical::Logical = left:addition_expression op:("==" | "<=" | ">=" | "<" | ">") ~ right:expression;
 
 addition_expression =
     | addition
