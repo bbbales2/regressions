@@ -1,18 +1,10 @@
 import logging
-import numpy
 import os
 import pathlib
-import pandas
 import pytest
 import tempfile
 
-from rat import ast
-from rat import compiler
-from rat.model import Model
-from rat.parser import Parser
 from rat.fit import load
-from pathlib import Path
-import shlex
 import subprocess
 import sys
 
@@ -62,7 +54,7 @@ def test_cli_sample():
 
 
 def test_cli_multiple_files():
-    model_filename = os.path.join(test_dir, "eight_schools.rat")
+    model_filename = os.path.join(test_dir, "eight_schools_multiple_data.rat")
     y_data_filename = os.path.join(test_dir, "eight_schools_y.csv")
     sigma_data_filename = os.path.join(test_dir, "eight_schools_sigma.csv")
 

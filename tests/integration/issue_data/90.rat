@@ -1,6 +1,6 @@
 hadiff' ~ normal(skill[hteam, hnumber] - skill[ateam, anumber], sigma);
 skill[team, gnumber]' = (
-    skill[team, shift(gnumber, 1)] +
+    ifelse(gnumber == 0, 0.0, skill[team, gnumber - 1]) +
     epsilon[team, gnumber] * ifelse(gnumber == 0, tau0, tau)
 );
 epsilon[team, gnumber] ~ normal(0.0, 1.0);

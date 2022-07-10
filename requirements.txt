@@ -8,3 +8,4 @@ pytest
 pyarrow
 scipy
 tqdm
+tatsu
