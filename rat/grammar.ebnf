@@ -40,7 +40,7 @@ factor
 ifelse::IfElse = 'ifelse' ~ '(' predicate:expression ',' left:expression ',' right:expression ')';
 function_call::FunctionCall = name:identifier '(' [ arglist:arglist ] ')';
 variable::Variable = name:identifier [ constraints:constraints ] [ '[' arglist:arglist ']' ] [ prime:"'" ];
-constraints::Constraints = '<' ~ left:constraint ~ {',' right:constraint} '>';
+constraints::Constraints = '<' ~ left:constraint ~ [',' right:constraint] '>';
 constraint = name:('lower'|'upper') ~ '=' ~ value:literal;
 arglist = @+:expression {',' ~ @+:expression}*;
 subexpression = '(' ~ @:expression ')';
