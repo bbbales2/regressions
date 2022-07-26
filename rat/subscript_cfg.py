@@ -22,21 +22,23 @@ class BaseSCFGNode:
 class SCFGInitialState(BaseSCFGNode):
     entry_dataframe: pd.DataFrame
 
+
 @dataclass
 class SCFGConditional(BaseSCFGNode):
     predicate_code: str
     true_nodes: List["BaseSCFGNode"] = field(init=False, default_factory=list)
     false_nodes: List["BaseSCFGNode"] = field(init=False, default_factory=list)
 
+
 @dataclass
 class SCFGTransferFunc(BaseSCFGNode):
     transform_codes: List[str]
+
 
 @dataclass
 class SCFGVariable(BaseSCFGNode):
     name: str
     domain: Set = field(init=False, default_factory=set)
-
 
 
 class SCFGExecutor:
@@ -70,6 +72,7 @@ class SubscriptExpressionWalker(NodeWalker):
     def walk_Literal(self, node: ast.Literal):
         return f"{node.value}"
 
+
 @dataclass
 class SCFGBuilderWalker(NodeWalker):
     primary_scfg_variable: ast.Variable
@@ -92,8 +95,6 @@ class SCFGBuilderWalker(NodeWalker):
             return [transfer_node]
         assert not true_nodes and not false_nodes, "If primary variable doesn't have subscripts, other variables may not have subscripts!!"
         return []
-
-
 
     def walk_Variable(self, node: ast.Variable):
         if node.name == self.primary_scfg_variable.name and node.prime:
@@ -134,8 +135,7 @@ class SCFGBuilder:
         self.scfg_variables: Dict[str, SCFGVariable] = {}
 
     def build(self, data_variable_names):
-        builder = SCFGBuilderWalker(primary_scfg_variable=None,
-                                    scfg_variables=self.scfg_variables)
+        builder = SCFGBuilderWalker(primary_scfg_variable=None, scfg_variables=self.scfg_variables)
         for statement in self.statement_info:
             primary_variable_name = statement.primary.name
             if primary_variable_name not in self.scfg_variables:
@@ -150,7 +150,7 @@ def visualize_recurse(node: BaseSCFGNode, graph: nx.DiGraph, previous_node_name,
         case SCFGVariable():
             if id(node) not in visited:
                 visited.add(id(node))
-                #print("create node", node.name)
+                # print("create node", node.name)
                 graph.add_node(node.name, name=node.name)
             if node.output_nodes:
                 for on in node.output_nodes:
@@ -175,8 +175,8 @@ def visualize_recurse(node: BaseSCFGNode, graph: nx.DiGraph, previous_node_name,
                 return name
             visited.add(id(node))
             graph.add_node(name, name=name)
-            #graph.add_edge(previous_node_name, name)
-            #print(f"{previous_node_name} -> {name}")
+            # graph.add_edge(previous_node_name, name)
+            # print(f"{previous_node_name} -> {name}")
             if node.true_nodes:
                 for tn in node.true_nodes:
                     res = visualize_recurse(tn, graph, name, visited)
@@ -186,10 +186,11 @@ def visualize_recurse(node: BaseSCFGNode, graph: nx.DiGraph, previous_node_name,
             if node.false_nodes:
                 for fn in node.false_nodes:
                     res = visualize_recurse(fn, graph, name, visited)
-                    #if res:
+                    # if res:
                     #    print("false", res)
-                        #graph.add_edge(name, res, label="false")
+                    # graph.add_edge(name, res, label="false")
             return name
+
 
 def visualize(scfg_variables: Dict[str, SCFGVariable], entry_node: str):
     G = nx.MultiDiGraph()
@@ -198,7 +199,7 @@ def visualize(scfg_variables: Dict[str, SCFGVariable], entry_node: str):
 
     edge_names = tuple(set(nx.get_edge_attributes(G, "label").values()))
 
-    cm = plt.get_cmap('gist_rainbow')
+    cm = plt.get_cmap("gist_rainbow")
     cNorm = mcolors.Normalize(vmin=0, vmax=len(edge_names) - 1)
     scalarMap = mcm.ScalarMappable(norm=cNorm, cmap=cm)
     colors = [scalarMap.to_rgba(i) for i in range(len(edge_names))]
@@ -207,29 +208,36 @@ def visualize(scfg_variables: Dict[str, SCFGVariable], entry_node: str):
 
     pos = nx.circular_layout(G, scale=2)
     color_list = [color_map[rel] for rel in nx.get_edge_attributes(G, "label").values()]
-    #nx.draw(G, pos, arrowsize=30, connectionstyle='arc3, rad = 0.1', edge_color=color_list)
+    # nx.draw(G, pos, arrowsize=30, connectionstyle='arc3, rad = 0.1', edge_color=color_list)
     nx.draw_networkx_nodes(G, pos)
     nx.draw_networkx_labels(G, pos, labels=nx.get_node_attributes(G, "name"))
 
     ax = plt.gca()
-    ax.axis('off')
-    ax.autoscale_view('tight')
-    ax.set_aspect('auto')
+    ax.axis("off")
+    ax.autoscale_view("tight")
+    ax.set_aspect("auto")
     for index, e in enumerate(G.edges):
-        #print(e, list(nx.get_edge_attributes(G, "label").values())[index])
-        ax.annotate("",
-                    xy=pos[e[0]], xycoords='data',
-                    xytext=pos[e[1]], textcoords='data',
-                    arrowprops=dict(arrowstyle="<|-", mutation_scale=30, color=color_map[list(nx.get_edge_attributes(G, "label").values())[index]],
-                                    shrinkA=5, shrinkB=5,
-                                    patchA=None, patchB=None,
-                                    connectionstyle="arc3,rad=rrr".replace('rrr', str(0.3 * e[2])
-                                                                           ),
-                                    ),
-                    )
+        # print(e, list(nx.get_edge_attributes(G, "label").values())[index])
+        ax.annotate(
+            "",
+            xy=pos[e[0]],
+            xycoords="data",
+            xytext=pos[e[1]],
+            textcoords="data",
+            arrowprops=dict(
+                arrowstyle="<|-",
+                mutation_scale=30,
+                color=color_map[list(nx.get_edge_attributes(G, "label").values())[index]],
+                shrinkA=5,
+                shrinkB=5,
+                patchA=None,
+                patchB=None,
+                connectionstyle="arc3,rad=rrr".replace("rrr", str(0.3 * e[2])),
+            ),
+        )
 
     legend_elements = [Line2D([0], [0], color=color, lw=4, label=name) for name, color in color_map.items()]
     ax.legend(handles=legend_elements, loc="upper right")
 
-    #nx.draw_networkx_edge_labels(G, pos, edge_labels=nx.get_edge_attributes(G, 'label'), label_pos=0.5, rotate=True)
+    # nx.draw_networkx_edge_labels(G, pos, edge_labels=nx.get_edge_attributes(G, 'label'), label_pos=0.5, rotate=True)
     print(G)
