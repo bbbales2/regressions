@@ -236,7 +236,6 @@ def visualize(scfg_variables: Dict[str, SCFGVariable], entry_node: str):
         )
         edge_count[",".join(sorted(e[:2]))] += 1
 
-
     legend_elements = [Line2D([0], [0], color=color, lw=4, label=name) for name, color in color_map.items()]
     ax.legend(handles=legend_elements, loc="upper right")
 
