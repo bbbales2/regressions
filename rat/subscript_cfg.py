@@ -9,7 +9,7 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import matplotlib.cm as mcm
 from matplotlib.lines import Line2D
-import random
+from collections import defaultdict
 
 
 @dataclass
@@ -180,8 +180,8 @@ def visualize_recurse(node: BaseSCFGNode, graph: nx.DiGraph, previous_node_name,
             if node.true_nodes:
                 for tn in node.true_nodes:
                     res = visualize_recurse(tn, graph, name, visited)
-                    if res:
-                        graph.add_edge(name, res, label="true")
+                    # if res:
+                    #     graph.add_edge(name, res, label="true")
 
             if node.false_nodes:
                 for fn in node.false_nodes:
@@ -206,18 +206,17 @@ def visualize(scfg_variables: Dict[str, SCFGVariable], entry_node: str):
     assert len(colors) == len(edge_names), "Not enough colors to draw all edges differently"
     color_map = {name: color for name, color in zip(edge_names, colors)}
 
-    pos = nx.circular_layout(G, scale=2)
-    color_list = [color_map[rel] for rel in nx.get_edge_attributes(G, "label").values()]
-    # nx.draw(G, pos, arrowsize=30, connectionstyle='arc3, rad = 0.1', edge_color=color_list)
-    nx.draw_networkx_nodes(G, pos)
-    nx.draw_networkx_labels(G, pos, labels=nx.get_node_attributes(G, "name"))
+    pos = nx.circular_layout(G)
+    nx.draw_networkx_nodes(G, pos, node_size=2000)
+    nx.draw_networkx_labels(G, pos, labels=nx.get_node_attributes(G, "name"), font_size=40)
 
     ax = plt.gca()
     ax.axis("off")
     ax.autoscale_view("tight")
     ax.set_aspect("auto")
+    edge_count = defaultdict(lambda: 0)
+
     for index, e in enumerate(G.edges):
-        # print(e, list(nx.get_edge_attributes(G, "label").values())[index])
         ax.annotate(
             "",
             xy=pos[e[0]],
@@ -226,15 +225,17 @@ def visualize(scfg_variables: Dict[str, SCFGVariable], entry_node: str):
             textcoords="data",
             arrowprops=dict(
                 arrowstyle="<|-",
-                mutation_scale=30,
+                mutation_scale=40,
                 color=color_map[list(nx.get_edge_attributes(G, "label").values())[index]],
                 shrinkA=5,
                 shrinkB=5,
                 patchA=None,
                 patchB=None,
-                connectionstyle="arc3,rad=rrr".replace("rrr", str(0.3 * e[2])),
+                connectionstyle="arc3,rad=rrr".replace("rrr", str(0.3 * edge_count[",".join(sorted(e[:2]))])),
             ),
         )
+        edge_count[",".join(sorted(e[:2]))] += 1
+
 
     legend_elements = [Line2D([0], [0], color=color, lw=4, label=name) for name, color in color_map.items()]
     ax.legend(handles=legend_elements, loc="upper right")
