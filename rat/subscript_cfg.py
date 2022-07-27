@@ -32,6 +32,7 @@ class BaseSCFGNode:
         """
         raise NotImplementedError
 
+
 @dataclass
 class SCFGConditional(BaseSCFGNode):
     predicate_code: str
@@ -58,17 +59,25 @@ class SCFGTransferFunc(BaseSCFGNode):
     when you're doing time series recursion, you would input x and will pass x - 1 to the next node. Transfer functions
     also fulfill the task, by passing on transformed subscript values.
     """
+
     transform_expr_strings: List[str]
     subscript_names: List[str]
 
     def visit(self, subscript_names: Tuple[str]):
         n_transform_codes = len(self.transform_expr_strings)
         assert len(subscript_names) == n_transform_codes, "Number of subscripts passed to visit must equal number of transfer functions!"
-        transformed_subscripts =[]
+        transformed_subscripts = []
         while self.input_queue:
             pre_transform_subscript = self.input_queue.pop(0)
-            assert len(pre_transform_subscript) == n_transform_codes, "Number of transfer expressions and input subscript length must match!"
-            post_transform_subscript = tuple(map(lambda expr: eval(expr, {}, {name: value for name, value in zip(subscript_names, pre_transform_subscript)}), self.transform_expr_strings))
+            assert (
+                len(pre_transform_subscript) == n_transform_codes
+            ), "Number of transfer expressions and input subscript length must match!"
+            post_transform_subscript = tuple(
+                map(
+                    lambda expr: eval(expr, {}, {name: value for name, value in zip(subscript_names, pre_transform_subscript)}),
+                    self.transform_expr_strings,
+                )
+            )
             transformed_subscripts.append(post_transform_subscript)
 
         for next_node in self.output_nodes:
@@ -156,10 +165,11 @@ class SCFGBuilderWalker(NodeWalker):
             variable_name = node.name
             if self.primary_variable_ast.arglist:
                 # TODO: this won't work when data is the primary variable, since data variables naturally won't be subscripted
-                primary_variable_subscript_names = [SubscriptExpressionWalker().walk(arg) for arg in
-                                                    self.primary_variable_ast.arglist]
+                primary_variable_subscript_names = [SubscriptExpressionWalker().walk(arg) for arg in self.primary_variable_ast.arglist]
             else:
-                raise Exception(f"varname {node.name} primary: {self.primary_variable_ast.name} If primary variable doesn't have subscripts, other variables may not have subscripts!!")
+                raise Exception(
+                    f"varname {node.name} primary: {self.primary_variable_ast.name} If primary variable doesn't have subscripts, other variables may not have subscripts!!"
+                )
             transfer_func = SCFGTransferFunc(args, primary_variable_subscript_names)
             if variable_name not in self.scfg_variables:
                 self.scfg_variables[variable_name] = SCFGVariable(variable_name)
