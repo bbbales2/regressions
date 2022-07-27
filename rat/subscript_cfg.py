@@ -1,9 +1,11 @@
-from typing import Set, List, Union, Dict
+from typing import Set, List, Union, Dict, Tuple
 from dataclasses import dataclass, field
 import pandas as pd
 from . import ast
 from .compiler2 import StatementInfo, RatCompiler
 from .walker import NodeWalker, RatWalker
+
+# The following imports are only used for debugging visualization
 import networkx as nx
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -14,14 +16,21 @@ from collections import defaultdict
 
 @dataclass
 class BaseSCFGNode:
-    input_queue: Set = field(init=False, default_factory=set)
+    input_queue: List[Tuple] = field(init=False, default_factory=set)
     output_nodes: List["BaseSCFGNode"] = field(init=False, default_factory=list)
 
+    def add_queue(self, subscript: Tuple):
+        """
+        Add a subscript to the processing queue.
+        """
+        self.input_queue.append(subscript)
 
-@dataclass
-class SCFGInitialState(BaseSCFGNode):
-    entry_dataframe: pd.DataFrame
-
+    def visit(self, subscript_names: Tuple[str]) -> bool:
+        """
+        Process values within the input queue.
+        If the return value is true, the output nodes of the current node is added to the worknode.
+        """
+        raise NotImplementedError
 
 @dataclass
 class SCFGConditional(BaseSCFGNode):
@@ -29,21 +38,63 @@ class SCFGConditional(BaseSCFGNode):
     true_nodes: List["BaseSCFGNode"] = field(init=False, default_factory=list)
     false_nodes: List["BaseSCFGNode"] = field(init=False, default_factory=list)
 
+    def visit(self, subscript_names: Tuple[str]):
+        while self.input_queue:
+            subscript = self.input_queue.pop(0)
+            predicate_result = eval(self.predicate_code, {}, {name: value for name, value in zip(subscript_names, subscript)})
+            if predicate_result:
+                for true_node in self.true_nodes:
+                    true_node.input_queue.append(subscript)
+            else:
+                for false_node in self.false_nodes:
+                    false_node.input_queue.append(subscript)
+
 
 @dataclass
 class SCFGTransferFunc(BaseSCFGNode):
-    transform_codes: List[str]
+    """
+    The Transfer function is the "edge" of the control flow graph. Every variable(node) has a set of subscript
+    values. When it invokes another node, it may pass on a transformed version of the subscript values. for example,
+    when you're doing time series recursion, you would input x and will pass x - 1 to the next node. Transfer functions
+    also fulfill the task, by passing on transformed subscript values.
+    """
+    transform_expr_strings: List[str]
+    subscript_names: List[str]
+
+    def visit(self, subscript_names: Tuple[str]):
+        n_transform_codes = len(self.transform_expr_strings)
+        assert len(subscript_names) == n_transform_codes, "Number of subscripts passed to visit must equal number of transfer functions!"
+        transformed_subscripts =[]
+        while self.input_queue:
+            pre_transform_subscript = self.input_queue.pop(0)
+            assert len(pre_transform_subscript) == n_transform_codes, "Number of transfer expressions and input subscript length must match!"
+            post_transform_subscript = tuple(map(lambda expr: eval(expr, {}, {name: value for name, value in zip(subscript_names, pre_transform_subscript)}), self.transform_expr_strings))
+            transformed_subscripts.append(post_transform_subscript)
+
+        for next_node in self.output_nodes:
+            next_node.input_queue.extend(transformed_subscripts)
 
 
 @dataclass
 class SCFGVariable(BaseSCFGNode):
     name: str
-    domain: Set = field(init=False, default_factory=set)
+    domain: Set[Tuple] = field(init=False, default_factory=set)
+
+    def visit(self, subscript_names: Tuple[str]):
+        prejoin_domain_size = len(self.domain)
+        self.domain |= self.input_queue
+        postjoin_domain_size = len(self.domain)
+        return True if prejoin_domain_size == postjoin_domain_size else False
 
 
 class SCFGExecutor:
     def __init__(self):
         pass
+
+    def kildall_iterate(self, seed_variables):
+        """
+        Run the kildall iterative fixed-point algorithm.
+        """
 
 
 class SubscriptExpressionWalker(NodeWalker):
@@ -75,7 +126,7 @@ class SubscriptExpressionWalker(NodeWalker):
 
 @dataclass
 class SCFGBuilderWalker(NodeWalker):
-    primary_scfg_variable: ast.Variable
+    primary_variable_ast: ast.Variable
     scfg_variables: Dict[str, SCFGVariable]
 
     def walk_Statement(self, node: ast.Statement):
@@ -88,21 +139,28 @@ class SCFGBuilderWalker(NodeWalker):
         cond_node = SCFGConditional(predicate)
         cond_node.true_nodes.extend(true_nodes)
         cond_node.false_nodes.extend(false_nodes)
-        if self.primary_scfg_variable.arglist:
-            args = [SubscriptExpressionWalker().walk(arg) for arg in self.primary_scfg_variable.arglist]
-            transfer_node = SCFGTransferFunc(args)
+        if self.primary_variable_ast.arglist:
+            primary_variable_subscript_names = [SubscriptExpressionWalker().walk(arg) for arg in self.primary_variable_ast.arglist]
+            args = [SubscriptExpressionWalker().walk(arg) for arg in self.primary_variable_ast.arglist]
+            transfer_node = SCFGTransferFunc(args, primary_variable_subscript_names)
             transfer_node.output_nodes.append(cond_node)
             return [transfer_node]
         assert not true_nodes and not false_nodes, "If primary variable doesn't have subscripts, other variables may not have subscripts!!"
         return []
 
     def walk_Variable(self, node: ast.Variable):
-        if node.name == self.primary_scfg_variable.name and node.prime:
+        if node.name == self.primary_variable_ast.name and node.prime:
             return []
         if node.arglist:
             args = [SubscriptExpressionWalker().walk(arg) for arg in node.arglist]
             variable_name = node.name
-            transfer_func = SCFGTransferFunc(args)
+            if self.primary_variable_ast.arglist:
+                # TODO: this won't work when data is the primary variable, since data variables naturally won't be subscripted
+                primary_variable_subscript_names = [SubscriptExpressionWalker().walk(arg) for arg in
+                                                    self.primary_variable_ast.arglist]
+            else:
+                raise Exception(f"varname {node.name} primary: {self.primary_variable_ast.name} If primary variable doesn't have subscripts, other variables may not have subscripts!!")
+            transfer_func = SCFGTransferFunc(args, primary_variable_subscript_names)
             if variable_name not in self.scfg_variables:
                 self.scfg_variables[variable_name] = SCFGVariable(variable_name)
 
@@ -140,7 +198,7 @@ class SCFGBuilder:
             primary_variable_name = statement.primary.name
             if primary_variable_name not in self.scfg_variables:
                 self.scfg_variables[primary_variable_name] = SCFGVariable(primary_variable_name)
-            builder.primary_scfg_variable = statement.primary
+            builder.primary_variable_ast = statement.primary
 
             self.scfg_variables[primary_variable_name].output_nodes.extend(builder.walk_Statement(statement.statement))
 
@@ -158,7 +216,7 @@ def visualize_recurse(node: BaseSCFGNode, graph: nx.DiGraph, previous_node_name,
             return node.name
 
         case SCFGTransferFunc():
-            name = f"Transfer({node.transform_codes})"
+            name = f"Transfer({node.transform_expr_strings})"
             if id(node) in visited:
                 return name
             visited.add(id(node))
