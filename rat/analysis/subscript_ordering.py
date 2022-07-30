@@ -7,7 +7,6 @@ from ..compiler2 import StatementInfo
 from tatsu.model import NodeWalker
 
 
-
 @dataclass
 class POSetNode:
     value: Set[str]
@@ -23,6 +22,7 @@ class SubscriptPOSet:
         """
         Checks if parent_node is a parent of child_node
         """
+
         def recurse(node: POSetNode):
             if node.value == parent_node.value:
                 return True
@@ -65,4 +65,3 @@ class SubscriptPOSCreator:
     def build(self):
         class SubscriptIdentifier(NodeWalker):
             pass
-
