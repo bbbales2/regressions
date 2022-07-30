@@ -1,9 +1,8 @@
 from typing import Set, List, Union, Dict, Tuple
 from dataclasses import dataclass, field
-import pandas as pd
-from . import ast
-from .compiler2 import StatementInfo, RatCompiler
-from .walker import NodeWalker, RatWalker
+from .. import ast
+from ..compiler2 import StatementInfo, RatCompiler
+from ..walker import NodeWalker, RatWalker
 
 # The following imports are only used for debugging visualization
 import networkx as nx
@@ -203,7 +202,7 @@ class SCFGBuilder:
         self.scfg_variables: Dict[str, SCFGVariable] = {}
 
     def build(self, data_variable_names):
-        builder = SCFGBuilderWalker(primary_scfg_variable=None, scfg_variables=self.scfg_variables)
+        builder = SCFGBuilderWalker(primary_variable_ast=None, scfg_variables=self.scfg_variables)
         for statement in self.statement_info:
             primary_variable_name = statement.primary.name
             if primary_variable_name not in self.scfg_variables:
