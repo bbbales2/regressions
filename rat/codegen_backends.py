@@ -37,7 +37,9 @@ class BaseCodeGenerator(NodeWalker):
     left_side_of_sampling: ast.ModelBase
     extra_subscripts: List[str]
 
-    def __init__(self, variable_table: VariableTable = None, subscript_table: SubscriptTable = None, available_as_local: Iterable[str] = None):
+    def __init__(
+        self, variable_table: VariableTable = None, subscript_table: SubscriptTable = None, available_as_local: Iterable[str] = None
+    ):
         self.available_as_local = set(available_as_local) if available_as_local else set()
         self.variable_table = variable_table
         self.subscript_table = subscript_table
@@ -99,9 +101,9 @@ class TraceCodeGenerator(NodeWalker):
     """
 
     shunt: bool
-    passed_by_value : Iterable[str]
+    passed_by_value: Iterable[str]
 
-    def __init__(self, passed_by_value : Iterable[str], shunt : bool = True):
+    def __init__(self, passed_by_value: Iterable[str], shunt: bool = True):
         self.shunt = shunt
         self.passed_by_value = passed_by_value
 

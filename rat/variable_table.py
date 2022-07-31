@@ -20,7 +20,7 @@ class Tracer:
     args_set: SortedSet[Tuple]
     arg_types: Tuple
 
-    def __init__(self, args_set = None, arg_types = None):
+    def __init__(self, args_set=None, arg_types=None):
         self.args_set = args_set if args_set else SortedSet()
         self.arg_types = arg_types
 
@@ -51,30 +51,31 @@ class Tracer:
         else:
             if len(args) != len(self.arg_types):
                 raise Exception("Inconsistent number of arguments")
-            
+
             if arg_types != self.arg_types:
                 raise Exception("Argument types inconsistent")
-    
+
     def lookup(self, args) -> int:
         return self.args_set.index(args)
 
     def copy(self):
         return Tracer(self.args_set.copy(), self.arg_types)
-        
 
-K = TypeVar("K") # TODO: Is this a useful way of typing this?
+
+K = TypeVar("K")  # TODO: Is this a useful way of typing this?
 V = TypeVar("V")
 
+
 class ValueTracer(Tracer, Generic[K, V]):
-    values : SortedDict[K, V]
-    arg_types : Tuple
-    value_type : Any
+    values: SortedDict[K, V]
+    arg_types: Tuple
+    value_type: Any
 
     def __init__(self):
         self.values = SortedDict()
         self.arg_types = None
         self.value_type = None
-    
+
     def __len__(self) -> int:
         return len(self.values)
 
@@ -85,9 +86,9 @@ class ValueTracer(Tracer, Generic[K, V]):
     def __repr__(self) -> str:
         return f"F[{str(self.arg_types)} -> {str(self.value_type)}]"
 
-    def __call__(self, *args : K):
+    def __call__(self, *args: K):
         return self.values[args]
-    
+
     def validate_return_type(self, value):
         value_type = type(value)
         if self.value_type == None:
@@ -96,17 +97,18 @@ class ValueTracer(Tracer, Generic[K, V]):
             if value_type != self.value_type:
                 raise Exception("Value type inconsistent")
 
-    def add(self, return_value : V, args : K):
+    def add(self, return_value: V, args: K):
         self.validate_argument_types(args)
         self.validate_return_type(return_value)
         self.values[args] = return_value
-    
-    def lookup(self, args : K) -> int:
+
+    def lookup(self, args: K) -> int:
         return self.values.index(args)
 
     # TODO: This is really confusing lol
     def copy(self):
         return self
+
 
 @dataclass()
 class VariableRecord:
@@ -177,12 +179,12 @@ class VariableRecord:
                     raise AttributeError("Internal compiler error: If variable isn't renamed, then all uses must match")
             self.subscripts = subscript_names
 
-    def bind(self, data_subscripts : Tuple[str], data : Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
+    def bind(self, data_subscripts: Tuple[str], data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
         """
         Bind function to data
         """
-        data_dict : Dict[str, pandas.DataFrame] = {}
-        
+        data_dict: Dict[str, pandas.DataFrame] = {}
+
         match data:
             case pandas.DataFrame():
                 data_dict["__default"] = data.reset_index().copy()
@@ -204,7 +206,7 @@ class VariableRecord:
         except KeyError as e:
             return
 
-        # If we find something to bind to, do it and call this variable data        
+        # If we find something to bind to, do it and call this variable data
         self.variable_type = VariableType.DATA
 
         data_df = data_dict[data_name]
@@ -228,10 +230,12 @@ class VariableRecord:
                 existing_value = self.tracer(*arguments)
 
                 if existing_value != return_value:
-                    raise Exception(f"Error binding {self.name} to input data. {arguments} maps to both {existing_value} and {return_value}")
+                    raise Exception(
+                        f"Error binding {self.name} to input data. {arguments} maps to both {existing_value} and {return_value}"
+                    )
 
             self.tracer.add(return_value, arguments)
-    
+
     def itertuple_type(self):
         match self.tracer:
             case ValueTracer():
@@ -240,7 +244,7 @@ class VariableRecord:
             case Tracer():
                 Domain = namedtuple(f"{self.name}_domain", self.subscripts)
                 return Domain
-    
+
     def itertuples(self) -> Iterable[NamedTuple]:
         Type = self.itertuple_type()
         match self.tracer:
@@ -310,7 +314,7 @@ class VariableRecord:
         return self.tracer.lookup(args)
 
 
-def get_dataframe_name_by_column_name(column_name : str, data : Dict[str, pandas.DataFrame]):
+def get_dataframe_name_by_column_name(column_name: str, data: Dict[str, pandas.DataFrame]):
     """
     Look up the dataframe associated with a given variable name
 
@@ -327,6 +331,7 @@ def get_dataframe_name_by_column_name(column_name : str, data : Dict[str, pandas
         raise Exception(f"Variable {column_name} is ambiguous; it is found in dataframes {matching_dfs}")
 
     return matching_dfs[0]
+
 
 class VariableTable:
     variable_dict: Dict[str, VariableRecord]
@@ -353,7 +358,7 @@ class VariableTable:
         return self._unique_number
 
     def tracers(self) -> Iterable[Tracer]:
-        return { name : variable.tracer for name, variable in self.variable_dict.items() }
+        return {name: variable.tracer for name, variable in self.variable_dict.items()}
 
     def insert(
         self,
@@ -379,7 +384,7 @@ class VariableTable:
     def __iter__(self):
         for name in self.variable_dict:
             yield name
-    
+
     def prepare_unconstrained_parameter_mapping(self):
         """
         Compute the size of vector that can hold everything and figure out

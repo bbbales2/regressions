@@ -194,7 +194,7 @@ class RatCompiler:
                     else:
                         if node.name not in self.variable_table:
                             self.variable_table.insert(variable_name=node.name, variable_type=VariableType.PARAM)
-                
+
                 if node.arglist:
                     self.in_control_flow = True
                     for arg in node.arglist:
@@ -244,7 +244,7 @@ class RatCompiler:
                                 except AttributeError:
                                     msg = f"Attempting to reference subscript of {node.name} as {subscript_names}, but they have already been referenced as {variable.subscripts}. The subscripts must be renamed"
                                     raise CompileError(msg, node)
-                        
+
                     if node.arglist:
                         for arg in node.arglist:
                             self.walk(arg)
@@ -256,7 +256,7 @@ class RatCompiler:
         @dataclass
         class BindDataToFunctionsWalker(RatWalker):
             variable_table: VariableTable
-            data : Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]
+            data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]
 
             def walk_Variable(self, node: ast.Variable):
                 # Do not bind variables without an arglist
@@ -268,7 +268,7 @@ class RatCompiler:
 
                     for arg in node.arglist:
                         self.walk(arg)
-        
+
         bind_data_to_functions_walker = BindDataToFunctionsWalker(self.variable_table, self.data)
         bind_data_to_functions_walker.walk(self.program)
 
@@ -363,6 +363,7 @@ class RatCompiler:
                 # Generate tracer code for this line
                 code_generator = TraceCodeGenerator(primary_variable.itertuple_type()._fields)
                 code = code_generator.walk(statement_info.statement)
+
                 def fire_traces(tracers, values):
                     eval(code)
 
@@ -546,6 +547,7 @@ class RatCompiler:
 
                 tracers = self.variable_table.tracers()
                 for subscript_node, code in self.subscript_table_code.items():
+
                     def argument_function(tracers, values):
                         return eval(code)
 
