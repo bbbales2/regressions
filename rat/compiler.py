@@ -14,7 +14,7 @@ import pandas as pd
 from . import ast
 from . import codegen_backends
 from .exceptions import CompileError, MergeError
-from .variable_table import VariableTracer, VariableTable, VariableType
+from .variable_table import Tracer, VariableTable, VariableType
 from rat import variable_table
 
 
@@ -287,7 +287,7 @@ class Compiler:
 
                 primary_df = primary_variable.base_df
                 if primary_df is not None:
-                    code_generator = codegen_backends.DiscoverVariablesCodeGenerator()
+                    code_generator = codegen_backends.TraceCodeGenerator()
                     code_generator.generate(top_expr)
 
                     for row in primary_df.itertuples(index=False):

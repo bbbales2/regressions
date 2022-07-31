@@ -11,9 +11,9 @@ import itertools
 import pandas as pd
 
 from . import ast
-from .codegen_backends import IndentWriter, BaseCodeGenerator, DiscoverVariablesCodeGenerator
+from .codegen_backends import IndentWriter, BaseCodeGenerator, TraceCodeGenerator
 from .exceptions import CompileError, MergeError
-from .variable_table import VariableTracer, VariableTable, VariableType
+from .variable_table import Tracer, VariableRecord, VariableTable, VariableType
 from .subscript_table import SubscriptTable
 from .walker import RatWalker, NodeWalker
 from rat import variable_table
@@ -136,19 +136,6 @@ class RatCompiler:
         self.generated_code = ""
         self.statements = []
 
-    def get_data_names(self) -> Set[str]:
-        """
-        Get the names of all the input dataframe columns
-        """
-        match self.data:
-            case pandas.DataFrame():
-                return set(self.data.columns)
-            case _:
-                names = set()
-                for df in self.data.values():
-                    names |= set(df.columns)
-                return names
-
     def _identify_primary_symbols(self):
         """
         Generate a StatementInfo for each statement in the program
@@ -173,8 +160,8 @@ class RatCompiler:
         # Add entries to the variable table for all ast variables
         @dataclass
         class CreateVariableWalker(RatWalker):
-            data_names: Set[str]
             variable_table: VariableTable
+            in_control_flow: bool = False
             left_hand_of_assignment: bool = False
 
             def walk_Statement(self, node: ast.Statement):
@@ -187,9 +174,19 @@ class RatCompiler:
                     self.walk(node.left)
                 self.walk(node.right)
 
+            def walk_IfElse(self, node: ast.IfElse):
+                self.in_control_flow = True
+                self.walk(node.predicate)
+                self.in_control_flow = False
+
+                self.walk(node.left)
+                self.walk(node.right)
+
             def walk_Variable(self, node: ast.Variable):
-                if node.name in data_names:
-                    self.variable_table.insert(variable_name=node.name, variable_type=VariableType.DATA)
+                if self.in_control_flow:
+                    # Variable nodes without subscripts in control flow must come from primary variable
+                    if node.arglist:
+                        self.variable_table.insert(variable_name=node.name, variable_type=VariableType.DATA)
                 else:
                     # Overwrite table entry for assigned parameters (so they don't get turned back into regular parameters)
                     if self.left_hand_of_assignment:
@@ -197,9 +194,14 @@ class RatCompiler:
                     else:
                         if node.name not in self.variable_table:
                             self.variable_table.insert(variable_name=node.name, variable_type=VariableType.PARAM)
+                
+                if node.arglist:
+                    self.in_control_flow = True
+                    for arg in node.arglist:
+                        self.walk(arg)
+                    self.in_control_flow = False
 
-        data_names = self.get_data_names()
-        walker = CreateVariableWalker(data_names, self.variable_table)
+        walker = CreateVariableWalker(self.variable_table)
         walker.walk(self.program)
 
         # Do a sweep to rename the primary variables as necessary
@@ -232,121 +234,145 @@ class RatCompiler:
 
                 def walk_Variable(self, node: ast.Variable):
                     if node.name != self.primary_name:
-                        variable = self.variable_table[node.name]
-                        subscript_names = _get_subscript_names(node)
+                        if node.arglist:
+                            variable = self.variable_table[node.name]
+                            subscript_names = _get_subscript_names(node)
 
-                        if variable.variable_type != VariableType.DATA and not variable.renamed and subscript_names is not None:
-                            try:
-                                variable.suggest_names(subscript_names)
-                            except AttributeError:
-                                msg = f"Attempting to reference subscript of {node.name} as {subscript_names}, but they have already been referenced as {variable.subscripts}. The subscripts must be renamed"
-                                raise CompileError(msg, node)
+                            if variable.variable_type != VariableType.DATA and not variable.renamed and subscript_names is not None:
+                                try:
+                                    variable.suggest_names(subscript_names)
+                                except AttributeError:
+                                    msg = f"Attempting to reference subscript of {node.name} as {subscript_names}, but they have already been referenced as {variable.subscripts}. The subscripts must be renamed"
+                                    raise CompileError(msg, node)
+                        
+                    if node.arglist:
+                        for arg in node.arglist:
+                            self.walk(arg)
 
             walker = InferSubscriptNameWalker(primary_ast_variable.name, self.variable_table)
             walker.walk(statement)
 
-        # Perform a number of dataframe compatibility checks
-        for statement_info in self.statements:
-            # Find the primary variable
-            primary_ast_variable = statement_info.primary
-            statement = statement_info.statement
-            primary_variable = self.variable_table[primary_ast_variable.name]
-            primary_subscript_names = primary_variable.subscripts
+        # Greedily try to bind variables to data
+        @dataclass
+        class BindDataToFunctionsWalker(RatWalker):
+            variable_table: VariableTable
+            data : Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]
 
-            data_names = self.get_data_names() | set(primary_subscript_names)
-
-            @dataclass
-            class DataframeCompatibilityWalker(RatWalker):
-                primary_name: str
-                data_names: List[str]
-                variable_table: VariableTable
-
-                def walk_Variable(self, node: ast.Variable):
-                    # TODO: It would be nice if these code paths were closer for Data and Params
-                    variable = self.variable_table[node.name]
-                    primary_variable = self.variable_table[self.primary_name]
-
+            def walk_Variable(self, node: ast.Variable):
+                # Do not bind variables without an arglist
+                if node.arglist:
                     subscript_names = _get_subscript_names(node)
-                    primary_subscript_names = primary_variable.subscripts
 
-                    if subscript_names is not None:
-                        # Check that number/names of subscripts are compatible with primary variable
-                        for name, arg in zip(subscript_names, node.arglist):
-                            if name not in primary_subscript_names:
-                                dataframe_name = self.variable_table.get_dataframe_name(self.primary_name)
-                                msg = f"Subscript {name} not found in dataframe {dataframe_name} (associated with primary variable {self.primary_name})"
-                                raise CompileError(msg, arg)
+                    variable = self.variable_table[node.name]
+                    variable.bind(subscript_names, self.data)
 
-                    if node.name in self.data_names:
-                        # If the target variable is data, then assume the subscripts here are
-                        # referencing columns of the dataframe by name
-                        if subscript_names is not None:
-                            # Check that the names of subscripts are compatible with the variable's own dataframe
-                            for name, arg in zip(subscript_names, node.arglist):
-                                if name not in variable.subscripts:
-                                    dataframe_name = self.variable_table.get_dataframe_name(node.name)
-                                    msg = f"Subscript {name} not found in dataframe {dataframe_name} (associated with variable {node.name})"
-                                    raise CompileError(msg, arg)
-                    else:
-                        subscript_names = _get_subscript_names(node)
+                    for arg in node.arglist:
+                        self.walk(arg)
+        
+        bind_data_to_functions_walker = BindDataToFunctionsWalker(self.variable_table, self.data)
+        bind_data_to_functions_walker.walk(self.program)
 
-                        # If variable has no subscript, it's a scalar and there's nothing to do
-                        if subscript_names is not None:
-                            # If variable is known to have subscripts then check that
-                            # the number of subscripts are compatible with existing
-                            # ones
-                            if len(variable.subscripts) > 0:
-                                if len(subscript_names) != len(variable.subscripts):
-                                    msg = f"{len(subscript_names)} found, previously used with {len(variable.subscripts)}"
-                                    raise CompileError(msg, node)
+        # Perform a number of dataframe compatibility checks
+        # for statement_info in self.statements:
+        #     # Find the primary variable
+        #     primary_ast_variable = statement_info.primary
+        #     statement = statement_info.statement
+        #     primary_variable = self.variable_table[primary_ast_variable.name]
+        #     primary_subscript_names = primary_variable.subscripts
 
-                            # Fold all the shift expressions to simple integers
-                            # TODO: Is this necessary?
-                            # shifts, pad_needed = self._get_shifts_and_padding(symbol.subscript)
-                            # variable.pad_needed = pad_needed
+        #     data_names = self.get_data_names() | set(primary_subscript_names)
 
-                            # Extra checks for secondary variables
-                            # TODO: Is this necessary?
-                            # if symbol_key != primary_symbol_key:
-                            # TODO: This should probably be supported in the future
-                            # right now I'm leaving it off because I'm not quite sure
-                            # what the behavior should be and I don't have an example
-                            # model in mind (my guess is access should give zeros)
-                            #     if any(shift != 0 for shift in shifts):
-                            #         msg = f"Shifted access on a secondary parameter is not allowed"
-                            #         raise CompileError(msg, symbol.range)
+        #     @dataclass
+        #     class DataframeCompatibilityWalker(RatWalker):
+        #         primary_name: str
+        #         data_names: List[str]
+        #         variable_table: VariableTable
 
-            walker = DataframeCompatibilityWalker(primary_ast_variable.name, data_names, self.variable_table)
-            walker.walk(statement)
+        #         def walk_Variable(self, node: ast.Variable):
+        #             # TODO: It would be nice if these code paths were closer for Data and Params
+        #             variable = self.variable_table[node.name]
+        #             primary_variable = self.variable_table[self.primary_name]
+
+        #             subscript_names = _get_subscript_names(node)
+        #             primary_subscript_names = primary_variable.subscripts
+
+        #             if node.arglist:
+        #                 # Check that number/names of subscripts are compatible with primary variable
+        #                 for name, arg in zip(subscript_names, node.arglist):
+        #                     if name not in primary_subscript_names:
+        #                         dataframe_name = self.variable_table.get_dataframe_name(self.primary_name)
+        #                         msg = f"Subscript {name} not found in dataframe {dataframe_name} (associated with primary variable {self.primary_name})"
+        #                         raise CompileError(msg, arg)
+
+        #             if node.name in self.data_names:
+        #                 # If the target variable is data, then assume the subscripts here are
+        #                 # referencing columns of the dataframe by name
+        #                 if node.arglist:
+        #                     # Check that the names of subscripts are compatible with the variable's own dataframe
+        #                     for name, arg in zip(subscript_names, node.arglist):
+        #                         if name not in variable.subscripts:
+        #                             dataframe_name = self.variable_table.get_dataframe_name(node.name)
+        #                             msg = f"Subscript {name} not found in dataframe {dataframe_name} (associated with variable {node.name})"
+        #                             raise CompileError(msg, arg)
+        #             else:
+        #                 # If variable has no subscript, it's a scalar and there's nothing to do
+        #                 if subscript_names is not None:
+        #                     # If variable is known to have subscripts then check that
+        #                     # the number of subscripts are compatible with existing
+        #                     # ones
+        #                     if len(variable.subscripts) > 0:
+        #                         if len(subscript_names) != len(variable.subscripts):
+        #                             msg = f"{len(subscript_names)} found, previously used with {len(variable.subscripts)}"
+        #                             raise CompileError(msg, node)
+
+        #                     # Fold all the shift expressions to simple integers
+        #                     # TODO: Is this necessary?
+        #                     # shifts, pad_needed = self._get_shifts_and_padding(symbol.subscript)
+        #                     # variable.pad_needed = pad_needed
+
+        #                     # Extra checks for secondary variables
+        #                     # TODO: Is this necessary?
+        #                     # if symbol_key != primary_symbol_key:
+        #                     # TODO: This should probably be supported in the future
+        #                     # right now I'm leaving it off because I'm not quite sure
+        #                     # what the behavior should be and I don't have an example
+        #                     # model in mind (my guess is access should give zeros)
+        #                     #     if any(shift != 0 for shift in shifts):
+        #                     #         msg = f"Shifted access on a secondary parameter is not allowed"
+        #                     #         raise CompileError(msg, symbol.range)
+
+        #     walker = DataframeCompatibilityWalker(primary_ast_variable.name, data_names, self.variable_table)
+        #     walker.walk(statement)
 
         # Trace the program to determine parameter domains and check data domains
-        tracers = {}
 
         for _ in range(self.max_trace_iterations):
             # Reset all the parameter tracers
-            for variable_name in self.variable_table:
-                variable = self.variable_table[variable_name]
-                tracers[variable_name] = variable.get_tracer()
+            tracers = {}
+            for name in self.variable_table:
+                variable = self.variable_table[name]
+                if not variable.tracer:
+                    variable.tracer = Tracer()
+                tracers[name] = variable.tracer.copy()
 
             for statement_info in self.statements:
                 # Find the primary variable
                 primary_ast_variable = statement_info.primary
                 primary_variable = self.variable_table[primary_ast_variable.name]
 
-                primary_df = primary_variable.base_df
-                if primary_df is not None:
-                    code_generator = DiscoverVariablesCodeGenerator()
-                    code = code_generator.walk(statement_info.statement)
+                # Generate tracer code for this line
+                code_generator = TraceCodeGenerator(primary_variable.itertuple_type()._fields)
+                code = code_generator.walk(statement_info.statement)
+                def fire_traces(tracers, values):
+                    eval(code)
 
-                    for row in primary_df.itertuples(index=False):
-                        lambda_row = {key: functools.partial(lambda x: x, value) for key, value in row._asdict().items()}
-                        eval(code, globals(), {**tracers, **lambda_row})
+                for row in primary_variable.itertuples():
+                    fire_traces(tracers, row._asdict())
 
             found_new_traces = False
             for variable_name, tracer in tracers.items():
                 variable = self.variable_table[variable_name]
-                if variable.variable_type != VariableType.DATA:
-                    found_new_traces |= variable.ingest_new_trace(tracer)
+                found_new_traces |= variable.ingest_new_trace(tracer)
 
             if not found_new_traces:
                 break
@@ -506,32 +532,33 @@ class RatCompiler:
             variable_table: VariableTable
             subscript_table_code: dict = field(default_factory=dict)
             subscript_table: SubscriptTable = field(default_factory=SubscriptTable)
+            primary_variable: VariableRecord = None
 
             def walk_Statement(self, node: ast.Statement):
                 primary_node = _get_primary_ast_variable(node)
-                primary_variable = self.variable_table[primary_node.name]
+                self.primary_variable = self.variable_table[primary_node.name]
 
-                # Only worry about tracing subscripts if there's a dataframe
-                primary_df = primary_variable.base_df
-                if primary_df is not None:
-                    # Generate code for all the subscripts
-                    self.subscript_table_code = {}
+                # Generate code for all the subscripts
+                self.subscript_table_code = {}
 
-                    self.walk(node.left)
-                    self.walk(node.right)
+                self.walk(node.left)
+                self.walk(node.right)
 
-                    for subscript_node, argcode in self.subscript_table_code.items():
-                        self.subscript_table.insert(subscript_node, numpy.zeros(len(primary_df), dtype="int32"))
-                        for i, row in enumerate(primary_df.itertuples(index=False)):
-                            lambda_row = {name: (lambda: value) for name, value in row._asdict().items()}
-                            args = eval(argcode, globals(), lambda_row)
-                            self.subscript_table[subscript_node].array[i] = self.variable_table[subscript_node.name].lookup(*args)
+                tracers = self.variable_table.tracers()
+                for subscript_node, code in self.subscript_table_code.items():
+                    def argument_function(tracers, values):
+                        return eval(code)
+
+                    self.subscript_table.insert(subscript_node, numpy.zeros(len(self.primary_variable.tracer), dtype="int32"))
+                    for i, row in enumerate(self.primary_variable.itertuples()):
+                        args = argument_function(tracers, row._asdict())
+                        self.subscript_table[subscript_node].array[i] = self.primary_variable.lookup(args)
 
             def walk_Variable(self, node: ast.Variable):
                 if node.arglist:
-                    walker = DiscoverVariablesCodeGenerator(False)
-                    argcode = ",".join(walker.walk(arg) for arg in node.arglist) + ","
-                    self.subscript_table_code[node] = argcode
+                    code_generator = TraceCodeGenerator(self.primary_variable.itertuple_type()._fields, False)
+                    code = "".join(f"{code_generator.walk(arg)}," for arg in node.arglist)
+                    self.subscript_table_code[node] = code
 
         walker = SubscriptTableWalker(self.variable_table)
         walker.walk(self.program)
@@ -633,9 +660,8 @@ class RatCompiler:
                 else:
                     primary_variable_reference = []
 
-                if primary_variable.base_df is not None:
-                    data_names = primary_variable.get_numpy_names()
-
+                data_names = primary_variable.get_numpy_names()
+                if data_names:
                     references = ",".join(
                         primary_variable_reference
                         + [f"data['{name}']" for name in data_names]
@@ -694,9 +720,8 @@ class RatCompiler:
                 else:
                     primary_variable_reference = []
 
-                if primary_variable.base_df is not None:
-                    data_names = primary_variable.get_numpy_names()
-
+                data_names = primary_variable.get_numpy_names()
+                if data_names:
                     references = ",".join(
                         primary_variable_reference
                         + [f"data['{name}']" for name in data_names]
@@ -743,5 +768,7 @@ class RatCompiler:
         self._pre_codegen_checks()
 
         generated_code = self.codegen()
+
+        print(generated_code)
 
         return generated_code, self.variable_table, self.subscript_table

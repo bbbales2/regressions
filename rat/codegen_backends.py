@@ -5,7 +5,7 @@ from . import ast
 from tatsu.model import NodeWalker
 from .variable_table import VariableTable
 from .subscript_table import SubscriptTable
-from typing import Set, List
+from typing import Set, List, Iterable
 
 
 @dataclass
@@ -37,7 +37,7 @@ class BaseCodeGenerator(NodeWalker):
     left_side_of_sampling: ast.ModelBase
     extra_subscripts: List[str]
 
-    def __init__(self, variable_table: VariableTable = None, subscript_table: SubscriptTable = None, available_as_local: Set[str] = None):
+    def __init__(self, variable_table: VariableTable = None, subscript_table: SubscriptTable = None, available_as_local: Iterable[str] = None):
         self.available_as_local = set(available_as_local) if available_as_local else set()
         self.variable_table = variable_table
         self.subscript_table = subscript_table
@@ -92,14 +92,18 @@ class BaseCodeGenerator(NodeWalker):
         return f"{node.value}"
 
 
-@dataclass
-class DiscoverVariablesCodeGenerator(NodeWalker):
+class TraceCodeGenerator(NodeWalker):
     """
     As long as shunt is true, values of expressions aren't returned but
     instead shunted off into tuples
     """
 
-    shunt: bool = True
+    shunt: bool
+    passed_by_value : Iterable[str]
+
+    def __init__(self, passed_by_value : Iterable[str], shunt : bool = True):
+        self.shunt = shunt
+        self.passed_by_value = passed_by_value
 
     def walk_Statement(self, node: ast.Statement):
         if self.shunt:
@@ -139,15 +143,18 @@ class DiscoverVariablesCodeGenerator(NodeWalker):
             return f"{node.name}({arglist})"
 
     def walk_Variable(self, node: ast.Variable):
-        old_shunt = self.shunt
-        self.shunt = False
-        if node.arglist:
-            arglist = ",".join(self.walk(arg) for arg in node.arglist)
+        if node.name in self.passed_by_value:
+            return f"values['{node.name}']"
         else:
-            arglist = ""
-        self.shunt = old_shunt
+            old_shunt = self.shunt
+            self.shunt = False
+            if node.arglist:
+                arglist = ",".join(self.walk(arg) for arg in node.arglist)
+            else:
+                arglist = ""
+            self.shunt = old_shunt
 
-        return f"{node.name}({arglist})"
+            return f"tracers['{node.name}']({arglist})"
 
     def walk_Literal(self, node: ast.Literal):
         return f"{node.value}"

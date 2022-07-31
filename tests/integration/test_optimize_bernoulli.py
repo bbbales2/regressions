@@ -14,8 +14,8 @@ def test_optimize_bernoulli():
     data_df = pandas.read_csv(os.path.join(test_dir, "bernoulli.csv"))
 
     model_string = """
-    y' ~ bernoulli_logit(mu[group]);
-    mu ~ normal(-0.5, 0.3);
+    y[n]' ~ bernoulli_logit(mu[group[n]]);
+    mu[group] ~ normal(-0.5, 0.3);
     """
 
     model = Model(data_df, model_string=model_string)
