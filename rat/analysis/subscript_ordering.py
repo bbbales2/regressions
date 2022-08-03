@@ -70,7 +70,8 @@ class SubscriptPOSet:
 
         toplevel_nodes = self.get_highest_order()
         if subscript != statement_highest_subscript and statement_highest_subscript:
-            toplevel_nodes.append(self.nodes[statement_highest_subscript])
+            if statement_highest_subscript not in self.nodes:
+                toplevel_nodes.append(self.nodes[statement_highest_subscript])
 
         if not toplevel_nodes:
             self.create_node(subscript, {variable_name}, [])
@@ -81,11 +82,12 @@ class SubscriptPOSet:
                 current_node.variables_used.add(variable_name)
                 return True
             elif set(subscript).issubset(set(current_node.subscript)):
-                if any([recurse(x) for x in current_node.children]):
-                    return True
-                else:
-                    self.create_node(subscript, {variable_name}, [current_node])
-                    return True
+                # if any([recurse(x) for x in current_node.children]):
+                #     return True
+                # else:
+                #     self.create_node(subscript, {variable_name}, [current_node])
+                self.create_node(subscript, {variable_name}, [current_node])
+                return True
             elif variable_name in self.variable_info:
                 if current_node.subscript in self.variable_info[variable_name] and len(current_node.subscript) == len(subscript):
                     self.create_node(subscript, {variable_name}, [current_node])
@@ -170,11 +172,14 @@ class SubscriptPOSCreator:
                     if name == highest_subscript[0]: continue
                     assert highest_subscript[1] != len(subscript), "Each statement much have a subscript with the highest order between other subscripts in the statement"
                 highest_subscript = highest_subscript[1]
+            print("*" * 10)
 
             for variable_name, subscript in subscript_walker.subscript_info:
                 self.poset.insert(subscript, variable_name, highest_subscript)
 
             for variable_name, subscript in subscript_walker.subscript_info:
                 self.poset.add_variable_info(subscript, variable_name)
+
+            self.poset.print()
 
 
