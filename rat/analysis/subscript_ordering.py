@@ -24,6 +24,7 @@ class POSetNode:
     def __hash__(self):
         return hash(self.subscript)
 
+
 @dataclass
 class SubscriptPOSet:
     nodes: Dict[Tuple[str], POSetNode] = field(init=False, default_factory=dict)
@@ -64,7 +65,9 @@ class SubscriptPOSet:
             return
 
         if variable_name in self.variable_info:
-            assert all([len(x) == len(subscript) for x in self.variable_info[variable_name]]), f"Subscript count must be consistent for variables! {variable_name} has inconsistent subscript length."
+            assert all(
+                [len(x) == len(subscript) for x in self.variable_info[variable_name]]
+            ), f"Subscript count must be consistent for variables! {variable_name} has inconsistent subscript length."
             self.create_node(subscript, {variable_name}, [self.nodes[s] for s in self.variable_info[variable_name]])
             return
 
@@ -100,7 +103,6 @@ class SubscriptPOSet:
         created = False
         for node in toplevel_nodes:
             created = created & recurse(node)
-
 
     def add_variable_info(self, subscript: Tuple[str], variable_name: str):
         self.variable_info[variable_name].add(subscript)
@@ -152,12 +154,12 @@ class SubscriptPOSCreator:
         @dataclass
         class GetVariableWalker(RatWalker):
             subscript_info: List[Tuple[str, Tuple[str]]] = field(default_factory=list)
+
             def walk_Variable(self, node: ast.Variable):
                 name = node.name
                 if node.arglist:
                     subscripts = combine([GetSubscriptWalker().walk(subscript) for subscript in node.arglist])
                     self.subscript_info.append((name, subscripts))
-
 
         for statement_info in self.statement_infos:
             subscript_walker = GetVariableWalker()
@@ -166,11 +168,14 @@ class SubscriptPOSCreator:
 
             # Check that a highest order subscript exists for each statement.
             highest_subscript = None
-            if(len(subscript_walker.subscript_info) > 1):
+            if len(subscript_walker.subscript_info) > 1:
                 highest_subscript = subscript_walker.subscript_info[0]
                 for name, subscript in subscript_walker.subscript_info[1:]:
-                    if name == highest_subscript[0]: continue
-                    assert highest_subscript[1] != len(subscript), "Each statement much have a subscript with the highest order between other subscripts in the statement"
+                    if name == highest_subscript[0]:
+                        continue
+                    assert highest_subscript[1] != len(
+                        subscript
+                    ), "Each statement much have a subscript with the highest order between other subscripts in the statement"
                 highest_subscript = highest_subscript[1]
             print("*" * 10)
 
@@ -179,7 +184,3 @@ class SubscriptPOSCreator:
 
             for variable_name, subscript in subscript_walker.subscript_info:
                 self.poset.add_variable_info(subscript, variable_name)
-
-            self.poset.print()
-
-
