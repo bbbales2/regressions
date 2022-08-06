@@ -44,25 +44,28 @@ class Model:
         return target + (jacobian_adjustment if include_jacobian else 0.0)
 
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
-        unconstrained_draws = numpy.array(device_unconstrained_draws)
-        num_draws = unconstrained_draws.shape[0]
-        num_chains = unconstrained_draws.shape[1]
-        constrained_draws = {}
+        # unconstrained_draws = numpy.array(device_unconstrained_draws)
+        # num_draws = unconstrained_draws.shape[0]
+        # num_chains = unconstrained_draws.shape[1]
+        # constrained_draws = {}
 
-        constrain_and_transform_parameters_no_pad_jax = jax.jit(lambda x: self._constrain_and_transform_parameters(x, pad=False))
-        for draw in range(num_draws):
-            for chain in range(num_chains):
-                jacobian_adjustment, device_constrained_variables = constrain_and_transform_parameters_no_pad_jax(
-                    unconstrained_draws[draw, chain]
-                )
+        constrain_and_transform_jax = jax.jit(jax.vmap(jax.vmap(lambda x: self._constrain_and_transform_parameters(x, pad=False))))
 
-                for name, device_constrained_variable in device_constrained_variables.items():
-                    if name not in constrained_draws:
-                        constrained_draws[name] = numpy.zeros((num_draws, num_chains) + device_constrained_variable.shape)
-                    constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
+        _, constrained_draws = constrain_and_transform_jax(device_unconstrained_draws)
 
-        # Copy back to numpy arrays
-        return constrained_draws, self.base_df_dict
+        # for draw in range(num_draws):
+        #     for chain in range(num_chains):
+        #         jacobian_adjustment, device_constrained_variables = constrain_and_transform_parameters_no_pad_jax(
+        #             unconstrained_draws[draw, chain]
+        #         )
+
+        #         for name, device_constrained_variable in device_constrained_variables.items():
+        #             if name not in constrained_draws:
+        #                 constrained_draws[name] = numpy.zeros((num_draws, num_chains) + device_constrained_variable.shape)
+        #             constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
+
+        # # Copy back to numpy arrays
+        return { name : numpy.array(draws) for name, draws in constrained_draws.items() }, self.base_df_dict
 
     def __init__(
         self,
@@ -144,14 +147,12 @@ class Model:
             record = variable_table[variable_name]
             # The base_dfs are used for putting together the output
             if record.variable_type != VariableType.DATA:
-                if record.base_df is not None:
-                    self.base_df_dict[variable_name] = record.base_df
-                else:
-                    self.base_df_dict[variable_name] = pandas.DataFrame()
+                rows = list(record.itertuples())
+                self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns = record.subscripts)
 
             # Copy data to jax device
-            for name, data in record.get_numpy_arrays():
-                self.device_data[name] = jax.device_put(data)
+            for name, array in record.get_numpy_arrays():
+                self.device_data[name] = jax.device_put(array)
 
         for record in subscript_table.values():
             # Copy subscript indices to jax device

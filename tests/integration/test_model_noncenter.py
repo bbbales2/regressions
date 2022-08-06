@@ -16,9 +16,9 @@ def eight_schools_model():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     model_string = """
-    y' ~ normal(theta[school], sigma);
-    theta' = mu + z[school] * tau;
-    z ~ normal(0, 1);
+    y[school]' ~ normal(theta[school], sigma[school]);
+    theta[school]' = mu + z[school] * tau;
+    z[school] ~ normal(0, 1);
     mu ~ normal(0, 5);
     tau<lower = 0.0> ~ log_normal(0, 1);
     """

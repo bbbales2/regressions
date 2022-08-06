@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from distutils.errors import CompileError
 from . import ast
 from tatsu.model import NodeWalker
-from .variable_table import VariableTable
+from .variable_table import VariableTable, VariableType
 from .subscript_table import SubscriptTable
 from typing import Set, List, Iterable
 
@@ -81,14 +81,25 @@ class BaseCodeGenerator(NodeWalker):
         if node.name in self.available_as_local:
             return node.name
         else:
-            if node.arglist:
-                record = self.subscript_table[node]
-                self.extra_subscripts.append(record.name)
-                index_lookup = f"[{record.name}]"
-            else:
-                index_lookup = ""
+            variable = self.variable_table[node.name]
 
-            return f"parameters['{node.name}']{index_lookup}"
+            if variable.variable_type == VariableType.DATA:
+                try:
+                    record = self.subscript_table[node]
+                    self.extra_subscripts.append(record.name)
+                except KeyError:
+                    raise Exception(f"Internal compiler error: there should be a trace for every data variable in the ast")
+
+                return record.name
+            else:
+                if node.arglist:
+                    record = self.subscript_table[node]
+                    self.extra_subscripts.append(record.name)
+                    index_lookup = f"[{record.name}]"
+                else:
+                    index_lookup = ""
+
+                return f"parameters['{node.name}']{index_lookup}"
 
     def walk_Literal(self, node: ast.Literal):
         return f"{node.value}"

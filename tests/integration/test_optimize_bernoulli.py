@@ -22,6 +22,7 @@ def test_optimize_bernoulli():
     fit = model.optimize(init=0.1)
     mu_df = fit.draws("mu")
 
+    # This is ordered from group 1 to 5 -- assumes draws are too
     mu_ref = [0.0797716, -0.4084060, -0.8545570, -0.9920960, -0.7676070]
     assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 

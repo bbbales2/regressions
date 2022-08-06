@@ -103,7 +103,8 @@ class ValueTracer(Tracer, Generic[K, V]):
         self.values[args] = return_value
 
     def lookup(self, args: K) -> int:
-        return self.values.index(args)
+        idx = self.values.index(args)
+        return idx
 
     # TODO: This is really confusing lol
     def copy(self):
@@ -132,10 +133,11 @@ class VariableRecord:
     """
 
     name: str
+    argument_count: int
     variable_type: VariableType
     tracer: Tracer = None
 
-    subscripts: Tuple[str] = field(default_factory=tuple)
+    _subscripts: Tuple[str] = None
     renamed: bool = False
     constraints_set: bool = False
 
@@ -149,6 +151,13 @@ class VariableRecord:
     subscripts_requested_as_data: set = field(default_factory=set)
 
     _lookup_cache: dict = field(default_factory=dict)
+
+    @property
+    def subscripts(self):
+        if self._subscripts:
+            return self._subscripts
+        else:
+            return tuple(f"arg{n}" for n in range(self.argument_count))
 
     def rename(self, subscript_names: Tuple[str]):
         """
@@ -167,17 +176,17 @@ class VariableRecord:
             if len(self.tracer) > 0:
                 raise ValueError("Internal compiler error: Renaming must be done before the dataframe is set")
 
-        self.subscripts = subscript_names
+        self._subscripts = subscript_names
         self.renamed = True
 
     def suggest_names(self, subscript_names: Tuple[str]):
         if not self.renamed:
-            if self.tracer is not None:
-                if len(self.subscripts) != len(subscript_names):
+            if self._subscripts is not None:
+                if len(self._subscripts) != len(subscript_names):
                     raise AttributeError("Internal compiler error: Number of subscript names must match between uses")
-                if self.subscripts != subscript_names:
+                if self._subscripts != subscript_names:
                     raise AttributeError("Internal compiler error: If variable isn't renamed, then all uses must match")
-            self.subscripts = subscript_names
+            self._subscripts = subscript_names
 
     def bind(self, data_subscripts: Tuple[str], data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
         """
@@ -294,21 +303,27 @@ class VariableRecord:
     def subscript_as_data_name(self, column: str):
         return f"{self.name}__{column}"
 
-    def get_numpy_names(self) -> Iterable[str]:
+    def get_numpy_names(self, names = None) -> Iterable[str]:
         """
         Get names of to-be-materialized data variables
         """
         fields = self.itertuple_type()._fields
+        if names is None:
+            names = fields
         for field in fields:
-            yield self.subscript_as_data_name(field)
+            if field in names:
+                yield self.subscript_as_data_name(field)
 
-    def get_numpy_arrays(self) -> Iterable[Tuple[str, numpy.ndarray]]:
+    def get_numpy_arrays(self, names = None) -> Iterable[Tuple[str, numpy.ndarray]]:
         """
         Materialize variable as numpy arrays
         """
         fields = self.itertuple_type()._fields
+        if names is None:
+            names = fields
         for field, values in zip(fields, zip(*self.itertuples())):
-            yield self.subscript_as_data_name(field), numpy.array(values)
+            if field in names:
+                yield self.subscript_as_data_name(field), numpy.array(values)
 
     def lookup(self, args):
         return self.tracer.lookup(args)
@@ -360,11 +375,7 @@ class VariableTable:
     def tracers(self) -> Iterable[Tracer]:
         return {name: variable.tracer for name, variable in self.variable_dict.items()}
 
-    def insert(
-        self,
-        variable_name: str,
-        variable_type: VariableType = None,
-    ):
+    def insert(self, variable_name: str, argument_count=0, variable_type: VariableType = None):
         """
         Insert a variable record. If it is data, attach an input dataframe to it
         """
@@ -372,6 +383,7 @@ class VariableTable:
         # Insert if new
         self.variable_dict[variable_name] = VariableRecord(
             variable_name,
+            argument_count,
             variable_type,
         )
 

@@ -126,7 +126,8 @@ class RatCompiler:
     generated_code: str
     statements: List[StatementInfo]
 
-    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str, max_trace_iterations: int):
+    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str,
+                 max_trace_iterations: int):
         self.data = data
         self.program = program
         self.model_code_string = model_code_string
@@ -183,17 +184,26 @@ class RatCompiler:
                 self.walk(node.right)
 
             def walk_Variable(self, node: ast.Variable):
+                if node.arglist:
+                    argument_count = len(node.arglist)
+                else:
+                    argument_count = 0
+
                 if self.in_control_flow:
                     # Variable nodes without subscripts in control flow must come from primary variable
                     if node.arglist:
-                        self.variable_table.insert(variable_name=node.name, variable_type=VariableType.DATA)
+                        self.variable_table.insert(variable_name=node.name, argument_count=argument_count,
+                                                   variable_type=VariableType.DATA)
                 else:
-                    # Overwrite table entry for assigned parameters (so they don't get turned back into regular parameters)
+                    # Overwrite table entry for assigned parameters
+                    # (so they don't get turned back into regular parameters)
                     if self.left_hand_of_assignment:
-                        self.variable_table.insert(variable_name=node.name, variable_type=VariableType.ASSIGNED_PARAM)
+                        self.variable_table.insert(variable_name=node.name, argument_count=argument_count,
+                                                   variable_type=VariableType.ASSIGNED_PARAM)
                     else:
                         if node.name not in self.variable_table:
-                            self.variable_table.insert(variable_name=node.name, variable_type=VariableType.PARAM)
+                            self.variable_table.insert(variable_name=node.name, argument_count=argument_count,
+                                                       variable_type=VariableType.PARAM)
 
                 if node.arglist:
                     self.in_control_flow = True
@@ -531,7 +541,7 @@ class RatCompiler:
         @dataclass
         class SubscriptTableWalker(RatWalker):
             variable_table: VariableTable
-            subscript_table_code: dict = field(default_factory=dict)
+            first_level_nodes: List = field(default_factory=list)
             subscript_table: SubscriptTable = field(default_factory=SubscriptTable)
             primary_variable: VariableRecord = None
 
@@ -540,27 +550,41 @@ class RatCompiler:
                 self.primary_variable = self.variable_table[primary_node.name]
 
                 # Generate code for all the subscripts
-                self.subscript_table_code = {}
+                self.first_level_nodes = []
 
                 self.walk(node.left)
                 self.walk(node.right)
 
                 tracers = self.variable_table.tracers()
-                for subscript_node, code in self.subscript_table_code.items():
+                for node in self.first_level_nodes:
+                    node_variable = self.variable_table[node.name]
 
-                    def argument_function(tracers, values):
+                    node_is_data = node_variable.variable_type == VariableType.DATA
+
+                    if node_is_data:
+                        code_generator = TraceCodeGenerator(self.primary_variable.itertuple_type()._fields, False)
+                        code = code_generator.walk(node)
+                    else:
+                        if node.arglist:
+                            code_generator = TraceCodeGenerator(self.primary_variable.itertuple_type()._fields, False)
+                            code = "".join(f"{code_generator.walk(arg)}," for arg in node.arglist)
+                        else:
+                            # There's nothing to trace for scalar variables
+                            continue
+
+                    def function(tracers, values):
                         return eval(code)
 
-                    self.subscript_table.insert(subscript_node, numpy.zeros(len(self.primary_variable.tracer), dtype="int32"))
+                    self.subscript_table.insert(node, numpy.zeros(len(self.primary_variable.tracer), dtype="int32"))
                     for i, row in enumerate(self.primary_variable.itertuples()):
-                        args = argument_function(tracers, row._asdict())
-                        self.subscript_table[subscript_node].array[i] = self.primary_variable.lookup(args)
+                        ret = function(tracers, row._asdict())
+                        if node_is_data:
+                            self.subscript_table[node].array[i] = ret
+                        else:
+                            self.subscript_table[node].array[i] = node_variable.lookup(ret)
 
             def walk_Variable(self, node: ast.Variable):
-                if node.arglist:
-                    code_generator = TraceCodeGenerator(self.primary_variable.itertuple_type()._fields, False)
-                    code = "".join(f"{code_generator.walk(arg)}," for arg in node.arglist)
-                    self.subscript_table_code[node] = code
+                self.first_level_nodes.append(node)
 
         walker = SubscriptTableWalker(self.variable_table)
         walker.walk(self.program)
@@ -582,7 +606,8 @@ class RatCompiler:
                 constrained_reference = f"parameters['{variable_name}']"
 
                 writer.writeline()
-                writer.writeline(f"# Param: {variable_name}, lower: {record.constraint_lower}, upper: {record.constraint_upper}")
+                writer.writeline(
+                    f"# Param: {variable_name}, lower: {record.constraint_lower}, upper: {record.constraint_upper}")
 
                 # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
                 if len(record.subscripts) > 0:
@@ -626,7 +651,8 @@ class RatCompiler:
             code: IndentWriter = field(default_factory=IndentWriter)
 
             def walk_Program(self, node: ast.Program):
-                self.code.writeline("def transform_parameters(data, subscript_indices, first_in_group_indicators, parameters):")
+                self.code.writeline(
+                    "def transform_parameters(data, subscript_indices, first_in_group_indicators, parameters):")
                 with self.code.indent():
                     for statement in node.statements:
                         self.walk(statement)
@@ -722,8 +748,8 @@ class RatCompiler:
                 else:
                     primary_variable_reference = []
 
-                data_names = primary_variable.get_numpy_names()
-                if data_names:
+                data_names = list(primary_variable.get_numpy_names(passed_as_argument))
+                if data_names + walker.extra_subscripts:
                     references = ",".join(
                         primary_variable_reference
                         + [f"data['{name}']" for name in data_names]
