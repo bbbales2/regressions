@@ -65,7 +65,7 @@ class Model:
         #             constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
 
         # # Copy back to numpy arrays
-        return { name : numpy.array(draws) for name, draws in constrained_draws.items() }, self.base_df_dict
+        return {name: numpy.array(draws) for name, draws in constrained_draws.items()}, self.base_df_dict
 
     def __init__(
         self,
@@ -148,7 +148,7 @@ class Model:
             # The base_dfs are used for putting together the output
             if record.variable_type != VariableType.DATA:
                 rows = list(record.itertuples())
-                self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns = record.subscripts)
+                self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns=record.subscripts)
 
             # Copy data to jax device
             for name, array in record.get_numpy_arrays():

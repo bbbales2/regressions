@@ -126,8 +126,7 @@ class RatCompiler:
     generated_code: str
     statements: List[StatementInfo]
 
-    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str,
-                 max_trace_iterations: int):
+    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str, max_trace_iterations: int):
         self.data = data
         self.program = program
         self.model_code_string = model_code_string
@@ -192,18 +191,19 @@ class RatCompiler:
                 if self.in_control_flow:
                     # Variable nodes without subscripts in control flow must come from primary variable
                     if node.arglist:
-                        self.variable_table.insert(variable_name=node.name, argument_count=argument_count,
-                                                   variable_type=VariableType.DATA)
+                        self.variable_table.insert(variable_name=node.name, argument_count=argument_count, variable_type=VariableType.DATA)
                 else:
                     # Overwrite table entry for assigned parameters
                     # (so they don't get turned back into regular parameters)
                     if self.left_hand_of_assignment:
-                        self.variable_table.insert(variable_name=node.name, argument_count=argument_count,
-                                                   variable_type=VariableType.ASSIGNED_PARAM)
+                        self.variable_table.insert(
+                            variable_name=node.name, argument_count=argument_count, variable_type=VariableType.ASSIGNED_PARAM
+                        )
                     else:
                         if node.name not in self.variable_table:
-                            self.variable_table.insert(variable_name=node.name, argument_count=argument_count,
-                                                       variable_type=VariableType.PARAM)
+                            self.variable_table.insert(
+                                variable_name=node.name, argument_count=argument_count, variable_type=VariableType.PARAM
+                            )
 
                 if node.arglist:
                     self.in_control_flow = True
@@ -606,8 +606,7 @@ class RatCompiler:
                 constrained_reference = f"parameters['{variable_name}']"
 
                 writer.writeline()
-                writer.writeline(
-                    f"# Param: {variable_name}, lower: {record.constraint_lower}, upper: {record.constraint_upper}")
+                writer.writeline(f"# Param: {variable_name}, lower: {record.constraint_lower}, upper: {record.constraint_upper}")
 
                 # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
                 if len(record.subscripts) > 0:
@@ -651,8 +650,7 @@ class RatCompiler:
             code: IndentWriter = field(default_factory=IndentWriter)
 
             def walk_Program(self, node: ast.Program):
-                self.code.writeline(
-                    "def transform_parameters(data, subscript_indices, first_in_group_indicators, parameters):")
+                self.code.writeline("def transform_parameters(data, subscript_indices, first_in_group_indicators, parameters):")
                 with self.code.indent():
                     for statement in node.statements:
                         self.walk(statement)
