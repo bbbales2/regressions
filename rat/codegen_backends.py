@@ -35,6 +35,7 @@ class BaseCodeGenerator(NodeWalker):
     subscript_table: SubscriptTable
     available_as_local: Set[str]
     left_side_of_sampling: ast.ModelBase
+    used_arguments: List[str]
     extra_subscripts: List[str]
 
     def __init__(
@@ -45,6 +46,7 @@ class BaseCodeGenerator(NodeWalker):
         self.subscript_table = subscript_table
         self.left_side_of_sampling = None
         self.extra_subscripts = []
+        self.used_arguments = []
         super().__init__()
 
     def walk_Statement(self, node: ast.Statement):
@@ -79,6 +81,7 @@ class BaseCodeGenerator(NodeWalker):
 
     def walk_Variable(self, node: ast.Variable):
         if node.name in self.available_as_local:
+            self.used_arguments.append(node.name)
             return node.name
         else:
             variable = self.variable_table[node.name]

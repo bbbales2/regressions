@@ -18,9 +18,9 @@ def test_multiple_dataframes_eight_schools_optimize():
     sigma_data_df = data_df[["school", "sigma"]]
 
     model_string = """
-    y' ~ normal(theta[school], sigma[school]);
-    theta' = mu + z[school] * tau;
-    z ~ normal(0, 1);
+    y[school]' ~ normal(theta[school], sigma[school]);
+    theta[school]' = mu + z[school] * tau;
+    z[school] ~ normal(0, 1);
     mu ~ normal(0, 5);
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
@@ -55,15 +55,15 @@ def test_multiple_dataframes_eight_schools_optimize_2():
     data2_df = data1_df.copy().rename(columns={"y1": "y2", "sigma1": "sigma2"})
 
     model_string = """
-    y1' ~ normal(theta1[school], sigma1);
-    theta1' = mu1 + z1[school] * tau1;
-    z1 ~ normal(0, 1);
+    y1[school]' ~ normal(theta1[school], sigma1[school]);
+    theta1[school]' = mu1 + z1[school] * tau1;
+    z1[school] ~ normal(0, 1);
     mu1 ~ normal(0, 5);
     tau1<lower = 0.0> ~ log_normal(0, 1);
 
-    y2' ~ normal(theta2[school], sigma2);
-    theta2' = mu2 + z2[school] * tau2;
-    z2 ~ normal(0, 1);
+    y2[school]' ~ normal(theta2[school], sigma2[school]);
+    theta2[school]' = mu2 + z2[school] * tau2;
+    z2[school] ~ normal(0, 1);
     mu2 ~ normal(0, 5);
     tau2<lower = 0.0> ~ log_normal(0, 1);
     """
@@ -104,24 +104,24 @@ def test_multiple_dataframes_eight_schools_error_to_many_to_few_rows():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     y_data_df = data_df[["y", "school"]]
-    sigma_data_df = pandas.concat([data_df[["school", "sigma"]], data_df[["school", "sigma"]]])
+    sigma_data_df = pandas.concat([data_df[["school", "sigma"]], data_df[["school", "sigma"]].assign(sigma = 5.0)])
 
     model_string = """
-    y' ~ normal(theta[school], sigma[school]);
-    theta' = mu + z[school] * tau;
-    z ~ normal(0, 1);
+    y[school]' ~ normal(theta[school], sigma[school]);
+    theta[school]' = mu + z[school] * tau;
+    z[school] ~ normal(0, 1);
     mu ~ normal(0, 5);
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    with pytest.raises(Exception, match="unique"):
+    with pytest.raises(Exception, match="Multiple rows matching school = 1"):
         Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
 
     sigma_data_df = data_df[["school", "sigma"]].iloc[
         :1,
     ]
 
-    with pytest.raises(Exception, match="not defined"):
+    with pytest.raises(Exception, match="not found in data tracer"):
         Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
 
 
@@ -132,14 +132,14 @@ def test_multiple_dataframes_eight_schools_subscript_errors():
     sigma_data_df = pandas.concat([data_df[["school", "sigma"]], data_df[["school", "sigma"]]])
 
     model_string = """
-    y' ~ normal(theta[school], sigma[y]);
-    theta' = mu + z[school] * tau;
-    z ~ normal(0, 1);
+    y[school]' ~ normal(theta[school], sigma[y]);
+    theta[school]' = mu + z[school] * tau;
+    z[school] ~ normal(0, 1);
     mu ~ normal(0, 5);
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    with pytest.raises(Exception, match="Subscript y not found in dataframe sigma_data"):
+    with pytest.raises(Exception, match="subscript y not found"):
         Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
 
     model_string = """
@@ -150,5 +150,5 @@ def test_multiple_dataframes_eight_schools_subscript_errors():
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    with pytest.raises(Exception, match="Subscript rabbit not found in dataframe y_data"):
+    with pytest.raises(Exception, match="subscript rabbit not found"):
         Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)

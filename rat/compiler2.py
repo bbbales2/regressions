@@ -575,13 +575,14 @@ class RatCompiler:
                     def function(tracers, values):
                         return eval(code)
 
-                    self.subscript_table.insert(node, numpy.zeros(len(self.primary_variable.tracer), dtype="int32"))
-                    for i, row in enumerate(self.primary_variable.itertuples()):
+                    traced_values = []
+                    for row in self.primary_variable.itertuples():
                         ret = function(tracers, row._asdict())
                         if node_is_data:
-                            self.subscript_table[node].array[i] = ret
+                            traced_values.append(ret)
                         else:
-                            self.subscript_table[node].array[i] = node_variable.lookup(ret)
+                            traced_values.append(node_variable.lookup(ret))
+                    self.subscript_table.insert(node, numpy.array(traced_values))
 
             def walk_Variable(self, node: ast.Variable):
                 self.first_level_nodes.append(node)
@@ -675,7 +676,7 @@ class RatCompiler:
 
                 walker = BaseCodeGenerator(self.variable_table, self.subscript_table, passed_as_argument)
                 code = walker.walk(node.right)
-                self.code.writeline(f"def mapper({','.join(passed_as_argument + walker.extra_subscripts)}):")
+                self.code.writeline(f"def mapper({','.join(walker.used_arguments + walker.extra_subscripts)}):")
                 with self.code.indent():
                     self.code.writeline(f"return {code}")
 
@@ -688,7 +689,7 @@ class RatCompiler:
                 else:
                     primary_variable_reference = []
 
-                data_names = primary_variable.get_numpy_names()
+                data_names = primary_variable.get_numpy_names(walker.used_arguments)
                 if data_names:
                     references = ",".join(
                         primary_variable_reference
@@ -739,7 +740,7 @@ class RatCompiler:
                 walker = BaseCodeGenerator(self.variable_table, self.subscript_table, passed_as_argument)
                 code = walker.walk(node)
 
-                self.code.writeline(f"def mapper({','.join(passed_as_argument + walker.extra_subscripts)}):")
+                self.code.writeline(f"def mapper({','.join(walker.used_arguments + walker.extra_subscripts)}):")
                 with self.code.indent():
                     self.code.writeline(f"return {code}")
 
@@ -748,8 +749,8 @@ class RatCompiler:
                 else:
                     primary_variable_reference = []
 
-                data_names = list(primary_variable.get_numpy_names(passed_as_argument))
-                if data_names + walker.extra_subscripts:
+                data_names = list(primary_variable.get_numpy_names(walker.used_arguments))
+                if primary_node.arglist:
                     references = ",".join(
                         primary_variable_reference
                         + [f"data['{name}']" for name in data_names]
@@ -758,6 +759,9 @@ class RatCompiler:
 
                     self.code.writeline(f"target += jax.numpy.sum(vmap(mapper)({references}))")
                 else:
+                    # TODO: I'm pretty sure there's a bug here for something like:
+                    # x ~ normal(y, 1.0);
+                    # If x and y are both scalars then I don't think y gets code-genned
                     references = ",".join(primary_variable_reference)
                     self.code.writeline(f"target += mapper({references})")
                 self.code.writeline()

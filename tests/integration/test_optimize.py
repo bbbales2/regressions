@@ -13,7 +13,7 @@ def test_optimize_normal_mu():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, 1.5);
+    y[n]' ~ normal(mu, 1.5);
     mu ~ normal(-0.5, 0.3);
     """
 
@@ -34,7 +34,7 @@ def test_optimize_normal_mu_sigma():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, sigma);
+    y[n]' ~ normal(mu, sigma);
     mu ~ normal(-0.5, 0.3);
     sigma<lower = 0.0> ~ normal(0.0, 0.7);
     """
@@ -52,7 +52,7 @@ def test_optimize_normal_mu_sigma_bounded():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, sigma);
+    y[n]' ~ normal(mu, sigma);
     mu<lower = 0.0> ~ normal(-0.5, 0.3);
     sigma<lower = 0.0, upper = 0.1> ~ normal(0.0, 0.7);
     """

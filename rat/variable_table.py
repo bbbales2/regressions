@@ -87,7 +87,10 @@ class ValueTracer(Tracer, Generic[K, V]):
         return f"F[{str(self.arg_types)} -> {str(self.value_type)}]"
 
     def __call__(self, *args: K):
-        return self.values[args]
+        try:
+            return self.values[args]
+        except KeyError:
+            raise Exception("Argument {args} not found in data tracer")
 
     def validate_return_type(self, value):
         value_type = type(value)
@@ -237,10 +240,11 @@ class VariableRecord:
 
             if arguments in self.tracer:
                 existing_value = self.tracer(*arguments)
-
                 if existing_value != return_value:
+                    arguments_string = ",".join(f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments))
                     raise Exception(
-                        f"Error binding {self.name} to input data. {arguments} maps to both {existing_value} and {return_value}"
+                        f"Error binding {self.name} to dataframe {data_name}. Multiple rows matching"
+                        f" {arguments_string} with different values ({existing_value}, {return_value})"
                     )
 
             self.tracer.add(return_value, arguments)

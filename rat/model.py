@@ -152,7 +152,9 @@ class Model:
 
             # Copy data to jax device
             for name, array in record.get_numpy_arrays():
-                self.device_data[name] = jax.device_put(array)
+                # TODO: Hack to only copy numeric data. Should only copy what is needed instead
+                if numpy.issubdtype(array.dtype, numpy.number):
+                    self.device_data[name] = jax.device_put(array)
 
         for record in subscript_table.values():
             # Copy subscript indices to jax device

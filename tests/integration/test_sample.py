@@ -16,7 +16,7 @@ def test_sample_normal_mu():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, 1.5);
+    y[n]' ~ normal(mu, 1.5);
     mu ~ normal(-0.5, 0.3);
     """
 
@@ -35,7 +35,7 @@ def test_sample_normal_mu_thin():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, 1.5);
+    y[n]' ~ normal(mu, 1.5);
     mu ~ normal(-0.5, 0.3);
     """
 
@@ -55,7 +55,7 @@ def test_sample_acceptance_rate():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, 1.5);
+    y[n]' ~ normal(mu, 1.5);
     mu ~ normal(-0.5, 0.3);
     """
 
@@ -74,7 +74,7 @@ def test_full():
     )
 
     model_string = """
-    score_diff' ~ normal(skills[home_team, year] - skills[away_team, year], sigma);
+    score_diff[game_id]' ~ normal(skills[home_team[game_id], year[game_id]] - skills[away_team[game_id], year[game_id]], sigma);
     skills[team, year]' ~ normal(skills_mu[year], tau);
     skills_mu[year] ~ normal(0.0, 1.0);
     tau<lower = 0.0> ~ normal(0.0, 1.0);

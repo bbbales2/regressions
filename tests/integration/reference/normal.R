@@ -1,7 +1,7 @@
 library(tidyverse)
 library(cmdstanr)
 
-df = read_csv("tests/integration/bernoulli.csv")
+df = read_csv("tests/integration/normal.csv")
 
 df %>% group_by(group) %>% summarize(m = mean(y))
 
@@ -12,8 +12,8 @@ data = list(
   y = df$y
 )
 
-model = cmdstan_model("tests/integration/reference/bernoulli.stan")
+model = cmdstan_model("tests/integration/reference/normal.stan")
 
 fit = model$optimize(data = data)
 
-fit
+fit$print(digits = 5)
