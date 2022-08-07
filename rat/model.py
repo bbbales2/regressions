@@ -14,7 +14,7 @@ from tatsu.model import ModelBuilderSemantics
 
 from rat import subscript_table
 
-from .compiler2 import RatCompiler
+from .compiler2 import RatCompiler, compile_for_jax
 from .parser import RatParser
 from .variable_table import VariableTable, VariableType
 from . import fit
@@ -31,25 +31,25 @@ class Model:
     device_first_in_group_indicators: Dict[str, jax.numpy.array]
     compiled_model: types.ModuleType
 
-    def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad=True):
+    def _constrain_and_transform_parameters2(self, unconstrained_parameter_vector, pad=True):
         jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
         return jacobian_adjustment, self.compiled_model.transform_parameters(
             self.device_data, self.device_subscript_indices, self.device_first_in_group_indicators, parameters
         )
 
-    def _log_density(self, include_jacobian, unconstrained_parameter_vector):
+    def _log_density2(self, include_jacobian, unconstrained_parameter_vector):
         # Evaluate model log density given model, data, subscripts and unconstrained parameters
         jacobian_adjustment, parameters = self._constrain_and_transform_parameters(unconstrained_parameter_vector, pad=True)
         target = self.compiled_model.evaluate_densities(self.device_data, self.device_subscript_indices, parameters)
         return target + (jacobian_adjustment if include_jacobian else 0.0)
-
+    
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
         # unconstrained_draws = numpy.array(device_unconstrained_draws)
         # num_draws = unconstrained_draws.shape[0]
         # num_chains = unconstrained_draws.shape[1]
         # constrained_draws = {}
 
-        constrain_and_transform_jax = jax.jit(jax.vmap(jax.vmap(lambda x: self._constrain_and_transform_parameters(x, pad=False))))
+        constrain_and_transform_jax = jax.jit(jax.vmap(jax.vmap(lambda x: self._constrain_and_transform_parameters(x))))
 
         _, constrained_draws = constrain_and_transform_jax(device_unconstrained_draws)
 
@@ -114,34 +114,14 @@ class Model:
 
         # Compile the model
         compiler = RatCompiler(data, program_ast, model_string, max_trace_iterations=max_trace_iterations)
-        model_source_string, variable_table, subscript_table = compiler.compile()
+        variable_table, subscript_table = compiler.compile()
 
-        # Write model source to file and compile and import it
-        if compile_path is None:
-            self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")
+        constrain_function, density_function = compile_for_jax(program_ast, variable_table, subscript_table)
 
-            model_source_file = os.path.join(self.working_dir.name, "model_source.py")
-        else:
-            self.working_dir = os.path.dirname(compile_path)
-            if self.working_dir != "":
-                os.makedirs(self.working_dir, exist_ok=True)
-
-            if os.path.exists(compile_path) and not overwrite:
-                raise FileExistsError(f"Compile path {compile_path} already exists and will not be overwritten")
-
-            model_source_file = compile_path
-
-        with open(model_source_file, "w") as f:
-            f.write(model_source_string)
-
-        spec = importlib.util.spec_from_file_location("compiled_model", model_source_file)
-        compiled_model = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(compiled_model)
-        self.compiled_model = compiled_model
+        self._constrain_and_transform_parameters = constrain_function
+        self._log_density = density_function
 
         self.base_df_dict = {}
-        self.device_data = {}
-        self.device_subscript_indices = {}
 
         for variable_name in variable_table:
             record = variable_table[variable_name]
@@ -150,23 +130,9 @@ class Model:
                 rows = list(record.itertuples())
                 self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns=record.subscripts)
 
-            # Copy data to jax device
-            for name, array in record.get_numpy_arrays():
-                # TODO: Hack to only copy numeric data. Should only copy what is needed instead
-                if numpy.issubdtype(array.dtype, numpy.number):
-                    self.device_data[name] = jax.device_put(array)
-
-        for record in subscript_table.values():
-            # Copy subscript indices to jax device
-            self.device_subscript_indices[record.name] = jax.device_put(record.array)
-
-        # Copy first in group indicators to jax device
-        # TODO: Remove?
-        self.device_first_in_group_indicators = {}
-
         self.log_density_jax = jax.jit(functools.partial(self._log_density, True))
         self.log_density_jax_no_jac = jax.jit(functools.partial(self._log_density, False))
-        self.size = self.compiled_model.unconstrained_parameter_size
+        self.size = variable_table.unconstrained_parameter_size
 
     def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
         """

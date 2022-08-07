@@ -6,13 +6,14 @@ import pandas
 import jax
 import jax.numpy
 import jax.scipy.stats
-from typing import List, Dict, Set, Union
+from typing import List, Dict, Set, Union, Any
 import itertools
 
 import pandas as pd
 
+from . import constraints
 from . import ast
-from .codegen_backends import IndentWriter, BaseCodeGenerator, TraceExecutor
+from .codegen_backends import CodeExecutor, IndentWriter, BaseCodeGenerator, TraceExecutor
 from .exceptions import CompileError, MergeError
 from .variable_table import Tracer, VariableRecord, VariableTable, VariableType
 from .subscript_table import SubscriptTable
@@ -356,7 +357,6 @@ class RatCompiler:
         #     walker.walk(statement)
 
         # Trace the program to determine parameter domains and check data domains
-
         for _ in range(self.max_trace_iterations):
             # Reset all the parameter tracers
             tracers = {}
@@ -573,203 +573,6 @@ class RatCompiler:
         walker.walk(self.program)
         self.subscript_table = walker.subscript_table
 
-    def codegen_constrain_parameters(self, writer: IndentWriter):
-        writer.writeline("def constrain_parameters(unconstrained_parameter_vector, pad=True):")
-        with writer.indent():
-            writer.writeline("unconstrained_parameters = {}")
-            writer.writeline("parameters = {}")
-            writer.writeline("jacobian_adjustments = 0.0")
-
-            for variable_name in self.variable_table:
-                record = self.variable_table[variable_name]
-                if record.variable_type != VariableType.PARAM:
-                    continue
-
-                unconstrained_reference = f"unconstrained_parameters['{variable_name}']"
-                constrained_reference = f"parameters['{variable_name}']"
-
-                writer.writeline()
-                writer.writeline(f"# Param: {variable_name}, lower: {record.constraint_lower}, upper: {record.constraint_upper}")
-
-                # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
-                if len(record.subscripts) > 0:
-                    index_string = f"{record.unconstrained_vector_start_index} : {record.unconstrained_vector_end_index + 1}"
-                else:
-                    index_string = f"{record.unconstrained_vector_start_index}"
-
-                writer.writeline(f"{unconstrained_reference} = unconstrained_parameter_vector[..., {index_string}]")
-
-                if record.constraint_lower > float("-inf") or record.constraint_upper < float("inf"):
-                    if record.constraint_lower > float("-inf") and record.constraint_upper == float("inf"):
-                        writer.writeline(
-                            f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.lower({unconstrained_reference}, {record.constraint_lower})"
-                        )
-                    elif record.constraint_lower == float("inf") and record.constraint_upper < float("inf"):
-                        writer.writeline(
-                            f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.upper({unconstrained_reference}, {record.constraint_upper})"
-                        )
-                    elif record.constraint_lower > float("-inf") and record.constraint_upper < float("inf"):
-                        writer.writeline(
-                            f"{constrained_reference}, constraints_jacobian_adjustment = rat.constraints.finite({unconstrained_reference}, {record.constraint_lower}, {record.constraint_upper})"
-                        )
-
-                    writer.writeline("jacobian_adjustments += jax.numpy.sum(constraints_jacobian_adjustment)")
-                else:
-                    writer.writeline(f"{constrained_reference} = {unconstrained_reference}")
-
-                if record.pad_needed:
-                    writer.writeline("if pad:")
-                    with writer.indent():
-                        writer.writeline(f"{constrained_reference} = jax.numpy.pad({constrained_reference}, (0, 1))")
-
-            writer.writeline()
-            writer.writeline("return jacobian_adjustments, parameters")
-
-    def codegen_transform_parameters(self, writer: IndentWriter):
-        @dataclass
-        class TransformedParametersCodeGenerator(RatWalker):
-            variable_table: VariableTable
-            subscript_table: SubscriptTable
-            code: IndentWriter = field(default_factory=IndentWriter)
-
-            def walk_Program(self, node: ast.Program):
-                self.code.writeline("def transform_parameters(data, subscript_indices, first_in_group_indicators, parameters):")
-                with self.code.indent():
-                    for statement in node.statements:
-                        self.walk(statement)
-                    self.code.writeline("return parameters")
-                return self.code.string
-
-            def walk_Statement(self, node: ast.Statement):
-                if node.op != "=":
-                    return
-
-                primary_node = _get_primary_ast_variable(node)
-                primary_name = primary_node.name
-                primary_variable = self.variable_table[primary_name]
-                pass_primary_as_argument = primary_variable.variable_type != VariableType.DATA and node.left.name != primary_name
-
-                if pass_primary_as_argument:
-                    passed_as_argument = [primary_name] + list(primary_variable.subscripts)
-                else:
-                    passed_as_argument = list(primary_variable.subscripts)
-
-                walker = BaseCodeGenerator(self.variable_table, self.subscript_table, passed_as_argument)
-                code = walker.walk(node.right)
-                self.code.writeline(f"def mapper({','.join(walker.used_arguments + walker.extra_subscripts)}):")
-                with self.code.indent():
-                    self.code.writeline(f"return {code}")
-
-                if node.left.name != primary_node.name:
-                    msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
-                    raise CompileError(msg, node)
-
-                if pass_primary_as_argument:
-                    primary_variable_reference = [f"parameters['{primary_name}']"]
-                else:
-                    primary_variable_reference = []
-
-                data_names = primary_variable.get_numpy_names(walker.used_arguments)
-                if data_names:
-                    references = ",".join(
-                        primary_variable_reference
-                        + [f"data['{name}']" for name in data_names]
-                        + [f"subscript_indices['{name}']" for name in walker.extra_subscripts]
-                    )
-
-                    self.code.writeline(f"parameters['{node.left.name}'] = vmap(mapper)({references})")
-                else:
-                    references = ",".join(primary_variable_reference)
-                    self.code.writeline(f"parameters['{node.left.name}'] = mapper({references})")
-                self.code.writeline()
-
-        walker = TransformedParametersCodeGenerator(self.variable_table, self.subscript_table, writer)
-        walker.walk(self.program)
-
-    def codegen_evaluate_densities(self, writer: IndentWriter):
-        @dataclass
-        class EvaluateDensityCodeGenerator(RatWalker):
-            variable_table: VariableTable
-            subscript_table: SubscriptTable
-            code: IndentWriter = field(default_factory=IndentWriter)
-
-            def walk_Program(self, node: ast.Program):
-                self.code.writeline("def evaluate_densities(data, subscript_indices, parameters):")
-                with self.code.indent():
-                    self.code.writeline("target = 0.0")
-                    self.code.writeline()
-                    for statement in node.statements:
-                        self.walk(statement)
-                    self.code.writeline("return target")
-                return self.code.string
-
-            def walk_Statement(self, node: ast.Statement):
-                if node.op == "=":
-                    return
-
-                primary_node = _get_primary_ast_variable(node)
-                primary_name = primary_node.name
-                primary_variable = self.variable_table[primary_name]
-                pass_primary_as_argument = primary_variable.variable_type != VariableType.DATA
-
-                if pass_primary_as_argument:
-                    passed_as_argument = [primary_name] + list(primary_variable.subscripts)
-                else:
-                    passed_as_argument = list(primary_variable.subscripts)
-
-                walker = BaseCodeGenerator(self.variable_table, self.subscript_table, passed_as_argument)
-                code = walker.walk(node)
-
-                self.code.writeline(f"def mapper({','.join(walker.used_arguments + walker.extra_subscripts)}):")
-                with self.code.indent():
-                    self.code.writeline(f"return {code}")
-
-                if pass_primary_as_argument:
-                    primary_variable_reference = [f"parameters['{primary_name}']"]
-                else:
-                    primary_variable_reference = []
-
-                data_names = list(primary_variable.get_numpy_names(walker.used_arguments))
-                if primary_node.arglist:
-                    references = ",".join(
-                        primary_variable_reference
-                        + [f"data['{name}']" for name in data_names]
-                        + [f"subscript_indices['{name}']" for name in walker.extra_subscripts]
-                    )
-
-                    self.code.writeline(f"target += jax.numpy.sum(vmap(mapper)({references}))")
-                else:
-                    # TODO: I'm pretty sure there's a bug here for something like:
-                    # x ~ normal(y, 1.0);
-                    # If x and y are both scalars then I don't think y gets code-genned
-                    references = ",".join(primary_variable_reference)
-                    self.code.writeline(f"target += mapper({references})")
-                self.code.writeline()
-
-        walker = EvaluateDensityCodeGenerator(self.variable_table, self.subscript_table, writer)
-        walker.walk(self.program)
-
-    def codegen(self) -> str:
-        writer = IndentWriter()
-
-        writer.writeline("# A rat model")
-        writer.writeline("import rat.constraints\n")
-        writer.writeline("import jax")
-        writer.writeline("import rat.math")
-        writer.writeline("from jax import *")
-        writer.writeline("from rat.math import *")
-        writer.writeline()
-
-        writer.writeline(f"unconstrained_parameter_size = {self.variable_table.unconstrained_parameter_size}")
-
-        self.codegen_constrain_parameters(writer)
-        writer.writeline()
-        self.codegen_transform_parameters(writer)
-        writer.writeline()
-        self.codegen_evaluate_densities(writer)
-
-        return writer.string
-
     def compile(self):
         self._identify_primary_symbols()
 
@@ -779,8 +582,151 @@ class RatCompiler:
 
         self._pre_codegen_checks()
 
-        generated_code = self.codegen()
+        return self.variable_table, self.subscript_table
 
-        print(generated_code)
+@dataclass
+class TransformedParametersFunctionGenerator(RatWalker):
+    variable_table: VariableTable
+    subscript_table: SubscriptTable
+    parameters: Dict[str, Any]
+    traced_nodes: List[ast.Variable] = None
 
-        return generated_code, self.variable_table, self.subscript_table
+    def walk_Program(self, node: ast.Program):
+        # TODO -- there is some order required here!
+        for statement in node.statements:
+            self.walk(statement)
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op != "=":
+            return
+
+        primary_node = _get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+
+        if node.left.name != primary_name:
+            msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
+            raise CompileError(msg, node)
+        
+        self.traced_nodes = []
+        
+        self.walk(node.left)
+        self.walk(node.right)
+
+        arguments = tuple(self.subscript_table[traced_node].array for traced_node in self.traced_nodes)
+
+        def mapper(*arguments):
+            walker = CodeExecutor(dict(zip(self.traced_nodes, arguments)), self.parameters)
+            return walker.walk(node.right)
+
+        # We can't be overwriting parameters
+        assert primary_name not in self.parameters
+
+        if primary_variable.argument_count > 0:
+            self.parameters[primary_name] = jax.vmap(mapper)(*arguments)
+        else:
+            self.parameters[primary_name] = mapper(*arguments)
+
+    def walk_Variable(self, node: ast.Variable):
+        node_variable = self.variable_table[node.name]
+        if node_variable.argument_count > 0:
+            if node in self.subscript_table:
+                self.traced_nodes.append(node)
+
+@dataclass
+class EvaluateDensityWalker(RatWalker):
+    variable_table: VariableTable
+    subscript_table: SubscriptTable
+    parameters: Dict[str, Any]
+
+    def walk_Program(self, node: ast.Program):
+        target = 0.0
+        for statement in node.statements:
+            target += self.walk(statement)
+        return target
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op != "~":
+            return 0.0
+
+        primary_node = _get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+
+        self.traced_nodes = []
+        
+        self.walk(node.left)
+        self.walk(node.right)
+
+        arguments = tuple(self.subscript_table[traced_node].array for traced_node in self.traced_nodes)
+
+        def mapper(*arguments):
+            walker = CodeExecutor(dict(zip(self.traced_nodes, arguments)), self.parameters)
+            return walker.walk(node)
+
+        if primary_variable.argument_count > 0:
+            return jax.numpy.sum(jax.vmap(mapper)(*arguments))
+        else:
+            return(mapper(*arguments))
+
+    def walk_Variable(self, node: ast.Variable):
+        node_variable = self.variable_table[node.name]
+        if node_variable.argument_count > 0:
+            if node in self.subscript_table:
+                self.traced_nodes.append(node)
+
+def compile_for_jax(program : ast.Program, variable_table: VariableTable, subscript_table: SubscriptTable):
+    def constrain_function(unconstrained_parameter_vector : numpy.ndarray):
+        jacobian, parameters = constrain(variable_table, unconstrained_parameter_vector)
+
+        transform = TransformedParametersFunctionGenerator(variable_table, subscript_table, parameters)
+        transform.walk(program)
+
+        return jacobian, parameters
+
+    def target_function(include_jacobian : bool, unconstrained_parameter_vector : numpy.ndarray):
+        jacobian, parameters = constrain(variable_table, unconstrained_parameter_vector)
+
+        # Modify parameters in place
+        transform = TransformedParametersFunctionGenerator(variable_table, subscript_table, parameters)
+        transform.walk(program)
+
+        likelihood = EvaluateDensityWalker(variable_table, subscript_table, parameters)
+        target = likelihood.walk(program)
+
+        return target + (jacobian if include_jacobian else 0.0)
+
+    return constrain_function, target_function
+
+def constrain(variable_table : VariableTable, unconstrained_parameter_vector : numpy.ndarray):
+    parameters = {}
+    jacobian_adjustments = 0.0
+
+    for name in variable_table:
+        record = variable_table[name]
+
+        if record.variable_type != VariableType.PARAM:
+            continue
+
+        # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
+        if len(record.subscripts) > 0:
+            unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index : record.unconstrained_vector_end_index + 1]
+        else:
+            unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index]
+
+        if record.constraint_lower > float("-inf") or record.constraint_upper < float("inf"):
+            if record.constraint_lower > float("-inf") and record.constraint_upper == float("inf"):
+                constrained, jacobian_adjustment = constraints.lower(unconstrained, record.constraint_lower)
+            elif record.constraint_lower == float("inf") and record.constraint_upper < float("inf"):
+                constrained, jacobian_adjustment = constraints.upper(unconstrained, record.constraint_upper)
+            elif record.constraint_lower > float("-inf") and record.constraint_upper < float("inf"):
+                constrained, jacobian_adjustment = constraints.finite(unconstrained, record.constraint_lower, record.constraint_upper)
+
+            jacobian_adjustments += jax.numpy.sum(jacobian_adjustment)
+        else:
+            constrained = unconstrained
+
+        parameters[name] = constrained
+
+    return jacobian_adjustments, parameters
+

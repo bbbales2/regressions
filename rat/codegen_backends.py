@@ -2,6 +2,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from distutils.errors import CompileError
 from inspect import trace
+import jax
+import numpy
+from .math import *
 from . import ast
 from tatsu.model import NodeWalker
 from .variable_table import VariableTable, VariableType, Tracer
@@ -49,7 +52,6 @@ class ContextStack(Generic[T]):
             yield self
         finally:
             self.stack.pop()
-
 
 class BaseCodeGenerator(NodeWalker):
     variable_table: VariableTable
@@ -127,6 +129,66 @@ class BaseCodeGenerator(NodeWalker):
 
     def walk_Literal(self, node: ast.Literal):
         return f"{node.value}"
+
+
+class CodeExecutor(NodeWalker):
+    arguments: Dict[ast.Variable, Any]
+    parameters: Dict[str, Any]
+    left_side_of_sampling: ast.ModelBase
+
+    def __init__(
+        self, arguments: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None
+    ):
+        self.arguments = arguments
+        self.parameters = parameters
+        self.left_side_of_sampling = None
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "~":
+            self.left_side_of_sampling = node.left
+            return_value = self.walk(node.right)
+            self.left_side_of_sampling = None
+            return return_value
+        else:
+            raise CompileError(f"{node.op} operator not supported in BaseCodeGenerator", node)
+
+    def walk_Logical(self, node: ast.Logical):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        return eval(f"(left {node.op} right)")
+
+    def walk_Binary(self, node: ast.Binary):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        return eval(f"left {node.op} right")
+
+    def walk_IfElse(self, node: ast.IfElse):
+        predicate = self.arguments[node.predicate]
+        return jax.lax.cond(predicate, lambda : self.walk(node.left), lambda : self.walk(node.right))
+
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        arglist = []
+
+        if self.left_side_of_sampling:
+            arglist += [self.walk(self.left_side_of_sampling)]
+
+        if node.arglist:
+            arglist += [self.walk(arg) for arg in node.arglist]
+
+        return eval(node.name)(*arglist)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node in self.arguments:
+            if node.name in self.parameters:
+                trace = self.arguments[node]
+                return self.parameters[node.name][trace]
+            else:
+                return self.arguments[node]
+        else:
+            return self.parameters[node.name]
+
+    def walk_Literal(self, node: ast.Literal):
+        return node.value
 
 
 class TraceExecutor(NodeWalker):
