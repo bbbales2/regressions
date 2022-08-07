@@ -307,7 +307,7 @@ class VariableRecord:
     def subscript_as_data_name(self, column: str):
         return f"{self.name}__{column}"
 
-    def get_numpy_names(self, names = None) -> Iterable[str]:
+    def get_numpy_names(self, names=None) -> Iterable[str]:
         """
         Get names of to-be-materialized data variables
         """
@@ -318,7 +318,7 @@ class VariableRecord:
             if field in names:
                 yield self.subscript_as_data_name(field)
 
-    def get_numpy_arrays(self, names = None) -> Iterable[Tuple[str, numpy.ndarray]]:
+    def get_numpy_arrays(self, names=None) -> Iterable[Tuple[str, numpy.ndarray]]:
         """
         Materialize variable as numpy arrays
         """
