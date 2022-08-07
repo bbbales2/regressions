@@ -552,14 +552,14 @@ class RatCompiler:
 
                 tracers = self.variable_table.tracers()
 
-                traces = defaultdict(lambda : [])
+                traces = defaultdict(lambda: [])
                 for row in primary_variable.itertuples():
                     executor = TraceExecutor(tracers, row._asdict(), self.trace_by_reference)
                     executor.walk(node)
 
                     for traced_node, value in executor.first_level_values.items():
                         traces[traced_node].append(value)
-                
+
                 for traced_node, values in traces.items():
                     self.subscript_table.insert(traced_node, numpy.array(values))
 
