@@ -104,7 +104,7 @@ def test_multiple_dataframes_eight_schools_error_to_many_to_few_rows():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     y_data_df = data_df[["y", "school"]]
-    sigma_data_df = pandas.concat([data_df[["school", "sigma"]], data_df[["school", "sigma"]].assign(sigma = 5.0)])
+    sigma_data_df = pandas.concat([data_df[["school", "sigma"]], data_df[["school", "sigma"]].assign(sigma=5.0)])
 
     model_string = """
     y[school]' ~ normal(theta[school], sigma[school]);
