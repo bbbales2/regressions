@@ -360,8 +360,6 @@ class VariableTable:
     generated_subscript_dict: Dict[str, numpy.ndarray]
     first_in_group_indicator: Dict[str, numpy.ndarray]
 
-    _unique_number: int
-
     def __init__(self, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
         self.variable_dict = {}
         self.data = {}
@@ -370,16 +368,10 @@ class VariableTable:
         self.generated_subscript_dict = {}
         self.first_in_group_indicator = {}
 
-        self._unique_number = 0
-
-    def get_unique_number(self):
-        self._unique_number += 1
-        return self._unique_number
-
     def tracers(self) -> Iterable[Tracer]:
         return {name: variable.tracer for name, variable in self.variable_dict.items()}
 
-    def insert(self, variable_name: str, argument_count=0, variable_type: VariableType = None):
+    def insert(self, variable_name: str, argument_count: int = 0, variable_type: VariableType = None):
         """
         Insert a variable record. If it is data, attach an input dataframe to it
         """

@@ -1,11 +1,12 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from distutils.errors import CompileError
+from inspect import trace
 from . import ast
 from tatsu.model import NodeWalker
-from .variable_table import VariableTable, VariableType
+from .variable_table import VariableTable, VariableType, Tracer
 from .subscript_table import SubscriptTable
-from typing import Set, List, Iterable
+from typing import Set, List, Iterable, Dict, Any, TypeVar, Generic
 
 
 @dataclass
@@ -28,6 +29,26 @@ class IndentWriter:
 
     def __str__(self):
         return self.string
+
+T = TypeVar("T")
+
+@dataclass
+class ContextStack(Generic[T]):
+    stack: List[T]
+
+    def __init__(self, first : T):
+        self.stack = [first]
+
+    def peek(self) -> T:
+        return self.stack[-1]
+
+    @contextmanager
+    def push(self, value : T):
+        try:
+            self.stack.append(value)
+            yield self
+        finally:
+            self.stack.pop()
 
 
 class BaseCodeGenerator(NodeWalker):
@@ -108,69 +129,78 @@ class BaseCodeGenerator(NodeWalker):
         return f"{node.value}"
 
 
-class TraceCodeGenerator(NodeWalker):
+class TraceExecutor(NodeWalker):
     """
     As long as shunt is true, values of expressions aren't returned but
     instead shunted off into tuples
     """
 
-    shunt: bool
-    passed_by_value: Iterable[str]
+    tracers: Dict[str, Tracer]
+    leaves: Dict[str, Any]
+    shunt: ContextStack[bool]
+    trace_by_reference: Set[ast.Variable]
+    first_level_values: Dict[ast.Variable, Any]
 
-    def __init__(self, passed_by_value: Iterable[str], shunt: bool = True):
-        self.shunt = shunt
-        self.passed_by_value = passed_by_value
+    def __init__(self, tracers: Dict[str, Tracer], leaves: Dict[str, Any], trace_by_reference: Set[ast.Variable] = None):
+        self.tracers = tracers
+        self.leaves = leaves
+        self.shunt = ContextStack(True)
+        self.trace_by_reference = trace_by_reference if trace_by_reference else set()
+        self.first_level_values = {}
 
     def walk_Statement(self, node: ast.Statement):
-        if self.shunt:
-            return f"({self.walk(node.left)}, {self.walk(node.right)})"
-        else:
-            return f"({self.walk(node.left)} {node.op} {self.walk(node.right)})"
+        self.walk(node.left)
+        self.walk(node.right)
 
     def walk_Logical(self, node: ast.Logical):
-        if self.shunt:
-            return f"({self.walk(node.left)}, {self.walk(node.right)})"
-        else:
-            return f"({self.walk(node.left)} {node.op} {self.walk(node.right)})"
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        if not self.shunt.peek():
+            return eval(f"left {node.op} right")
 
     def walk_Binary(self, node: ast.Binary):
-        if self.shunt:
-            return f"({self.walk(node.left)}, {self.walk(node.right)})"
-        else:
-            return f"({self.walk(node.left)} {node.op} {self.walk(node.right)})"
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        if not self.shunt.peek():
+            return eval(f"left {node.op} right")
 
     def walk_IfElse(self, node: ast.IfElse):
-        old_shunt = self.shunt
-        self.shunt = False
-        predicate = self.walk(node.predicate)
-        self.shunt = old_shunt
+        with self.shunt.push(False):
+            predicate = self.walk(node.predicate)
+        
+        if self.shunt.peek():
+            self.first_level_values[node] = predicate
 
-        return f"({self.walk(node.left)} if {predicate} else {self.walk(node.right)})"
+        return self.walk(node.left) if predicate else self.walk(node.right)
 
     def walk_FunctionCall(self, node: ast.FunctionCall):
         if node.arglist:
-            arglist = ",".join(self.walk(arg) for arg in node.arglist)
+            arglist = tuple(self.walk(arg) for arg in node.arglist)
         else:
-            arglist = ""
+            arglist = ()
 
-        if self.shunt:
-            return f"({arglist})"
-        else:
-            return f"{node.name}({arglist})"
+        if not self.shunt.peek():
+            return eval(node.name)(*arglist)
 
     def walk_Variable(self, node: ast.Variable):
-        if node.name in self.passed_by_value:
-            return f"values['{node.name}']"
+        if node.name in self.leaves:
+            return_value = self.leaves[node.name]
         else:
-            old_shunt = self.shunt
-            self.shunt = False
-            if node.arglist:
-                arglist = ",".join(self.walk(arg) for arg in node.arglist)
-            else:
-                arglist = ""
-            self.shunt = old_shunt
+            with self.shunt.push(False):
+                if node.arglist:
+                    arglist = tuple(self.walk(arg) for arg in node.arglist)
+                else:
+                    arglist = ()
 
-            return f"tracers['{node.name}']({arglist})"
+            if node in self.trace_by_reference:
+                return_value = self.tracers[node.name].lookup(arglist)
+            else:
+                return_value = self.tracers[node.name](*arglist)
+            
+        if self.shunt.peek():
+            self.first_level_values[node] = return_value
+
+        return return_value
 
     def walk_Literal(self, node: ast.Literal):
-        return f"{node.value}"
+        return node.value

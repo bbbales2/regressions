@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass, field
 import functools
 import numpy
@@ -11,7 +12,7 @@ import itertools
 import pandas as pd
 
 from . import ast
-from .codegen_backends import IndentWriter, BaseCodeGenerator, TraceCodeGenerator
+from .codegen_backends import IndentWriter, BaseCodeGenerator, TraceExecutor
 from .exceptions import CompileError, MergeError
 from .variable_table import Tracer, VariableRecord, VariableTable, VariableType
 from .subscript_table import SubscriptTable
@@ -370,15 +371,9 @@ class RatCompiler:
                 primary_ast_variable = statement_info.primary
                 primary_variable = self.variable_table[primary_ast_variable.name]
 
-                # Generate tracer code for this line
-                code_generator = TraceCodeGenerator(primary_variable.itertuple_type()._fields)
-                code = code_generator.walk(statement_info.statement)
-
-                def fire_traces(tracers, values):
-                    eval(code)
-
                 for row in primary_variable.itertuples():
-                    fire_traces(tracers, row._asdict())
+                    executor = TraceExecutor(tracers, row._asdict())
+                    executor.walk(statement_info.statement)
 
             found_new_traces = False
             for variable_name, tracer in tracers.items():
@@ -541,51 +536,38 @@ class RatCompiler:
         @dataclass
         class SubscriptTableWalker(RatWalker):
             variable_table: VariableTable
-            first_level_nodes: List = field(default_factory=list)
             subscript_table: SubscriptTable = field(default_factory=SubscriptTable)
-            primary_variable: VariableRecord = None
+            trace_by_reference: Set[ast.Variable] = field(default_factory=set)
 
             def walk_Statement(self, node: ast.Statement):
                 primary_node = _get_primary_ast_variable(node)
-                self.primary_variable = self.variable_table[primary_node.name]
+                primary_variable = self.variable_table[primary_node.name]
 
-                # Generate code for all the subscripts
-                self.first_level_nodes = []
+                # Identify variables we won't know the value of yet -- don't try to
+                # trace the values of those but trace any indexing into them
+                self.trace_by_reference = set()
 
                 self.walk(node.left)
                 self.walk(node.right)
 
                 tracers = self.variable_table.tracers()
-                for node in self.first_level_nodes:
-                    node_variable = self.variable_table[node.name]
 
-                    node_is_data = node_variable.variable_type == VariableType.DATA
+                traces = defaultdict(lambda : [])
+                for row in primary_variable.itertuples():
+                    executor = TraceExecutor(tracers, row._asdict(), self.trace_by_reference)
+                    executor.walk(node)
 
-                    if node_is_data:
-                        code_generator = TraceCodeGenerator(self.primary_variable.itertuple_type()._fields, False)
-                        code = code_generator.walk(node)
-                    else:
-                        if node.arglist:
-                            code_generator = TraceCodeGenerator(self.primary_variable.itertuple_type()._fields, False)
-                            code = "".join(f"{code_generator.walk(arg)}," for arg in node.arglist)
-                        else:
-                            # There's nothing to trace for scalar variables
-                            continue
-
-                    def function(tracers, values):
-                        return eval(code)
-
-                    traced_values = []
-                    for row in self.primary_variable.itertuples():
-                        ret = function(tracers, row._asdict())
-                        if node_is_data:
-                            traced_values.append(ret)
-                        else:
-                            traced_values.append(node_variable.lookup(ret))
-                    self.subscript_table.insert(node, numpy.array(traced_values))
+                    for traced_node, value in executor.first_level_values.items():
+                        traces[traced_node].append(value)
+                
+                for traced_node, values in traces.items():
+                    self.subscript_table.insert(traced_node, numpy.array(values))
 
             def walk_Variable(self, node: ast.Variable):
-                self.first_level_nodes.append(node)
+                if node.name in self.variable_table:
+                    node_variable = self.variable_table[node.name]
+                    if node_variable.variable_type != VariableType.DATA:
+                        self.trace_by_reference.add(node)
 
         walker = SubscriptTableWalker(self.variable_table)
         walker.walk(self.program)
