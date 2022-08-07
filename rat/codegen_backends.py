@@ -33,20 +33,22 @@ class IndentWriter:
     def __str__(self):
         return self.string
 
+
 T = TypeVar("T")
+
 
 @dataclass
 class ContextStack(Generic[T]):
     stack: List[T]
 
-    def __init__(self, first : T):
+    def __init__(self, first: T):
         self.stack = [first]
 
     def peek(self) -> T:
         return self.stack[-1]
 
     @contextmanager
-    def push(self, value : T):
+    def push(self, value: T):
         try:
             self.stack.append(value)
             yield self
@@ -229,7 +231,7 @@ class TraceExecutor(NodeWalker):
     def walk_IfElse(self, node: ast.IfElse):
         with self.shunt.push(False):
             predicate = self.walk(node.predicate)
-        
+
         if self.shunt.peek():
             self.first_level_values[node] = predicate
 
@@ -258,7 +260,7 @@ class TraceExecutor(NodeWalker):
                 return_value = self.tracers[node.name].lookup(arglist)
             else:
                 return_value = self.tracers[node.name](*arglist)
-            
+
         if self.shunt.peek():
             self.first_level_values[node] = return_value
 
