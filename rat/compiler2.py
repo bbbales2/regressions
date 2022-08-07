@@ -584,6 +584,7 @@ class RatCompiler:
 
         return self.variable_table, self.subscript_table
 
+
 @dataclass
 class TransformedParametersFunctionGenerator(RatWalker):
     variable_table: VariableTable
@@ -607,9 +608,9 @@ class TransformedParametersFunctionGenerator(RatWalker):
         if node.left.name != primary_name:
             msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
             raise CompileError(msg, node)
-        
+
         self.traced_nodes = []
-        
+
         self.walk(node.left)
         self.walk(node.right)
 
@@ -633,6 +634,7 @@ class TransformedParametersFunctionGenerator(RatWalker):
             if node in self.subscript_table:
                 self.traced_nodes.append(node)
 
+
 @dataclass
 class EvaluateDensityWalker(RatWalker):
     variable_table: VariableTable
@@ -654,7 +656,7 @@ class EvaluateDensityWalker(RatWalker):
         primary_variable = self.variable_table[primary_name]
 
         self.traced_nodes = []
-        
+
         self.walk(node.left)
         self.walk(node.right)
 
@@ -667,7 +669,7 @@ class EvaluateDensityWalker(RatWalker):
         if primary_variable.argument_count > 0:
             return jax.numpy.sum(jax.vmap(mapper)(*arguments))
         else:
-            return(mapper(*arguments))
+            return mapper(*arguments)
 
     def walk_Variable(self, node: ast.Variable):
         node_variable = self.variable_table[node.name]
@@ -675,8 +677,9 @@ class EvaluateDensityWalker(RatWalker):
             if node in self.subscript_table:
                 self.traced_nodes.append(node)
 
-def compile_for_jax(program : ast.Program, variable_table: VariableTable, subscript_table: SubscriptTable):
-    def constrain_function(unconstrained_parameter_vector : numpy.ndarray):
+
+def compile_for_jax(program: ast.Program, variable_table: VariableTable, subscript_table: SubscriptTable):
+    def constrain_function(unconstrained_parameter_vector: numpy.ndarray):
         jacobian, parameters = constrain(variable_table, unconstrained_parameter_vector)
 
         transform = TransformedParametersFunctionGenerator(variable_table, subscript_table, parameters)
@@ -684,7 +687,7 @@ def compile_for_jax(program : ast.Program, variable_table: VariableTable, subscr
 
         return jacobian, parameters
 
-    def target_function(include_jacobian : bool, unconstrained_parameter_vector : numpy.ndarray):
+    def target_function(include_jacobian: bool, unconstrained_parameter_vector: numpy.ndarray):
         jacobian, parameters = constrain(variable_table, unconstrained_parameter_vector)
 
         # Modify parameters in place
@@ -698,7 +701,8 @@ def compile_for_jax(program : ast.Program, variable_table: VariableTable, subscr
 
     return constrain_function, target_function
 
-def constrain(variable_table : VariableTable, unconstrained_parameter_vector : numpy.ndarray):
+
+def constrain(variable_table: VariableTable, unconstrained_parameter_vector: numpy.ndarray):
     parameters = {}
     jacobian_adjustments = 0.0
 
@@ -710,7 +714,9 @@ def constrain(variable_table : VariableTable, unconstrained_parameter_vector : n
 
         # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
         if len(record.subscripts) > 0:
-            unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index : record.unconstrained_vector_end_index + 1]
+            unconstrained = unconstrained_parameter_vector[
+                record.unconstrained_vector_start_index : record.unconstrained_vector_end_index + 1
+            ]
         else:
             unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index]
 
@@ -729,4 +735,3 @@ def constrain(variable_table : VariableTable, unconstrained_parameter_vector : n
         parameters[name] = constrained
 
     return jacobian_adjustments, parameters
-

@@ -42,7 +42,7 @@ class Model:
         jacobian_adjustment, parameters = self._constrain_and_transform_parameters(unconstrained_parameter_vector, pad=True)
         target = self.compiled_model.evaluate_densities(self.device_data, self.device_subscript_indices, parameters)
         return target + (jacobian_adjustment if include_jacobian else 0.0)
-    
+
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
         # unconstrained_draws = numpy.array(device_unconstrained_draws)
         # num_draws = unconstrained_draws.shape[0]

@@ -55,6 +55,7 @@ class ContextStack(Generic[T]):
         finally:
             self.stack.pop()
 
+
 class BaseCodeGenerator(NodeWalker):
     variable_table: VariableTable
     subscript_table: SubscriptTable
@@ -138,9 +139,7 @@ class CodeExecutor(NodeWalker):
     parameters: Dict[str, Any]
     left_side_of_sampling: ast.ModelBase
 
-    def __init__(
-        self, arguments: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None
-    ):
+    def __init__(self, arguments: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None):
         self.arguments = arguments
         self.parameters = parameters
         self.left_side_of_sampling = None
@@ -166,7 +165,7 @@ class CodeExecutor(NodeWalker):
 
     def walk_IfElse(self, node: ast.IfElse):
         predicate = self.arguments[node.predicate]
-        return jax.lax.cond(predicate, lambda : self.walk(node.left), lambda : self.walk(node.right))
+        return jax.lax.cond(predicate, lambda: self.walk(node.left), lambda: self.walk(node.right))
 
     def walk_FunctionCall(self, node: ast.FunctionCall):
         arglist = []
