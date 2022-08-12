@@ -1,9 +1,9 @@
-
 import jax
 import numpy
 import scipy.optimize
 
 from . import fit
+
 
 def optimize(model, init=2, chains=4, retries=5, tolerance=1e-2):
     """

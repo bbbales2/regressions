@@ -132,7 +132,6 @@ class BaseCodeGenerator(NodeWalker):
         return f"{node.value}"
 
 
-
 class TraceExecutor(NodeWalker):
     """
     As long as shunt is true, values of expressions aren't returned but

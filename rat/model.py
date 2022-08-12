@@ -197,7 +197,8 @@ class Model:
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             if len(record.subscripts) > 0:
                 unconstrained = unconstrained_parameter_vector[
-                                record.unconstrained_vector_start_index: record.unconstrained_vector_end_index + 1]
+                    record.unconstrained_vector_start_index : record.unconstrained_vector_end_index + 1
+                ]
             else:
                 unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index]
 
@@ -207,8 +208,7 @@ class Model:
                 elif record.constraint_lower == float("inf") and record.constraint_upper < float("inf"):
                     constrained, jacobian_adjustment = constraints.upper(unconstrained, record.constraint_upper)
                 else:  # if record.constraint_lower > float("-inf") and record.constraint_upper < float("inf"):
-                    constrained, jacobian_adjustment = constraints.finite(unconstrained, record.constraint_lower,
-                                                                          record.constraint_upper)
+                    constrained, jacobian_adjustment = constraints.finite(unconstrained, record.constraint_lower, record.constraint_upper)
 
                 jacobian_adjustments += jax.numpy.sum(jacobian_adjustment)
             else:
@@ -251,8 +251,7 @@ class Model:
         # # Copy back to numpy arrays
         return {name: numpy.array(draws) for name, draws in constrained_draws.items()}, self.base_df_dict
 
-    def __init__(self, model_string: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
-                 max_trace_iterations: int = 50):
+    def __init__(self, model_string: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]], max_trace_iterations: int = 50):
         """
         Create a model from some data (`data`) and a model (specified as a string, `model_string`).
 
@@ -287,7 +286,10 @@ class Model:
                 self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns=record.subscripts)
 
     @staticmethod
-    def from_file(filename: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
-                  max_trace_iterations: int = 50, ):
+    def from_file(
+        filename: str,
+        data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
+        max_trace_iterations: int = 50,
+    ):
         with open(filename) as f:
             return Model(f.read(), data, max_trace_iterations)

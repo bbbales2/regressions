@@ -77,8 +77,7 @@ def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
                 if self.marked is None:
                     self.marked = node
                 else:
-                    msg = f"Found two marked primary variables {self.marked.name} and {node.name}. There should only"\
-                          "be one"
+                    msg = f"Found two marked primary variables {self.marked.name} and {node.name}. There should only" "be one"
                     raise CompileError(msg, node)
             else:
                 self.candidates.append(node)
@@ -96,12 +95,16 @@ def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
 
     if len(candidates) > 1:
         if len(set(candidate.name for candidate in candidates)) == 1:
-            msg = f"No marked primary variable but found multiple references to {candidates[0].name}. One reference"\
-                  " should be marked manually"
+            msg = (
+                f"No marked primary variable but found multiple references to {candidates[0].name}. One reference"
+                " should be marked manually"
+            )
             raise CompileError(msg, candidates[0])
         else:
-            msg = f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are"\
-                  " candidates. A primary variable should be marked manually"
+            msg = (
+                f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are"
+                " candidates. A primary variable should be marked manually"
+            )
             raise CompileError(msg, candidates[0])
 
     if len(candidates) == 0:
@@ -119,8 +122,7 @@ class RatCompiler:
     generated_code: str
     statements: List[StatementInfo]
 
-    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str,
-                 max_trace_iterations: int):
+    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str, max_trace_iterations: int):
         self.data = data
         self.program = program
         self.model_code_string = model_code_string
@@ -183,15 +185,13 @@ class RatCompiler:
                 if self.in_control_flow:
                     # Variable nodes without subscripts in control flow must come from primary variable
                     if node.arglist:
-                        self.variable_table.insert(variable_name=node.name, argument_count=argument_count,
-                                                   variable_type=VariableType.DATA)
+                        self.variable_table.insert(variable_name=node.name, argument_count=argument_count, variable_type=VariableType.DATA)
                 else:
                     # Overwrite table entry for assigned parameters
                     # (so they don't get turned back into regular parameters)
                     if self.left_hand_of_assignment:
                         self.variable_table.insert(
-                            variable_name=node.name, argument_count=argument_count,
-                            variable_type=VariableType.ASSIGNED_PARAM
+                            variable_name=node.name, argument_count=argument_count, variable_type=VariableType.ASSIGNED_PARAM
                         )
                     else:
                         if node.name not in self.variable_table:
@@ -221,8 +221,10 @@ class RatCompiler:
                 try:
                     primary_variable.rename(primary_subscript_names)
                 except AttributeError:
-                    msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already been"\
-                          " renamed to {primary_variable.subscripts}"
+                    msg = (
+                        f"Attempting to rename subscripts to {primary_subscript_names} but they have already been"
+                        " renamed to {primary_variable.subscripts}"
+                    )
                     raise CompileError(msg, primary_ast_variable)
 
         # Do a sweep to infer subscript names for subscripts not renamed
@@ -242,17 +244,15 @@ class RatCompiler:
                             variable = self.variable_table[node.name]
                             subscript_names = _get_subscript_names(node)
 
-                            if (
-                                    variable.variable_type != VariableType.DATA
-                                    and not variable.renamed
-                                    and subscript_names is not None
-                            ):
+                            if variable.variable_type != VariableType.DATA and not variable.renamed and subscript_names is not None:
                                 try:
                                     variable.suggest_names(subscript_names)
                                 except AttributeError:
-                                    msg = f"Attempting to reference subscript of {node.name} as {subscript_names}, but"\
-                                          " they have already been referenced as {variable.subscripts}. The subscripts"\
-                                          " must be renamed"
+                                    msg = (
+                                        f"Attempting to reference subscript of {node.name} as {subscript_names}, but"
+                                        " they have already been referenced as {variable.subscripts}. The subscripts"
+                                        " must be renamed"
+                                    )
                                     raise CompileError(msg, node)
 
                     if node.arglist:
@@ -349,9 +349,11 @@ class RatCompiler:
                     try:
                         variable.set_constraints(lower_constraint_value, upper_constraint_value)
                     except AttributeError:
-                        msg = f"Attempting to set constraints of {node.name} to ({lower_constraint_value},"\
-                              " {upper_constraint_value}) but they are already set to ({variable.constraint_lower},"\
-                              " {variable.constraint_upper})"
+                        msg = (
+                            f"Attempting to set constraints of {node.name} to ({lower_constraint_value},"
+                            " {upper_constraint_value}) but they are already set to ({variable.constraint_lower},"
+                            " {variable.constraint_upper})"
+                        )
                         raise CompileError(msg, node)
 
         walker = ConstraintWalker(self.variable_table)
@@ -407,7 +409,6 @@ class RatCompiler:
             class CheckSamplingFunctionWalker(NodeWalker):
                 variable_table: VariableTable
 
-
                 def walk_Statement(self, node: ast.Statement):
                     if node.op == "~":
                         if not self.walk(node.right):
@@ -429,8 +430,10 @@ class RatCompiler:
 
             # 3. Check that all secondary parameter uses precede primary uses (or throw an error)
             if primary_variable.variable_type != VariableType.DATA:
-                msg = f"Primary variable {primary_name} used on line {line_index} but then referenced as a non-prime"\
-                      " variable. The primed uses must come last"
+                msg = (
+                    f"Primary variable {primary_name} used on line {line_index} but then referenced as a non-prime"
+                    " variable. The primed uses must come last"
+                )
                 walker = FindAndExplodeWalker(primary_name, msg)
                 for j in range(line_index + 1, N_lines):
                     following_statement_info = self.statements[j]
@@ -440,8 +443,10 @@ class RatCompiler:
 
             # 4. Parameters cannot be used after they are assigned
             if statement.op == "=":
-                msg = f"Parameter {assigned_name} is assigned on line {line_index} but used after. A variable cannot"\
-                      " be used after it is assigned"
+                msg = (
+                    f"Parameter {assigned_name} is assigned on line {line_index} but used after. A variable cannot"
+                    " be used after it is assigned"
+                )
                 walker = FindAndExplodeWalker(assigned_name, msg)
                 for j in range(line_index + 1, N_lines):
                     walker.walk(self.statements[j].statement)

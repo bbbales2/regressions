@@ -10,6 +10,7 @@ def get_range(node: ast.ModelBase):
         Position(node.ast.parseinfo.line, node.ast.parseinfo.endpos, node.ast.parseinfo.tokenizer.text),
     )
 
+
 class AstException(Exception):
     def __init__(self, operation_message: str, message: str, node: ast.ModelBase = None):
         if node is None:
@@ -20,7 +21,8 @@ class AstException(Exception):
             pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
             exception_message = f"An error occured while {operation_message} at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
         super().__init__(exception_message)
+
+
 class CompileError(AstException):
     def __init__(self, message: str, node: ast.ModelBase = None):
         super().__init__("compiling code", message, node)
-

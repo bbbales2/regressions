@@ -2,6 +2,7 @@ import jax
 import jax.scipy
 from jax.numpy import *
 
+
 def bernoulli_logit(y, logit_p):
     log_p = -jax.numpy.log1p(jax.numpy.exp(-logit_p))
     log1m_p = -logit_p + log_p

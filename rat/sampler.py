@@ -5,6 +5,7 @@ import pandas
 from . import fit
 from . import nuts
 
+
 def sample(self, num_draws=200, num_warmup=1000, chains=4, init=2, thin=1, target_acceptance_rate=0.85):
     """
     Sample the target log density using NUTS.

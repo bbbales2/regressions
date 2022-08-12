@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="pdoc 12.0.2"/>
+    <meta name="generator" content="pdoc 12.1.0"/>
     <title>rat API documentation</title>
 
     <style>/*! * Bootstrap Reboot v5.0.0 (https://getbootstrap.com/) * Copyright 2011-2021 The Bootstrap Authors * Copyright 2011-2021 Twitter, Inc. * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE) * Forked from Normalize.css, licensed MIT (https://github.com/necolas/normalize.css/blob/master/LICENSE.md) */*,::after,::before{box-sizing:border-box}@media (prefers-reduced-motion:no-preference){:root{scroll-behavior:smooth}}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Liberation Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";font-size:1rem;font-weight:400;line-height:1.5;color:#212529;background-color:#fff;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}hr{margin:1rem 0;color:inherit;background-color:currentColor;border:0;opacity:.25}hr:not([size]){height:1px}h1,h2,h3,h4,h5,h6{margin-top:0;margin-bottom:.5rem;font-weight:500;line-height:1.2}h1{font-size:calc(1.375rem + 1.5vw)}@media (min-width:1200px){h1{font-size:2.5rem}}h2{font-size:calc(1.325rem + .9vw)}@media (min-width:1200px){h2{font-size:2rem}}h3{font-size:calc(1.3rem + .6vw)}@media (min-width:1200px){h3{font-size:1.75rem}}h4{font-size:calc(1.275rem + .3vw)}@media (min-width:1200px){h4{font-size:1.5rem}}h5{font-size:1.25rem}h6{font-size:1rem}p{margin-top:0;margin-bottom:1rem}abbr[data-bs-original-title],abbr[title]{-webkit-text-decoration:underline dotted;text-decoration:underline dotted;cursor:help;-webkit-text-decoration-skip-ink:none;text-decoration-skip-ink:none}address{margin-bottom:1rem;font-style:normal;line-height:inherit}ol,ul{padding-left:2rem}dl,ol,ul{margin-top:0;margin-bottom:1rem}ol ol,ol ul,ul ol,ul ul{margin-bottom:0}dt{font-weight:700}dd{margin-bottom:.5rem;margin-left:0}blockquote{margin:0 0 1rem}b,strong{font-weight:bolder}small{font-size:.875em}mark{padding:.2em;background-color:#fcf8e3}sub,sup{position:relative;font-size:.75em;line-height:0;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}a{color:#0d6efd;text-decoration:underline}a:hover{color:#0a58ca}a:not([href]):not([class]),a:not([href]):not([class]):hover{color:inherit;text-decoration:none}code,kbd,pre,samp{font-family:SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:1em;direction:ltr;unicode-bidi:bidi-override}pre{display:block;margin-top:0;margin-bottom:1rem;overflow:auto;font-size:.875em}pre code{font-size:inherit;color:inherit;word-break:normal}code{font-size:.875em;color:#d63384;word-wrap:break-word}a>code{color:inherit}kbd{padding:.2rem .4rem;font-size:.875em;color:#fff;background-color:#212529;border-radius:.2rem}kbd kbd{padding:0;font-size:1em;font-weight:700}figure{margin:0 0 1rem}img,svg{vertical-align:middle}table{caption-side:bottom;border-collapse:collapse}caption{padding-top:.5rem;padding-bottom:.5rem;color:#6c757d;text-align:left}th{text-align:inherit;text-align:-webkit-match-parent}tbody,td,tfoot,th,thead,tr{border-color:inherit;border-style:solid;border-width:0}label{display:inline-block}button{border-radius:0}button:focus:not(:focus-visible){outline:0}button,input,optgroup,select,textarea{margin:0;font-family:inherit;font-size:inherit;line-height:inherit}button,select{text-transform:none}[role=button]{cursor:pointer}select{word-wrap:normal}select:disabled{opacity:1}[list]::-webkit-calendar-picker-indicator{display:none}[type=button],[type=reset],[type=submit],button{-webkit-appearance:button}[type=button]:not(:disabled),[type=reset]:not(:disabled),[type=submit]:not(:disabled),button:not(:disabled){cursor:pointer}::-moz-focus-inner{padding:0;border-style:none}textarea{resize:vertical}fieldset{min-width:0;padding:0;margin:0;border:0}legend{float:left;width:100%;padding:0;margin-bottom:.5rem;font-size:calc(1.275rem + .3vw);line-height:inherit}@media (min-width:1200px){legend{font-size:1.5rem}}legend+*{clear:left}::-webkit-datetime-edit-day-field,::-webkit-datetime-edit-fields-wrapper,::-webkit-datetime-edit-hour-field,::-webkit-datetime-edit-minute,::-webkit-datetime-edit-month-field,::-webkit-datetime-edit-text,::-webkit-datetime-edit-year-field{padding:0}::-webkit-inner-spin-button{height:auto}[type=search]{outline-offset:-2px;-webkit-appearance:textfield}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-color-swatch-wrapper{padding:0}::file-selector-button{font:inherit}::-webkit-file-upload-button{font:inherit;-webkit-appearance:button}output{display:inline-block}iframe{border:0}summary{display:list-item;cursor:pointer}progress{vertical-align:baseline}[hidden]{display:none!important}</style>
@@ -1478,79 +1478,83 @@ run models.</p>
 </span><span id="L-652"><a href="#L-652"><span class="linenos">652</span></a>
 </span><span id="L-653"><a href="#L-653"><span class="linenos">653</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="s2">&quot;fit&quot;</span><span class="p">]</span>
 </span><span id="L-654"><a href="#L-654"><span class="linenos">654</span></a>
-</span><span id="L-655"><a href="#L-655"><span class="linenos">655</span></a><span class="n">_todo_figure_out_internal_docs</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
-</span><span id="L-656"><a href="#L-656"><span class="linenos">656</span></a>
-</span><span id="L-657"><a href="#L-657"><span class="linenos">657</span></a><span class="s2">---</span>
+</span><span id="L-655"><a href="#L-655"><span class="linenos">655</span></a><span class="kn">from</span> <span class="nn">.model</span> <span class="kn">import</span> <span class="n">Model</span>
+</span><span id="L-656"><a href="#L-656"><span class="linenos">656</span></a><span class="kn">from</span> <span class="nn">.optimizer</span> <span class="kn">import</span> <span class="n">optimize</span>
+</span><span id="L-657"><a href="#L-657"><span class="linenos">657</span></a><span class="kn">from</span> <span class="nn">.sampler</span> <span class="kn">import</span> <span class="n">sample</span>
 </span><span id="L-658"><a href="#L-658"><span class="linenos">658</span></a>
-</span><span id="L-659"><a href="#L-659"><span class="linenos">659</span></a><span class="s2">## Internals - `rat.variables`, `rat.ops`, `rat.variables.Subscript`, and `rat.variables.SubscriptUse`</span>
-</span><span id="L-660"><a href="#L-660"><span class="linenos">660</span></a><span class="s2">(This portion is for people who want to dig into rat&#39;s source)</span>
-</span><span id="L-661"><a href="#L-661"><span class="linenos">661</span></a>
-</span><span id="L-662"><a href="#L-662"><span class="linenos">662</span></a><span class="s2">If you look closely at rat&#39;s source, you might notice something weird: There&#39;s a `rat.ops.Param` class and a `rat.variables.Param`. This also goes for `rat.ops.Data`, `rat.ops.Subscript`. `rat.ops` is designated as elements for the nodes of the parse tree that&#39;s generated by the parser. Since rat uses the parse tree to transpile to Python, we need to inject additional information regarding subscripts to the parse tree. This is where `rat.variables` comes into play: they are used to hold information regarding subscripts for a given parameter. I&#39;ll use the [skill model](#subscripts) example to explain:</span>
-</span><span id="L-663"><a href="#L-663"><span class="linenos">663</span></a>
-</span><span id="L-664"><a href="#L-664"><span class="linenos">664</span></a><span class="s2">The parser converts the skill model above into the following parse tree representations:</span>
-</span><span id="L-665"><a href="#L-665"><span class="linenos">665</span></a><span class="s2">```</span>
-</span><span id="L-666"><a href="#L-666"><span class="linenos">666</span></a><span class="s2">ops.Normal(</span>
-</span><span id="L-667"><a href="#L-667"><span class="linenos">667</span></a><span class="s2">    ops.Data(&quot;score_diff&quot;),</span>
-</span><span id="L-668"><a href="#L-668"><span class="linenos">668</span></a><span class="s2">    ops.Diff(</span>
-</span><span id="L-669"><a href="#L-669"><span class="linenos">669</span></a><span class="s2">        ops.Param(&quot;skills&quot;, ops.Subscript((&quot;home_team&quot;, &quot;year&quot;))),</span>
-</span><span id="L-670"><a href="#L-670"><span class="linenos">670</span></a><span class="s2">        ops.Param(&quot;skills&quot;, ops.Subscript((&quot;away_team&quot;, &quot;year&quot;))),</span>
-</span><span id="L-671"><a href="#L-671"><span class="linenos">671</span></a><span class="s2">    ),</span>
-</span><span id="L-672"><a href="#L-672"><span class="linenos">672</span></a><span class="s2">    ops.Param(&quot;sigma&quot;),</span>
-</span><span id="L-673"><a href="#L-673"><span class="linenos">673</span></a><span class="s2">),</span>
-</span><span id="L-674"><a href="#L-674"><span class="linenos">674</span></a><span class="s2">ops.Normal(</span>
-</span><span id="L-675"><a href="#L-675"><span class="linenos">675</span></a><span class="s2">    ops.Param(&quot;skills&quot;, ops.Subscript((&quot;team&quot;, &quot;year&quot;))),</span>
-</span><span id="L-676"><a href="#L-676"><span class="linenos">676</span></a><span class="s2">    ops.Param(&quot;skills_mu&quot;, ops.Subscript((&quot;year&quot;,))),</span>
-</span><span id="L-677"><a href="#L-677"><span class="linenos">677</span></a><span class="s2">    ops.Param(&quot;tau&quot;),</span>
-</span><span id="L-678"><a href="#L-678"><span class="linenos">678</span></a><span class="s2">),</span>
-</span><span id="L-679"><a href="#L-679"><span class="linenos">679</span></a><span class="s2">ops.Normal(</span>
+</span><span id="L-659"><a href="#L-659"><span class="linenos">659</span></a><span class="n">_todo_figure_out_internal_docs</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+</span><span id="L-660"><a href="#L-660"><span class="linenos">660</span></a>
+</span><span id="L-661"><a href="#L-661"><span class="linenos">661</span></a><span class="s2">---</span>
+</span><span id="L-662"><a href="#L-662"><span class="linenos">662</span></a>
+</span><span id="L-663"><a href="#L-663"><span class="linenos">663</span></a><span class="s2">## Internals - `rat.variables`, `rat.ops`, `rat.variables.Subscript`, and `rat.variables.SubscriptUse`</span>
+</span><span id="L-664"><a href="#L-664"><span class="linenos">664</span></a><span class="s2">(This portion is for people who want to dig into rat&#39;s source)</span>
+</span><span id="L-665"><a href="#L-665"><span class="linenos">665</span></a>
+</span><span id="L-666"><a href="#L-666"><span class="linenos">666</span></a><span class="s2">If you look closely at rat&#39;s source, you might notice something weird: There&#39;s a `rat.ops.Param` class and a `rat.variables.Param`. This also goes for `rat.ops.Data`, `rat.ops.Subscript`. `rat.ops` is designated as elements for the nodes of the parse tree that&#39;s generated by the parser. Since rat uses the parse tree to transpile to Python, we need to inject additional information regarding subscripts to the parse tree. This is where `rat.variables` comes into play: they are used to hold information regarding subscripts for a given parameter. I&#39;ll use the [skill model](#subscripts) example to explain:</span>
+</span><span id="L-667"><a href="#L-667"><span class="linenos">667</span></a>
+</span><span id="L-668"><a href="#L-668"><span class="linenos">668</span></a><span class="s2">The parser converts the skill model above into the following parse tree representations:</span>
+</span><span id="L-669"><a href="#L-669"><span class="linenos">669</span></a><span class="s2">```</span>
+</span><span id="L-670"><a href="#L-670"><span class="linenos">670</span></a><span class="s2">ops.Normal(</span>
+</span><span id="L-671"><a href="#L-671"><span class="linenos">671</span></a><span class="s2">    ops.Data(&quot;score_diff&quot;),</span>
+</span><span id="L-672"><a href="#L-672"><span class="linenos">672</span></a><span class="s2">    ops.Diff(</span>
+</span><span id="L-673"><a href="#L-673"><span class="linenos">673</span></a><span class="s2">        ops.Param(&quot;skills&quot;, ops.Subscript((&quot;home_team&quot;, &quot;year&quot;))),</span>
+</span><span id="L-674"><a href="#L-674"><span class="linenos">674</span></a><span class="s2">        ops.Param(&quot;skills&quot;, ops.Subscript((&quot;away_team&quot;, &quot;year&quot;))),</span>
+</span><span id="L-675"><a href="#L-675"><span class="linenos">675</span></a><span class="s2">    ),</span>
+</span><span id="L-676"><a href="#L-676"><span class="linenos">676</span></a><span class="s2">    ops.Param(&quot;sigma&quot;),</span>
+</span><span id="L-677"><a href="#L-677"><span class="linenos">677</span></a><span class="s2">),</span>
+</span><span id="L-678"><a href="#L-678"><span class="linenos">678</span></a><span class="s2">ops.Normal(</span>
+</span><span id="L-679"><a href="#L-679"><span class="linenos">679</span></a><span class="s2">    ops.Param(&quot;skills&quot;, ops.Subscript((&quot;team&quot;, &quot;year&quot;))),</span>
 </span><span id="L-680"><a href="#L-680"><span class="linenos">680</span></a><span class="s2">    ops.Param(&quot;skills_mu&quot;, ops.Subscript((&quot;year&quot;,))),</span>
-</span><span id="L-681"><a href="#L-681"><span class="linenos">681</span></a><span class="s2">    ops.RealConstant(0.0),</span>
-</span><span id="L-682"><a href="#L-682"><span class="linenos">682</span></a><span class="s2">    ops.RealConstant(1.0),</span>
-</span><span id="L-683"><a href="#L-683"><span class="linenos">683</span></a><span class="s2">),</span>
-</span><span id="L-684"><a href="#L-684"><span class="linenos">684</span></a><span class="s2">ops.Normal(</span>
-</span><span id="L-685"><a href="#L-685"><span class="linenos">685</span></a><span class="s2">    ops.Param(&quot;tau&quot;, lower=ops.RealConstant(0.0)),</span>
-</span><span id="L-686"><a href="#L-686"><span class="linenos">686</span></a><span class="s2">    ops.RealConstant(0.0),</span>
-</span><span id="L-687"><a href="#L-687"><span class="linenos">687</span></a><span class="s2">    ops.RealConstant(1.0),</span>
-</span><span id="L-688"><a href="#L-688"><span class="linenos">688</span></a><span class="s2">),</span>
-</span><span id="L-689"><a href="#L-689"><span class="linenos">689</span></a><span class="s2">ops.Normal(</span>
-</span><span id="L-690"><a href="#L-690"><span class="linenos">690</span></a><span class="s2">    ops.Param(&quot;sigma&quot;, lower=ops.RealConstant(0.0)),</span>
-</span><span id="L-691"><a href="#L-691"><span class="linenos">691</span></a><span class="s2">    ops.RealConstant(0.0),</span>
-</span><span id="L-692"><a href="#L-692"><span class="linenos">692</span></a><span class="s2">    ops.RealConstant(1.0),</span>
-</span><span id="L-693"><a href="#L-693"><span class="linenos">693</span></a><span class="s2">)</span>
-</span><span id="L-694"><a href="#L-694"><span class="linenos">694</span></a><span class="s2">```</span>
-</span><span id="L-695"><a href="#L-695"><span class="linenos">695</span></a>
-</span><span id="L-696"><a href="#L-696"><span class="linenos">696</span></a><span class="s2">For each parameter we create a `rat.variables.Subscript` object which in essence hold the factors of the subscript. Recall `skills[team, year]` was in fact `skills[union(home_team, away_team), year]`. So we need a parameter for each team-year combination. `rat.variables.Subscript` internally stores a dataframe with columns `team` and `year`, which hold these unique combinations as reference subscripts.</span>
-</span><span id="L-697"><a href="#L-697"><span class="linenos">697</span></a>
-</span><span id="L-698"><a href="#L-698"><span class="linenos">698</span></a><span class="s2">But we might want to just subscript `home_team` from `team`. That is, we might only want a portion of the subscript. `rat.variables.SubscriptUse` is the object that maps a variable&#39;s subscripts to another variable&#39;s reference subscript(its `rat.variables.Subscript` object). If we just wanted to subscript `home_team` from `team`, it will compare the `home_team` dataframe with `team`&#39;s reference dataframe, and only select the combinations that are necessary.</span>
+</span><span id="L-681"><a href="#L-681"><span class="linenos">681</span></a><span class="s2">    ops.Param(&quot;tau&quot;),</span>
+</span><span id="L-682"><a href="#L-682"><span class="linenos">682</span></a><span class="s2">),</span>
+</span><span id="L-683"><a href="#L-683"><span class="linenos">683</span></a><span class="s2">ops.Normal(</span>
+</span><span id="L-684"><a href="#L-684"><span class="linenos">684</span></a><span class="s2">    ops.Param(&quot;skills_mu&quot;, ops.Subscript((&quot;year&quot;,))),</span>
+</span><span id="L-685"><a href="#L-685"><span class="linenos">685</span></a><span class="s2">    ops.RealConstant(0.0),</span>
+</span><span id="L-686"><a href="#L-686"><span class="linenos">686</span></a><span class="s2">    ops.RealConstant(1.0),</span>
+</span><span id="L-687"><a href="#L-687"><span class="linenos">687</span></a><span class="s2">),</span>
+</span><span id="L-688"><a href="#L-688"><span class="linenos">688</span></a><span class="s2">ops.Normal(</span>
+</span><span id="L-689"><a href="#L-689"><span class="linenos">689</span></a><span class="s2">    ops.Param(&quot;tau&quot;, lower=ops.RealConstant(0.0)),</span>
+</span><span id="L-690"><a href="#L-690"><span class="linenos">690</span></a><span class="s2">    ops.RealConstant(0.0),</span>
+</span><span id="L-691"><a href="#L-691"><span class="linenos">691</span></a><span class="s2">    ops.RealConstant(1.0),</span>
+</span><span id="L-692"><a href="#L-692"><span class="linenos">692</span></a><span class="s2">),</span>
+</span><span id="L-693"><a href="#L-693"><span class="linenos">693</span></a><span class="s2">ops.Normal(</span>
+</span><span id="L-694"><a href="#L-694"><span class="linenos">694</span></a><span class="s2">    ops.Param(&quot;sigma&quot;, lower=ops.RealConstant(0.0)),</span>
+</span><span id="L-695"><a href="#L-695"><span class="linenos">695</span></a><span class="s2">    ops.RealConstant(0.0),</span>
+</span><span id="L-696"><a href="#L-696"><span class="linenos">696</span></a><span class="s2">    ops.RealConstant(1.0),</span>
+</span><span id="L-697"><a href="#L-697"><span class="linenos">697</span></a><span class="s2">)</span>
+</span><span id="L-698"><a href="#L-698"><span class="linenos">698</span></a><span class="s2">```</span>
 </span><span id="L-699"><a href="#L-699"><span class="linenos">699</span></a>
-</span><span id="L-700"><a href="#L-700"><span class="linenos">700</span></a><span class="s2">---</span>
+</span><span id="L-700"><a href="#L-700"><span class="linenos">700</span></a><span class="s2">For each parameter we create a `rat.variables.Subscript` object which in essence hold the factors of the subscript. Recall `skills[team, year]` was in fact `skills[union(home_team, away_team), year]`. So we need a parameter for each team-year combination. `rat.variables.Subscript` internally stores a dataframe with columns `team` and `year`, which hold these unique combinations as reference subscripts.</span>
 </span><span id="L-701"><a href="#L-701"><span class="linenos">701</span></a>
-</span><span id="L-702"><a href="#L-702"><span class="linenos">702</span></a><span class="s2">## Language function reference</span>
-</span><span id="L-703"><a href="#L-703"><span class="linenos">703</span></a><span class="s2">Below are individual links to supported math functions and distributions</span>
-</span><span id="L-704"><a href="#L-704"><span class="linenos">704</span></a>
-</span><span id="L-705"><a href="#L-705"><span class="linenos">705</span></a><span class="s2">- **Distributions**</span>
-</span><span id="L-706"><a href="#L-706"><span class="linenos">706</span></a><span class="s2">    - `rat.ops.Normal` : `normal(mu, sigma)`</span>
-</span><span id="L-707"><a href="#L-707"><span class="linenos">707</span></a><span class="s2">    - `rat.ops.BernoulliLogit`, `rat.compiler.bernoulli_logit` : `bernoulli_logit(p)`</span>
-</span><span id="L-708"><a href="#L-708"><span class="linenos">708</span></a><span class="s2">    - `rat.ops.LogNormal`, `rat.compiler.log_normal`  : `log_normal(mu, sigma)`</span>
-</span><span id="L-709"><a href="#L-709"><span class="linenos">709</span></a><span class="s2">    - `rat.ops.Cauchy`  : `cauchy(location, scale)`</span>
-</span><span id="L-710"><a href="#L-710"><span class="linenos">710</span></a><span class="s2">    - `rat.ops.Exponential`  :  `exponential(scale)`</span>
-</span><span id="L-711"><a href="#L-711"><span class="linenos">711</span></a><span class="s2">- **Functions**</span>
-</span><span id="L-712"><a href="#L-712"><span class="linenos">712</span></a><span class="s2">    - `rat.ops.Log`: `log(x)`</span>
-</span><span id="L-713"><a href="#L-713"><span class="linenos">713</span></a><span class="s2">    - `rat.ops.Exp` : `exp(x)`</span>
-</span><span id="L-714"><a href="#L-714"><span class="linenos">714</span></a><span class="s2">    - `rat.ops.Abs` : `abs(x)`</span>
-</span><span id="L-715"><a href="#L-715"><span class="linenos">715</span></a><span class="s2">    - `rat.ops.Floor` : `floor(x)`</span>
-</span><span id="L-716"><a href="#L-716"><span class="linenos">716</span></a><span class="s2">    - `rat.ops.Ceil` : `ceil(x)`</span>
-</span><span id="L-717"><a href="#L-717"><span class="linenos">717</span></a><span class="s2">    - `rat.ops.Round` : `round(x)`</span>
-</span><span id="L-718"><a href="#L-718"><span class="linenos">718</span></a><span class="s2">    - `rat.ops.Sin` : `sin(x)`</span>
-</span><span id="L-719"><a href="#L-719"><span class="linenos">719</span></a><span class="s2">    - `rat.ops.Cos` : `cos(x)`</span>
-</span><span id="L-720"><a href="#L-720"><span class="linenos">720</span></a><span class="s2">    - `rat.ops.Tan` : `tan(x)`</span>
-</span><span id="L-721"><a href="#L-721"><span class="linenos">721</span></a><span class="s2">    - `rat.ops.Arcsin` : `arcsin(x)`</span>
-</span><span id="L-722"><a href="#L-722"><span class="linenos">722</span></a><span class="s2">    - `rat.ops.Arccos` : `arccos(x)`</span>
-</span><span id="L-723"><a href="#L-723"><span class="linenos">723</span></a><span class="s2">    - `rat.ops.Arctan` : `arctan(x)`</span>
-</span><span id="L-724"><a href="#L-724"><span class="linenos">724</span></a><span class="s2">    - `rat.ops.Logit` : `logit(x)`</span>
-</span><span id="L-725"><a href="#L-725"><span class="linenos">725</span></a><span class="s2">    - `rat.ops.InverseLogit` : `inverse_logit(x)`</span>
-</span><span id="L-726"><a href="#L-726"><span class="linenos">726</span></a>
-</span><span id="L-727"><a href="#L-727"><span class="linenos">727</span></a><span class="s2">&quot;&quot;&quot;</span>
+</span><span id="L-702"><a href="#L-702"><span class="linenos">702</span></a><span class="s2">But we might want to just subscript `home_team` from `team`. That is, we might only want a portion of the subscript. `rat.variables.SubscriptUse` is the object that maps a variable&#39;s subscripts to another variable&#39;s reference subscript(its `rat.variables.Subscript` object). If we just wanted to subscript `home_team` from `team`, it will compare the `home_team` dataframe with `team`&#39;s reference dataframe, and only select the combinations that are necessary.</span>
+</span><span id="L-703"><a href="#L-703"><span class="linenos">703</span></a>
+</span><span id="L-704"><a href="#L-704"><span class="linenos">704</span></a><span class="s2">---</span>
+</span><span id="L-705"><a href="#L-705"><span class="linenos">705</span></a>
+</span><span id="L-706"><a href="#L-706"><span class="linenos">706</span></a><span class="s2">## Language function reference</span>
+</span><span id="L-707"><a href="#L-707"><span class="linenos">707</span></a><span class="s2">Below are individual links to supported math functions and distributions</span>
+</span><span id="L-708"><a href="#L-708"><span class="linenos">708</span></a>
+</span><span id="L-709"><a href="#L-709"><span class="linenos">709</span></a><span class="s2">- **Distributions**</span>
+</span><span id="L-710"><a href="#L-710"><span class="linenos">710</span></a><span class="s2">    - `rat.ops.Normal` : `normal(mu, sigma)`</span>
+</span><span id="L-711"><a href="#L-711"><span class="linenos">711</span></a><span class="s2">    - `rat.ops.BernoulliLogit`, `rat.compiler.bernoulli_logit` : `bernoulli_logit(p)`</span>
+</span><span id="L-712"><a href="#L-712"><span class="linenos">712</span></a><span class="s2">    - `rat.ops.LogNormal`, `rat.compiler.log_normal`  : `log_normal(mu, sigma)`</span>
+</span><span id="L-713"><a href="#L-713"><span class="linenos">713</span></a><span class="s2">    - `rat.ops.Cauchy`  : `cauchy(location, scale)`</span>
+</span><span id="L-714"><a href="#L-714"><span class="linenos">714</span></a><span class="s2">    - `rat.ops.Exponential`  :  `exponential(scale)`</span>
+</span><span id="L-715"><a href="#L-715"><span class="linenos">715</span></a><span class="s2">- **Functions**</span>
+</span><span id="L-716"><a href="#L-716"><span class="linenos">716</span></a><span class="s2">    - `rat.ops.Log`: `log(x)`</span>
+</span><span id="L-717"><a href="#L-717"><span class="linenos">717</span></a><span class="s2">    - `rat.ops.Exp` : `exp(x)`</span>
+</span><span id="L-718"><a href="#L-718"><span class="linenos">718</span></a><span class="s2">    - `rat.ops.Abs` : `abs(x)`</span>
+</span><span id="L-719"><a href="#L-719"><span class="linenos">719</span></a><span class="s2">    - `rat.ops.Floor` : `floor(x)`</span>
+</span><span id="L-720"><a href="#L-720"><span class="linenos">720</span></a><span class="s2">    - `rat.ops.Ceil` : `ceil(x)`</span>
+</span><span id="L-721"><a href="#L-721"><span class="linenos">721</span></a><span class="s2">    - `rat.ops.Round` : `round(x)`</span>
+</span><span id="L-722"><a href="#L-722"><span class="linenos">722</span></a><span class="s2">    - `rat.ops.Sin` : `sin(x)`</span>
+</span><span id="L-723"><a href="#L-723"><span class="linenos">723</span></a><span class="s2">    - `rat.ops.Cos` : `cos(x)`</span>
+</span><span id="L-724"><a href="#L-724"><span class="linenos">724</span></a><span class="s2">    - `rat.ops.Tan` : `tan(x)`</span>
+</span><span id="L-725"><a href="#L-725"><span class="linenos">725</span></a><span class="s2">    - `rat.ops.Arcsin` : `arcsin(x)`</span>
+</span><span id="L-726"><a href="#L-726"><span class="linenos">726</span></a><span class="s2">    - `rat.ops.Arccos` : `arccos(x)`</span>
+</span><span id="L-727"><a href="#L-727"><span class="linenos">727</span></a><span class="s2">    - `rat.ops.Arctan` : `arctan(x)`</span>
+</span><span id="L-728"><a href="#L-728"><span class="linenos">728</span></a><span class="s2">    - `rat.ops.Logit` : `logit(x)`</span>
+</span><span id="L-729"><a href="#L-729"><span class="linenos">729</span></a><span class="s2">    - `rat.ops.InverseLogit` : `inverse_logit(x)`</span>
+</span><span id="L-730"><a href="#L-730"><span class="linenos">730</span></a>
+</span><span id="L-731"><a href="#L-731"><span class="linenos">731</span></a><span class="s2">&quot;&quot;&quot;</span>
 </span></pre></div>
 
 
@@ -1658,7 +1662,11 @@ run models.</p>
                 let heading;
                 switch (result.doc.type) {
                     case "function":
-                        heading = `<span class="def">${doc.funcdef}</span> <span class="name">${doc.fullname}</span><span class="signature">${doc.signature}:</span>`;
+                        if (doc.fullname.endsWith(".__init__")) {
+                            heading = `<span class="name">${doc.fullname.replace(/\.__init__$/, "")}</span>${doc.signature}`;
+                        } else {
+                            heading = `<span class="def">${doc.funcdef}</span> <span class="name">${doc.fullname}</span>${doc.signature}`;
+                        }
                         break;
                     case "class":
                         heading = `<span class="def">class</span> <span class="name">${doc.fullname}</span>`;
