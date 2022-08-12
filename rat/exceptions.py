@@ -10,45 +10,17 @@ def get_range(node: ast.ModelBase):
         Position(node.ast.parseinfo.line, node.ast.parseinfo.endpos, node.ast.parseinfo.tokenizer.text),
     )
 
-
-class TokenizeError(Exception):
-    def __init__(self, message: str, node: ast.ModelBase):
-        range = get_range(node)
-        code_string = range.document.split("\n")[range.start.line]
-        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
-        exception_message = f"An error occured while tokenizing string at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
-        super().__init__(exception_message)
-
-
-class ParseError(Exception):
-    def __init__(self, message, node: ast.ModelBase):
-        range = get_range(node)
-        code_string = range.document.split("\n")[range.start.line]
-        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
-        exception_message = f"An error occured while parsing the expression at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
-        super().__init__(exception_message)
-
-
-class CompileError(Exception):
-    def __init__(self, message, node: ast.ModelBase = None):
+class AstException(Exception):
+    def __init__(self, operation_message: str, message: str, node: ast.ModelBase = None):
         if node is None:
-            exception_message = message
+            exception_message = f"An error occurred while {operation_message}\n{message}"
         else:
             range = get_range(node)
             code_string = range.document.split("\n")[range.start.line]
             pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
-            exception_message = f"An error occurred while compiling code at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
+            exception_message = f"An error occured while {operation_message} at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
         super().__init__(exception_message)
+class CompileError(AstException):
+    def __init__(self, message: str, node: ast.ModelBase = None):
+        super().__init__("compiling code", message, node)
 
-
-class CompileWarning(UserWarning):
-    def __init__(self, message, node: ast.ModelBase):
-        range = get_range(node)
-        code_string = range.document.split("\n")[range.start.line]
-        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
-        warning_message = f"Warning generated at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
-        super().__init__(warning_message)
-
-
-class MergeError(Exception):
-    pass

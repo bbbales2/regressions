@@ -12,10 +12,6 @@ class RatWalker(NodeWalker):
         self.walk(node.left)
         self.walk(node.right)
 
-    def walk_Logical(self, node: ast.Logical):
-        self.walk(node.left)
-        self.walk(node.right)
-
     def walk_Binary(self, node: ast.Binary):
         self.walk(node.left)
         self.walk(node.right)

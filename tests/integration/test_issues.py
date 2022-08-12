@@ -15,7 +15,7 @@ def test_ifelse_issue_90():
     with open(os.path.join(issue_data_dir, "90.rat")) as f:
         model_string = f.read()
 
-    Model(data_df, model_string)
+    Model(model_string, data_df)
 
 
 # https://github.com/bbbales2/regressions/issues/88
@@ -30,8 +30,8 @@ def test_distribution_lhs_expression_issue_88():
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    model = Model(data_df, model_string)
-    fit = model.optimize()
+    model = Model(model_string, data_df)
+    fit = rat.optimize(model)
 
     mu_df = fit.draws("mu")
     tau_df = fit.draws("tau")
@@ -49,4 +49,4 @@ def test_primed_variable_does_not_exist_issue_89():
     """
 
     with pytest.raises(Exception, match="Subscript group not found in dataframe of primary variable made"):
-        model = Model(data_df, model_string=model_string)
+        model = Model(model_string=model_string, data=data_df)

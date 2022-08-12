@@ -23,11 +23,11 @@ def test_model_compile_path():
 
     with tempfile.TemporaryDirectory(prefix="rat.") as working_dir:
         model_path = os.path.join(working_dir, "model_path.py")
-        model = Model(data_df, model_string=model_string)
+        model = Model(model_string=model_string, data=data_df)
 
         assert not os.path.exists(model_path)
 
-        model = Model(data_df, model_string=model_string, compile_path=model_path)
+        model = Model(model_string=model_string, data=data_df)
 
         assert os.path.exists(model_path)
 

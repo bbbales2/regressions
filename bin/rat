@@ -105,7 +105,7 @@ with open(model_filename) as f:
     model_string = f.read().strip()
 
 print("Compiling model")
-model = Model(data, model_string=model_string, compile_path=compile_path, overwrite=overwrite)
+model = Model(model_string=model_string, data=data)
 
 if method == "optimize":
     print("Running optimization")

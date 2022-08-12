@@ -25,9 +25,9 @@ def test_multiple_dataframes_eight_schools_optimize():
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    eight_schools_model = Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
+    eight_schools_model = Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
-    optimization_fit = eight_schools_model.optimize(init=0.1)
+    optimization_fit = eight_schools_rat.optimize(model, init=0.1)
 
     mu_df = optimization_fit.draws("mu")
     theta_df = optimization_fit.draws("theta")
@@ -68,9 +68,9 @@ def test_multiple_dataframes_eight_schools_optimize_2():
     tau2<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    eight_schools_model = Model({"data1": data1_df, "data2": data2_df}, model_string=model_string)
+    eight_schools_model = Model(model_string=model_string, data={"data1": data1_df, "data2": data2_df})
 
-    optimization_fit = eight_schools_model.optimize(init=0.1)
+    optimization_fit = eight_schools_rat.optimize(model, init=0.1)
 
     ref_theta = [
         4.63356000,
@@ -115,14 +115,14 @@ def test_multiple_dataframes_eight_schools_error_to_many_to_few_rows():
     """
 
     with pytest.raises(Exception, match="Multiple rows matching school = 1"):
-        Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
+        Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
     sigma_data_df = data_df[["school", "sigma"]].iloc[
         :1,
     ]
 
     with pytest.raises(Exception, match="not found in data tracer"):
-        Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
+        Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
 
 def test_multiple_dataframes_eight_schools_subscript_errors():
@@ -140,7 +140,7 @@ def test_multiple_dataframes_eight_schools_subscript_errors():
     """
 
     with pytest.raises(Exception, match="subscript y not found"):
-        Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
+        Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
     model_string = """
     y' ~ normal(theta[school], sigma[school, rabbit]);
@@ -151,4 +151,4 @@ def test_multiple_dataframes_eight_schools_subscript_errors():
     """
 
     with pytest.raises(Exception, match="subscript rabbit not found"):
-        Model({"y_data": y_data_df, "sigma_data": sigma_data_df}, model_string=model_string)
+        Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})

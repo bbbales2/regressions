@@ -25,7 +25,10 @@ class ModelBase(Node):
 
 class RatModelBuilderSemantics(ModelBuilderSemantics):
     def __init__(self, context=None, types=None):
-        types = [t for t in globals().values() if type(t) is type and issubclass(t, ModelBase)] + (types or [])
+        types = [
+            t for t in globals().values()
+            if type(t) is type and issubclass(t, ModelBase)
+        ] + (types or [])
         super().__init__(context=context, types=types)
 
 
@@ -36,13 +39,6 @@ class Program(ModelBase):
 
 @dataclass(eq=False)
 class Statement(ModelBase):
-    left: Any = None
-    op: Any = None
-    right: Any = None
-
-
-@dataclass(eq=False)
-class Logical(ModelBase):
     left: Any = None
     op: Any = None
     right: Any = None

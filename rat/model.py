@@ -1,80 +1,258 @@
-from concurrent.futures import ThreadPoolExecutor
-import functools
-import importlib.util
+from dataclasses import dataclass, field
+from functools import partial
 import jax
 import jax.experimental.host_callback
 import numpy
-import os
 import pandas
-import scipy.optimize
-import tempfile
-import types
-from typing import Callable, Dict, Union
+from typing import Dict, Union, List, Any
 from tatsu.model import ModelBuilderSemantics
+from tatsu.walkers import NodeWalker
 
-from rat import subscript_table
-
-from .compiler2 import RatCompiler, compile_for_jax
+from .compiler import RatCompiler
+from .exceptions import AstException
 from .parser import RatParser
+from .subscript_table import SubscriptTable
 from .variable_table import VariableTable, VariableType
-from . import fit
-from . import nuts
+from . import ast
+from . import compiler
+from . import constraints
+from . import math
+from . import walker
+
+
+class ExecuteException(AstException):
+    def __init__(self, message: str, node: ast.ModelBase):
+        super().__init__("evaluating log density", message, node)
+
+
+class CodeExecutor(NodeWalker):
+    arguments: Dict[ast.Variable, Any]
+    parameters: Dict[str, Any]
+    left_side_of_sampling: Union[None, ast.ModelBase]
+
+    def __init__(self, arguments: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None):
+        self.arguments = arguments
+        self.parameters = parameters
+        self.left_side_of_sampling = None
+        super().__init__()
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "~":
+            self.left_side_of_sampling = node.left
+            return_value = self.walk(node.right)
+            self.left_side_of_sampling = None
+            return return_value
+        else:
+            raise ExecuteException(f"{node.op} operator not supported in BaseCodeGenerator", node)
+
+    def walk_Binary(self, node: ast.Binary):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        return eval(f"left {node.op} right")
+
+    def walk_IfElse(self, node: ast.IfElse):
+        predicate = self.arguments[node.predicate]
+        return jax.lax.cond(predicate, lambda: self.walk(node.left), lambda: self.walk(node.right))
+
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        argument_list = []
+
+        if self.left_side_of_sampling:
+            argument_list += [self.walk(self.left_side_of_sampling)]
+
+        if node.arglist:
+            argument_list += [self.walk(arg) for arg in node.arglist]
+
+        return getattr(math, node.name)(*argument_list)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node in self.arguments:
+            if node.name in self.parameters:
+                trace = self.arguments[node]
+                return self.parameters[node.name][trace]
+            else:
+                return self.arguments[node]
+        else:
+            return self.parameters[node.name]
+
+    def walk_Literal(self, node: ast.Literal):
+        return node.value
+
+
+@dataclass
+class TransformedParametersFunctionGenerator(walker.RatWalker):
+    variable_table: VariableTable
+    subscript_table: SubscriptTable
+    parameters: Dict[str, Any]
+    traced_nodes: List[ast.Variable] = field(default_factory=list)
+
+    def walk_Program(self, node: ast.Program):
+        # TODO -- there is some order required here!
+        for statement in node.statements:
+            self.walk(statement)
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op != "=":
+            return
+
+        primary_node = compiler.get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+
+        if node.left.name != primary_name:
+            msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
+            raise AstException("computing transformed parameters", msg, node)
+
+        self.traced_nodes = []
+
+        self.walk(node.left)
+        self.walk(node.right)
+
+        arguments = tuple(self.subscript_table[traced_node].array for traced_node in self.traced_nodes)
+
+        def mapper(*mapper_arguments):
+            executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
+            return executor.walk(node.right)
+
+        # We can't be overwriting parameters
+        assert primary_name not in self.parameters
+
+        if primary_variable.argument_count > 0:
+            self.parameters[primary_name] = jax.vmap(mapper)(*arguments)
+        else:
+            self.parameters[primary_name] = mapper(*arguments)
+
+    def walk_Variable(self, node: ast.Variable):
+        node_variable = self.variable_table[node.name]
+        if node_variable.argument_count > 0:
+            if node in self.subscript_table:
+                self.traced_nodes.append(node)
+
+
+@dataclass
+class EvaluateDensityWalker(walker.RatWalker):
+    variable_table: VariableTable
+    subscript_table: SubscriptTable
+    parameters: Dict[str, Any]
+    traced_nodes: List[ast.Variable] = field(default_factory=list)
+
+    def walk_Program(self, node: ast.Program):
+        target = 0.0
+        for statement in node.statements:
+            target += self.walk(statement)
+        return target
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op != "~":
+            return 0.0
+
+        primary_node = compiler.get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+
+        self.traced_nodes = []
+
+        self.walk(node.left)
+        self.walk(node.right)
+
+        arguments = tuple(self.subscript_table[traced_node].array for traced_node in self.traced_nodes)
+
+        def mapper(*mapper_arguments):
+            executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
+            return executor.walk(node)
+
+        if primary_variable.argument_count > 0:
+            return jax.numpy.sum(jax.vmap(mapper)(*arguments))
+        else:
+            return mapper(*arguments)
+
+    def walk_Variable(self, node: ast.Variable):
+        node_variable = self.variable_table[node.name]
+        if node_variable.argument_count > 0:
+            if node in self.subscript_table:
+                self.traced_nodes.append(node)
 
 
 class Model:
-    log_density_jax: Callable[[numpy.array], float]
-    log_density_jax_no_jac: Callable[[numpy.array], float]
-    size: int
     base_df_dict: Dict[str, pandas.DataFrame]
-    device_data: Dict[str, jax.numpy.array]
-    device_subscript_indices: Dict[str, jax.numpy.array]
-    device_first_in_group_indicators: Dict[str, jax.numpy.array]
-    compiled_model: types.ModuleType
+    program: ast.Program
+    variable_table: VariableTable
+    subscript_table: SubscriptTable
 
-    def _constrain_and_transform_parameters2(self, unconstrained_parameter_vector, pad=True):
-        jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
-        return jacobian_adjustment, self.compiled_model.transform_parameters(
-            self.device_data, self.device_subscript_indices, self.device_first_in_group_indicators, parameters
-        )
+    @property
+    def size(self):
+        return self.variable_table.unconstrained_parameter_size
 
-    def _log_density2(self, include_jacobian, unconstrained_parameter_vector):
-        # Evaluate model log density given model, data, subscripts and unconstrained parameters
-        jacobian_adjustment, parameters = self._constrain_and_transform_parameters(unconstrained_parameter_vector, pad=True)
-        target = self.compiled_model.evaluate_densities(self.device_data, self.device_subscript_indices, parameters)
-        return target + (jacobian_adjustment if include_jacobian else 0.0)
-    
+    @partial(jax.jit, static_argnums=(0,))
+    def constrain(self, unconstrained_parameter_vector: numpy.ndarray):
+        parameters = {}
+        jacobian_adjustments = 0.0
+
+        for name in self.variable_table:
+            record = self.variable_table[name]
+
+            if record.variable_type != VariableType.PARAM:
+                continue
+
+            # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
+            if len(record.subscripts) > 0:
+                unconstrained = unconstrained_parameter_vector[
+                                record.unconstrained_vector_start_index: record.unconstrained_vector_end_index + 1]
+            else:
+                unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index]
+
+            if record.constraint_lower > float("-inf") or record.constraint_upper < float("inf"):
+                if record.constraint_lower > float("-inf") and record.constraint_upper == float("inf"):
+                    constrained, jacobian_adjustment = constraints.lower(unconstrained, record.constraint_lower)
+                elif record.constraint_lower == float("inf") and record.constraint_upper < float("inf"):
+                    constrained, jacobian_adjustment = constraints.upper(unconstrained, record.constraint_upper)
+                else:  # if record.constraint_lower > float("-inf") and record.constraint_upper < float("inf"):
+                    constrained, jacobian_adjustment = constraints.finite(unconstrained, record.constraint_lower,
+                                                                          record.constraint_upper)
+
+                jacobian_adjustments += jax.numpy.sum(jacobian_adjustment)
+            else:
+                constrained = unconstrained
+
+            parameters[name] = constrained
+
+        return jacobian_adjustments, parameters
+
+    @partial(jax.jit, static_argnums=(0,))
+    def constrain_and_transform(self, unconstrained_parameter_vector: numpy.ndarray):
+        jacobian, parameters = self.constrain(unconstrained_parameter_vector)
+
+        transform = TransformedParametersFunctionGenerator(self.variable_table, self.subscript_table, parameters)
+        transform.walk(self.program)
+
+        return jacobian, parameters
+
+    @partial(jax.jit, static_argnums=(0, 2))
+    def log_density(self, unconstrained_parameter_vector: numpy.ndarray, include_jacobian: bool = True):
+        jacobian, parameters = self.constrain(unconstrained_parameter_vector)
+
+        # Modify parameters in place
+        transform = TransformedParametersFunctionGenerator(self.variable_table, self.subscript_table, parameters)
+        transform.walk(self.program)
+
+        likelihood = EvaluateDensityWalker(self.variable_table, self.subscript_table, parameters)
+        target = likelihood.walk(self.program)
+
+        return target + (jacobian if include_jacobian else 0.0)
+
+    def log_density_no_jac(self, unconstrained_parameter_vector: numpy.ndarray):
+        return self.log_density(unconstrained_parameter_vector, False)
+
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
-        # unconstrained_draws = numpy.array(device_unconstrained_draws)
-        # num_draws = unconstrained_draws.shape[0]
-        # num_chains = unconstrained_draws.shape[1]
-        # constrained_draws = {}
-
-        constrain_and_transform_jax = jax.jit(jax.vmap(jax.vmap(lambda x: self._constrain_and_transform_parameters(x))))
+        constrain_and_transform_jax = jax.jit(jax.vmap(jax.vmap(lambda x: self.constrain_and_transform(x))))
 
         _, constrained_draws = constrain_and_transform_jax(device_unconstrained_draws)
-
-        # for draw in range(num_draws):
-        #     for chain in range(num_chains):
-        #         jacobian_adjustment, device_constrained_variables = constrain_and_transform_parameters_no_pad_jax(
-        #             unconstrained_draws[draw, chain]
-        #         )
-
-        #         for name, device_constrained_variable in device_constrained_variables.items():
-        #             if name not in constrained_draws:
-        #                 constrained_draws[name] = numpy.zeros((num_draws, num_chains) + device_constrained_variable.shape)
-        #             constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
 
         # # Copy back to numpy arrays
         return {name: numpy.array(draws) for name, draws in constrained_draws.items()}, self.base_df_dict
 
-    def __init__(
-        self,
-        data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
-        model_string: str,
-        max_trace_iterations: int = 50,
-        compile_path: str = None,
-        overwrite: bool = False,
-    ):
+    def __init__(self, model_string: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
+                 max_trace_iterations: int = 50):
         """
         Create a model from some data (`data`) and a model (specified as a string, `model_string`).
 
@@ -87,155 +265,29 @@ class Model:
         max_trace_iterations determines how many tracing iterations the program will do to resolve
         parameter domains
         """
-        match data:
-            case pandas.DataFrame():
-                data_names = data.columns
-            case dict():
-                data_names = set()
-                for key, value in data.items():
-                    if not isinstance(key, str):
-                        raise Exception(f"Keys of dictionary form of data must be of type `str`, found {type(key)}")
-
-                    match value:
-                        case pandas.DataFrame():
-                            for column in value.columns:
-                                data_names.add(column)
-                        case _:
-                            raise Exception(f"Values of dictionary form of data must be pandas DataFrames, found {type(value)}")
-            case _:
-                raise Exception("Data must be a pandas DataFrame or a dictionary")
 
         # Parse the model to get AST
         semantics = ModelBuilderSemantics()
         parser = RatParser(semantics=semantics)
         # TODO: This lambda is just here to make sure pylance formatting works -- should work
         # without it as well
-        program_ast = (lambda: parser.parse(model_string))()
+        self.program = (lambda: parser.parse(model_string))()
 
         # Compile the model
-        compiler = RatCompiler(data, program_ast, model_string, max_trace_iterations=max_trace_iterations)
-        variable_table, subscript_table = compiler.compile()
-
-        constrain_function, density_function = compile_for_jax(program_ast, variable_table, subscript_table)
-
-        self._constrain_and_transform_parameters = constrain_function
-        self._log_density = density_function
+        rat_compiler = RatCompiler(data, self.program, model_string, max_trace_iterations=max_trace_iterations)
+        self.variable_table, self.subscript_table = rat_compiler.compile()
 
         self.base_df_dict = {}
 
-        for variable_name in variable_table:
-            record = variable_table[variable_name]
+        for variable_name in self.variable_table:
+            record = self.variable_table[variable_name]
             # The base_dfs are used for putting together the output
             if record.variable_type != VariableType.DATA:
                 rows = list(record.itertuples())
                 self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns=record.subscripts)
 
-        self.log_density_jax = jax.jit(functools.partial(self._log_density, True))
-        self.log_density_jax_no_jac = jax.jit(functools.partial(self._log_density, False))
-        self.size = variable_table.unconstrained_parameter_size
-
-    def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
-        """
-        Maximize the log density. `chains` difference optimizations are initialized.
-
-        An error is thrown if the different solutions are not all within tolerance of the
-        median solution for each parameter. If only one chain is used, the tolerance is
-        ignored.
-
-        If any optimization fails, retry up to `retries` number of times.
-
-        Initialize parameters in unconstrained space uniformly [-2, 2].
-        """
-
-        def negative_log_density(x):
-            return -self.log_density_jax_no_jac(x.astype(numpy.float32))
-
-        grad = jax.jit(jax.grad(negative_log_density))
-
-        def grad_double(x):
-            grad_device_array = grad(x)
-            return numpy.array(grad_device_array).astype(numpy.float64)
-
-        unconstrained_draws = numpy.zeros((1, chains, self.size))
-        for chain in range(chains):
-            for retry in range(retries):
-                params = 2 * init * numpy.random.uniform(size=self.size) - init
-
-                solution = scipy.optimize.minimize(negative_log_density, params, jac=grad_double, method="L-BFGS-B", tol=1e-9)
-
-                if solution.success:
-                    unconstrained_draws[0, chain] = solution.x
-                    break
-            else:
-                raise Exception(f"Optimization failed on chain {chain} with message: {solution.message}")
-
-        constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
-        return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
-
-    def sample(self, num_draws=200, num_warmup=1000, chains=4, init=2, thin=1, target_acceptance_rate=0.85):
-        """
-        Sample the target log density using NUTS.
-
-        Sample using `chains` different chains with parameters initialized in unconstrained
-        space [-2, 2]. Use `num_warmup` draws to warmup and collect `num_draws` draws in each
-        chain after warmup.
-
-        If `thin` is greater than 1, then compute internally `num_draws * thin` draws and
-        output only every `thin` draws (so the output is size `num_draws`).
-
-        `target_acceptance_rate` is the target acceptance rate for adaptation. Should be less
-        than one and greater than zero.
-        """
-        # Currently only doing warmup on one chain
-        initial_position = 2 * init * numpy.random.uniform(size=(self.size)) - init
-
-        assert target_acceptance_rate < 1.0 and target_acceptance_rate > 0.0
-        assert num_warmup > 200
-
-        def negative_log_density(q):
-            return -self.log_density_jax(q)
-
-        potential = nuts.Potential(negative_log_density, chains, self.size)
-        rng = numpy.random.default_rng()
-
-        # Ordered as (draws, chains, param)
-        unconstrained_draws = numpy.zeros((num_draws, chains, self.size))
-        leapfrog_steps = numpy.zeros((num_draws, chains), dtype=int)
-        divergences = numpy.zeros((num_draws, chains), dtype=bool)
-
-        def generate_draws():
-            stage_1_size = 100
-            stage_3_size = 50
-            stage_2_size = num_warmup - stage_1_size - stage_3_size
-
-            initial_draw, stepsize, diagonal_inverse_metric = nuts.warmup(
-                potential,
-                rng,
-                initial_position,
-                target_accept_stat=target_acceptance_rate,
-                stage_1_size=stage_1_size,
-                stage_2_size=stage_2_size,
-                stage_3_size=stage_3_size,
-            )
-
-            return nuts.sample(potential, rng, initial_draw, stepsize, diagonal_inverse_metric, num_draws, thin)
-
-        with ThreadPoolExecutor(max_workers=chains) as e:
-            results = []
-            for chain in range(chains):
-                results.append(e.submit(generate_draws))
-
-            for chain, result in enumerate(results):
-                unconstrained_draws[:, chain, :], leapfrog_steps[:, chain], divergences[:, chain] = result.result()
-
-        constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
-        computational_diagnostic_variables = {"__leapfrog_steps": leapfrog_steps, "__divergences": divergences}
-
-        for name, values in computational_diagnostic_variables.items():
-            if name in constrained_draws:
-                print(f"{name} already exists in sampler output, not writing diagnostic variable")
-            else:
-                constrained_draws[name] = values
-                base_dfs[name] = pandas.DataFrame()
-
-        return fit.SampleFit._from_constrained_variables(constrained_draws, base_dfs, computational_diagnostic_variables.keys())
+    @staticmethod
+    def from_file(filename: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
+                  max_trace_iterations: int = 50, ):
+        with open(filename) as f:
+            return Model(f.read(), data, max_trace_iterations)

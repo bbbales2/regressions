@@ -5,9 +5,7 @@ import pathlib
 import pandas
 import pytest
 
-from rat import ast
-from rat.model import Model
-from pathlib import Path
+import rat
 
 test_dir = pathlib.Path(__file__).parent
 
@@ -20,8 +18,8 @@ def test_sample_normal_mu():
     mu ~ normal(-0.5, 0.3);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.sample(num_draws=1000)
+    model = rat.Model(model_string=model_string, data=data_df)
+    fit = rat.sample(model, num_draws=1000)
     mu_df = fit.draws("mu")
     leapfrog_steps_df = fit.draws("__leapfrog_steps")
     divergences_df = fit.draws("__divergences")
@@ -43,8 +41,8 @@ def test_sample_normal_mu_thin():
     chains = 4
     thin = 4
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.sample(num_draws=num_draws, chains=chains, thin=thin)
+    model = rat.Model(model_string=model_string, data=data_df)
+    fit = rat.sample(model, num_draws=num_draws, chains=chains, thin=thin)
     mu_df = fit.draws("mu")
 
     assert len(mu_df) == num_draws * chains
@@ -59,8 +57,8 @@ def test_sample_acceptance_rate():
     mu ~ normal(-0.5, 0.3);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.sample(num_draws=1000, target_acceptance_rate=0.99)
+    model = rat.Model(model_string=model_string, data=data_df)
+    fit = rat.sample(model, num_draws=1000, target_acceptance_rate=0.99)
     mu_df = fit.draws("mu")
 
     assert mu_df["mu"].mean() == pytest.approx(-1.11, rel=1e-2)
@@ -81,8 +79,8 @@ def test_full():
     sigma<lower = 0.0> ~ normal(0.0, 1.0);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.sample(num_draws=20, num_warmup=201)
+    model = rat.Model(model_string=model_string, data=data_df)
+    fit = rat.sample(model, num_draws=20, num_warmup=201)
 
     tau_df = fit.draws("tau")
     skills_df = fit.draws("skills")

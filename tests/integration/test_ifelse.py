@@ -18,8 +18,8 @@ def test_ifelse_basic():
     mu[school] ~ normal(ifelse(school' <= 4, 0.0, 1.0), 0.1);
     """
 
-    model = Model(data_df, model_string)
-    fit = model.optimize()
+    model = Model(model_string, data_df)
+    fit = rat.optimize(model)
 
     mu_df = fit.draws("mu")
 
@@ -45,8 +45,8 @@ def test_ifelse_recursive():
     );
     """
 
-    model = Model(data_df, model_string)
-    fit = model.optimize()
+    model = Model(model_string, data_df)
+    fit = rat.optimize(model)
 
     mu_df = fit.draws("mu")
 
@@ -70,8 +70,8 @@ def test_ifelse_recursive_assignment():
     epsilon[school] ~ normal(0.0, 0.1);
     """
 
-    model = Model(data_df, model_string)
-    fit = model.optimize()
+    model = Model(model_string, data_df)
+    fit = rat.optimize(model)
 
     mu_df = fit.draws("mu")
 
@@ -95,8 +95,8 @@ def test_ifelse_recursive_assignment2():
         epsilon[group] ~ normal(0.0, 0.1);
         """
 
-    model = Model(data_df, model_string)
-    fit = model.optimize()
+    model = Model(model_string, data_df)
+    fit = rat.optimize(model)
 
     mu_df = fit.draws("mu")
     for row in mu_df.itertuples():

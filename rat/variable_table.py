@@ -1,13 +1,13 @@
 from collections import namedtuple
 from dataclasses import dataclass, field
 from enum import Enum
-from sortedcontainers import SortedDict, SortedSet
+from typing import Any, Dict, List, Tuple, Iterable, Union, TypeVar, Generic, NamedTuple
+
 import numpy
 import pandas
-import pprint
-from typing import Any, Dict, Set, Tuple, Iterable, Union, TypeVar, Generic, NamedTuple
+from sortedcontainers import SortedDict, SortedSet
 
-from .exceptions import CompileError, MergeError
+from .exceptions import CompileError
 
 
 class VariableType(Enum):
@@ -40,6 +40,8 @@ class Tracer:
         else:
             raise Exception("Argument length called before argument length known")
 
+    # We can probably retire these calls in refactor.
+    #  See https://github.com/bbbales2/regressions/pull/95#discussion_r941755946
     def __call__(self, *args):
         self.validate_argument_types(args)
         self.args_set.add(args)
@@ -123,7 +125,7 @@ class VariableRecord:
     variable_type: Variable type
     base_df: The current base dataframe
 
-    subscript_rename: If the variable is renamed, save the rename here (otherwise None)
+    subscript_rename: If the variable is renamed, save the new names here (otherwise None)
 
     constraint_lower: Value of the lower constraint
     constraint_upper: Value of the upper constraint
@@ -162,7 +164,7 @@ class VariableRecord:
         else:
             return tuple(f"arg{n}" for n in range(self.argument_count))
 
-    def rename(self, subscript_names: Tuple[str]):
+    def rename(self, subscript_names: List[str]):
         """
         Set subscript names.
 
@@ -182,7 +184,7 @@ class VariableRecord:
         self._subscripts = subscript_names
         self.renamed = True
 
-    def suggest_names(self, subscript_names: Tuple[str]):
+    def suggest_names(self, subscript_names: List[str]):
         if not self.renamed:
             if self._subscripts is not None:
                 if len(self._subscripts) != len(subscript_names):
@@ -191,7 +193,7 @@ class VariableRecord:
                     raise AttributeError("Internal compiler error: If variable isn't renamed, then all uses must match")
             self._subscripts = subscript_names
 
-    def bind(self, data_subscripts: Tuple[str], data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
+    def bind(self, data_subscripts: List[str], data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
         """
         Bind function to data
         """
@@ -241,7 +243,8 @@ class VariableRecord:
             if arguments in self.tracer:
                 existing_value = self.tracer(*arguments)
                 if existing_value != return_value:
-                    arguments_string = ",".join(f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments))
+                    arguments_string = ",".join(
+                        f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments))
                     raise Exception(
                         f"Error binding {self.name} to dataframe {data_name}. Multiple rows matching"
                         f" {arguments_string} with different values ({existing_value}, {return_value})"
@@ -368,7 +371,7 @@ class VariableTable:
         self.generated_subscript_dict = {}
         self.first_in_group_indicator = {}
 
-    def tracers(self) -> Iterable[Tracer]:
+    def tracers(self) -> Dict[str, Tracer]:
         return {name: variable.tracer for name, variable in self.variable_dict.items()}
 
     def insert(self, variable_name: str, argument_count: int = 0, variable_type: VariableType = None):
@@ -408,12 +411,12 @@ class VariableTable:
             # Allocate space on unconstrained parameter vector for parameters
             if record.variable_type == VariableType.PARAM:
                 if len(record.subscripts) > 0:
-                    nrows = len(record.tracer)
+                    rows = len(record.tracer)
                 else:
-                    nrows = 1
+                    rows = 1
 
                 record.unconstrained_vector_start_index = current_index
-                record.unconstrained_vector_end_index = current_index + nrows - 1
-                current_index += nrows
+                record.unconstrained_vector_end_index = current_index + rows - 1
+                current_index += rows
 
         self.unconstrained_parameter_size = current_index

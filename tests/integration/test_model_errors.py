@@ -16,7 +16,7 @@ def test_optimize_unknown_subscript():
     model_string = "y' ~ normal(theta[rabbit], sigma);"
 
     with pytest.raises(Exception, match="Subscript rabbit not found in dataframe"):
-        model = Model(data_df, model_string)
+        model = Model(model_string, data_df)
 
 
 def test_lines_in_wrong_order_for_primes():
@@ -28,7 +28,7 @@ def test_lines_in_wrong_order_for_primes():
     """
 
     with pytest.raises(Exception, match="The primed uses must come last"):
-        model = Model(data_df, model_string=model_string)
+        model = Model(model_string=model_string, data=data_df)
 
 
 def test_lines_in_wrong_order_for_assignments():
@@ -42,7 +42,7 @@ def test_lines_in_wrong_order_for_assignments():
     """
 
     with pytest.raises(Exception, match="A variable cannot be used after it is assigned"):
-        model = Model(data_df, model_string=model_string)
+        model = Model(model_string=model_string, data=data_df)
 
 
 if __name__ == "__main__":

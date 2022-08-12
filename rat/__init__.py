@@ -652,6 +652,10 @@ Type `rat -h` for full usage info.
 
 __all__ = ["model", "fit"]
 
+from .model import Model
+from .optimizer import optimize
+from .sampler import sample
+
 _todo_figure_out_internal_docs = """
 
 ---

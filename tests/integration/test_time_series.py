@@ -20,8 +20,8 @@ def test_optimize_time_series():
     mu[i]' ~ normal(ifelse(i == 1, 0.0, real(mu[shift(i, 1)])), 0.3);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=0.1)
+    model = Model(model_string=model_string, data=data_df)
+    fit = rat.optimize(model, init=0.1)
     mu_df = fit.draws("mu")
 
     mu_ref = [
@@ -49,8 +49,8 @@ def test_optimize_time_series_non_center():
     epsilon[i] ~ normal(0, 0.3);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=0.1)
+    model = Model(model_string=model_string, data=data_df)
+    fit = rat.optimize(model, init=0.1)
     mu_df = fit.draws("mu")
 
     mu_ref = [
@@ -78,8 +78,8 @@ def test_optimize_time_series_2():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=0.1, tolerance=1e-1)
+    model = Model(model_string=model_string, data=data_df)
+    fit = rat.optimize(model, init=0.1, tolerance=1e-1)
     skills_df = fit.draws("skills")
     sigma_df = fit.draws("sigma")
 
@@ -120,8 +120,8 @@ def test_optimize_time_series_2_non_center():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=0.1, chains=1)
+    model = Model(model_string=model_string, data=data_df)
+    fit = rat.optimize(model, init=0.1, chains=1)
     skills_df = fit.draws("skills")
     sigma_df = fit.draws("sigma")
 
@@ -162,8 +162,8 @@ def test_optimize_time_series_2_non_center_infer_tau():
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=0.1, chains=1)
+    model = Model(model_string=model_string, data=data_df)
+    fit = rat.optimize(model, init=0.1, chains=1)
 
 
 def test_optimize_time_series_2_error():
@@ -176,7 +176,7 @@ def test_optimize_time_series_2_error():
     """
 
     with pytest.raises(CompileError, match="The subscripts must be renamed"):
-        model = Model(data_df, model_string=model_string)
+        model = Model(model_string=model_string, data=data_df)
 
 
 if __name__ == "__main__":
