@@ -56,6 +56,7 @@ class ContextStack(Generic[T]):
         finally:
             self.stack.pop()
 
+
 class BaseCodeGenerator(NodeWalker):
     variable_table: VariableTable
     subscript_table: SubscriptTable

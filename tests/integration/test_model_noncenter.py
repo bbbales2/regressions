@@ -5,8 +5,7 @@ import pathlib
 import pandas
 import pytest
 
-from rat import ast
-from rat.model import Model
+import rat
 
 test_dir = pathlib.Path(__file__).parent
 
@@ -23,17 +22,17 @@ def eight_schools_model():
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    return Model(model_string=model_string, data=data_df)
+    return rat.Model(model_string=model_string, data=data_df)
 
 
 @pytest.fixture
 def optimization_fit(eight_schools_model):
-    return eight_schools_rat.optimize(model, init=0.1)
+    return rat.optimize(eight_schools_model, init=0.1)
 
 
 @pytest.fixture
 def sample_fit(eight_schools_model):
-    return eight_schools_rat.sample(model, init=0.1, num_draws=1000, num_warmup=1000)
+    return rat.sample(eight_schools_model, init=0.1, num_draws=1000, num_warmup=1000)
 
 
 def test_optimize_eight_schools(optimization_fit):
