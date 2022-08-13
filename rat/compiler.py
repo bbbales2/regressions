@@ -14,7 +14,6 @@ from .variable_table import Tracer, VariableTable, VariableRecord, VariableType
 from .walker import RatWalker, NodeWalker
 
 
-
 class NameWalker(RatWalker):
     @staticmethod
     def combine(names: List[str]):
@@ -234,8 +233,9 @@ class BindDataToFunctionsWalker(RatWalker):
 
 @dataclass
 class DomainDiscoveryWalker(RatWalker):
-    variable_table : VariableTable
-    def __init__(self, variable_table : VariableTable):
+    variable_table: VariableTable
+
+    def __init__(self, variable_table: VariableTable):
         self.variable_table = variable_table
 
         # Reset all the parameter tracers
@@ -339,6 +339,7 @@ class CheckAssignedVariableWalker(NodeWalker):
         else:
             return node.name
 
+
 # 2. Check that the right hand side of a sampling statement is a
 #   function call
 @dataclass
@@ -352,6 +353,7 @@ class CheckSamplingFunctionWalker(NodeWalker):
 
     def walk_FunctionCall(self, node: ast.FunctionCall):
         return True
+
 
 # 5. Check that the predicate of IfElse statement contains no parameters
 @dataclass
@@ -377,7 +379,8 @@ class IfElsePredicateCheckWalker(RatWalker):
 # 4. Parameters cannot be assigned after they are referenced
 @dataclass
 class CheckTransformedParameterOrder(RatWalker):
-    referenced : Set[str] = field(default_factory=set)
+    referenced: Set[str] = field(default_factory=set)
+
     def walk_Statement(self, node: ast.Statement):
         if node.op == "=":
             node_name = self.walk(node.left)
@@ -387,8 +390,10 @@ class CheckTransformedParameterOrder(RatWalker):
                     raise CompileError(msg, node.left)
 
                 self.referenced.add(node_name)
-    def walk_Variable(self, node:ast.Variable):
+
+    def walk_Variable(self, node: ast.Variable):
         return node.name
+
 
 class RatCompiler:
     data: Union[pandas.DataFrame, Dict]

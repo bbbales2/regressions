@@ -54,6 +54,7 @@ class ContextStack(Generic[T]):
         finally:
             self.stack.pop()
 
+
 class OpportunisticExecutor(NodeWalker):
     """
     Execute as much of the code as possible
