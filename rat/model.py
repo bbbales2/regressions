@@ -172,6 +172,7 @@ class EvaluateDensityWalker(walker.RatWalker):
             if node in self.subscript_table:
                 self.traced_nodes.append(node)
 
+
 @dataclass
 class ConstraintFinder(walker.RatWalker):
     variable_table: VariableTable
@@ -225,8 +226,8 @@ class Model:
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             if len(record.subscripts) > 0:
                 unconstrained = unconstrained_parameter_vector[
-                                record.unconstrained_vector_start_index: record.unconstrained_vector_end_index + 1
-                                ]
+                    record.unconstrained_vector_start_index : record.unconstrained_vector_end_index + 1
+                ]
             else:
                 unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index]
 
@@ -238,8 +239,9 @@ class Model:
                 elif "lower" not in constraints and "upper" in variable_constraints:
                     constrained, jacobian_adjustment = constraints.upper(unconstrained, variable_constraints["upper"])
                 else:  # "lower" in constraints and "upper" in constraints:
-                    constrained, jacobian_adjustment = constraints.finite(unconstrained, variable_constraints["lower"],
-                                                                          variable_constraints["upper"])
+                    constrained, jacobian_adjustment = constraints.finite(
+                        unconstrained, variable_constraints["lower"], variable_constraints["upper"]
+                    )
 
                 jacobian_adjustments += jax.numpy.sum(jacobian_adjustment)
             else:

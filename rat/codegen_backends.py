@@ -64,8 +64,7 @@ class BaseCodeGenerator(NodeWalker):
     extra_subscripts: List[str]
 
     def __init__(
-            self, variable_table: VariableTable = None, subscript_table: SubscriptTable = None,
-            available_as_local: Iterable[str] = None
+        self, variable_table: VariableTable = None, subscript_table: SubscriptTable = None, available_as_local: Iterable[str] = None
     ):
         self.available_as_local = set(available_as_local) if available_as_local else set()
         self.variable_table = variable_table
@@ -114,8 +113,7 @@ class BaseCodeGenerator(NodeWalker):
                     record = self.subscript_table[node]
                     self.extra_subscripts.append(record.name)
                 except KeyError:
-                    raise Exception(
-                        f"Internal compiler error: there should be a trace for every data variable in the ast")
+                    raise Exception(f"Internal compiler error: there should be a trace for every data variable in the ast")
 
                 return record.name
             else:
@@ -136,14 +134,14 @@ class OpportunisticExecutor(NodeWalker):
     """
     Execute as much of the code as possible
     """
+
     tracers: Dict[str, Tracer]
     leaves: Dict[str, Any]
     trace_by_reference: Set[ast.ModelBase]
     left_side_of_sampling: ast.ModelBase
     values: Dict[ast.ModelBase, Union[int, float, str]]
 
-    def __init__(self, tracers: Dict[str, Tracer], leaves: Dict[str, Union[int, float, str]],
-                 trace_by_reference: Set[ast.ModelBase]):
+    def __init__(self, tracers: Dict[str, Tracer], leaves: Dict[str, Union[int, float, str]], trace_by_reference: Set[ast.ModelBase]):
         self.tracers = tracers
         self.leaves = leaves
         self.trace_by_reference = trace_by_reference
@@ -265,8 +263,7 @@ class TraceExecutor(NodeWalker):
     trace_by_reference: Set[ast.Variable]
     first_level_values: Dict[ast.Variable, Any]
 
-    def __init__(self, tracers: Dict[str, Tracer], leaves: Dict[str, Any],
-                 trace_by_reference: Set[ast.Variable] = None):
+    def __init__(self, tracers: Dict[str, Tracer], leaves: Dict[str, Any], trace_by_reference: Set[ast.Variable] = None):
         self.tracers = tracers
         self.leaves = leaves
         self.shunt = ContextStack(True)

@@ -146,27 +146,24 @@ class CreateVariableWalker(RatWalker):
         if self.in_control_flow:
             # Variable nodes without subscripts in control flow must come from primary variable
             if node.arglist:
-                self.variable_table.insert(variable_name=node.name, argument_count=argument_count,
-                                           variable_type=VariableType.DATA)
+                self.variable_table.insert(variable_name=node.name, argument_count=argument_count, variable_type=VariableType.DATA)
         else:
             # Overwrite table entry for assigned parameters
             # (so they don't get turned back into regular parameters)
             if self.left_hand_of_assignment:
                 self.variable_table.insert(
-                    variable_name=node.name, argument_count=argument_count,
-                    variable_type=VariableType.ASSIGNED_PARAM
+                    variable_name=node.name, argument_count=argument_count, variable_type=VariableType.ASSIGNED_PARAM
                 )
             else:
                 if node.name not in self.variable_table:
-                    self.variable_table.insert(
-                        variable_name=node.name, argument_count=argument_count, variable_type=VariableType.PARAM
-                    )
+                    self.variable_table.insert(variable_name=node.name, argument_count=argument_count, variable_type=VariableType.PARAM)
 
         if node.arglist:
             self.in_control_flow = True
             for arg in node.arglist:
                 self.walk(arg)
             self.in_control_flow = False
+
 
 @dataclass
 class RenameWalker(RatWalker):
@@ -183,9 +180,12 @@ class RenameWalker(RatWalker):
             try:
                 primary_variable.rename(primary_subscript_names)
             except AttributeError:
-                msg = f"Attempting to rename subscripts to {primary_subscript_names} but they have already"\
-                      " been renamed to {primary_variable.subscripts}"
+                msg = (
+                    f"Attempting to rename subscripts to {primary_subscript_names} but they have already"
+                    " been renamed to {primary_variable.subscripts}"
+                )
                 raise CompileError(msg, primary_ast_variable)
+
 
 # Do a sweep to infer subscript names for subscripts not renamed
 @dataclass
@@ -203,17 +203,15 @@ class InferSubscriptNameWalker(RatWalker):
                 variable = self.variable_table[node.name]
                 subscript_names = _get_subscript_names(node)
 
-                if (
-                        variable.variable_type != VariableType.DATA
-                        and not variable.renamed
-                        and subscript_names is not None
-                ):
+                if variable.variable_type != VariableType.DATA and not variable.renamed and subscript_names is not None:
                     try:
                         variable.suggest_names(subscript_names)
                     except AttributeError:
-                        msg = f"Attempting to reference subscript of {node.name} as {subscript_names}, but"\
-                              " they have already been referenced as {variable.subscripts}. The subscripts"\
-                              " must be renamed"
+                        msg = (
+                            f"Attempting to reference subscript of {node.name} as {subscript_names}, but"
+                            " they have already been referenced as {variable.subscripts}. The subscripts"
+                            " must be renamed"
+                        )
                         raise CompileError(msg, node)
 
         if node.arglist:
@@ -237,6 +235,7 @@ class BindDataToFunctionsWalker(RatWalker):
 
             for arg in node.arglist:
                 self.walk(arg)
+
 
 @dataclass
 class SubscriptTableWalker(RatWalker):
@@ -273,6 +272,7 @@ class SubscriptTableWalker(RatWalker):
             node_variable = self.variable_table[node.name]
             if node_variable.variable_type != VariableType.DATA:
                 self.trace_by_reference.add(node)
+
 
 class RatCompiler:
     data: Union[pandas.DataFrame, Dict]
@@ -361,8 +361,7 @@ class RatCompiler:
             def walk_Variable(self, node: ast.Variable):
                 if node.constraints is not None:
                     if self.primary_name != node.name:
-                        msg = f"Attempting to set constraints on {node.name} which is not the primary variable"\
-                              f" ({self.primary_name})"
+                        msg = f"Attempting to set constraints on {node.name} which is not the primary variable" f" ({self.primary_name})"
                         raise CompileError(msg, node)
                     else:
                         if node.name in self.found_constraints_for:
