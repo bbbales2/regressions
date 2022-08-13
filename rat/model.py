@@ -172,6 +172,32 @@ class EvaluateDensityWalker(walker.RatWalker):
             if node in self.subscript_table:
                 self.traced_nodes.append(node)
 
+@dataclass
+class ConstraintFinder(walker.RatWalker):
+    variable_table: VariableTable
+    subscript_table: SubscriptTable
+    constraints: Dict[str, Union[float, numpy.ndarray]] = field(default_factory=dict)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.constraints:
+            assert node.name not in self.constraints
+
+            variable = self.variable_table[node.name]
+
+            constraints = {}
+
+            if node.constraints.left:
+                left_name = node.constraints.left.name
+                values = self.subscript_table[node.constraints.left.value].array
+                constraints[left_name] = values if variable.argument_count > 0 else values[0]
+
+            if node.constraints.right:
+                right_name = node.constraints.right.name
+                self.subscript_table[node.constraints.right.value].array
+                constraints[right_name] = values if variable.argument_count > 0 else values[0]
+
+            self.constraints[node.name] = constraints
+
 
 class Model:
     base_df_dict: Dict[str, pandas.DataFrame]
@@ -185,8 +211,10 @@ class Model:
 
     @partial(jax.jit, static_argnums=(0,))
     def constrain(self, unconstrained_parameter_vector: numpy.ndarray):
-        parameters = {}
+        constraint_finder = ConstraintFinder(self.variable_table, self.subscript_table)
+        constraint_finder.walk(self.program)
         jacobian_adjustments = 0.0
+        parameters = {}
 
         for name in self.variable_table:
             record = self.variable_table[name]
@@ -197,18 +225,21 @@ class Model:
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             if len(record.subscripts) > 0:
                 unconstrained = unconstrained_parameter_vector[
-                    record.unconstrained_vector_start_index : record.unconstrained_vector_end_index + 1
-                ]
+                                record.unconstrained_vector_start_index: record.unconstrained_vector_end_index + 1
+                                ]
             else:
                 unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index]
 
-            if record.constraint_lower > float("-inf") or record.constraint_upper < float("inf"):
-                if record.constraint_lower > float("-inf") and record.constraint_upper == float("inf"):
-                    constrained, jacobian_adjustment = constraints.lower(unconstrained, record.constraint_lower)
-                elif record.constraint_lower == float("inf") and record.constraint_upper < float("inf"):
-                    constrained, jacobian_adjustment = constraints.upper(unconstrained, record.constraint_upper)
-                else:  # if record.constraint_lower > float("-inf") and record.constraint_upper < float("inf"):
-                    constrained, jacobian_adjustment = constraints.finite(unconstrained, record.constraint_lower, record.constraint_upper)
+            if name in constraint_finder.constraints:
+                variable_constraints = constraint_finder.constraints[name]
+
+                if "lower" in variable_constraints and "upper" not in variable_constraints:
+                    constrained, jacobian_adjustment = constraints.lower(unconstrained, variable_constraints["lower"])
+                elif "lower" not in constraints and "upper" in variable_constraints:
+                    constrained, jacobian_adjustment = constraints.upper(unconstrained, variable_constraints["upper"])
+                else:  # "lower" in constraints and "upper" in constraints:
+                    constrained, jacobian_adjustment = constraints.finite(unconstrained, variable_constraints["lower"],
+                                                                          variable_constraints["upper"])
 
                 jacobian_adjustments += jax.numpy.sum(jacobian_adjustment)
             else:

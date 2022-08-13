@@ -45,6 +45,7 @@ class Tracer:
     def __call__(self, *args):
         self.validate_argument_types(args)
         self.args_set.add(args)
+        return None
 
     def validate_argument_types(self, args):
         arg_types = tuple(type(arg) for arg in args)
@@ -92,7 +93,7 @@ class ValueTracer(Tracer, Generic[K, V]):
         try:
             return self.values[args]
         except KeyError:
-            raise Exception("Argument {args} not found in data tracer")
+            raise Exception(f"Argument {args} not found in data tracer")
 
     def validate_return_type(self, value):
         value_type = type(value)
