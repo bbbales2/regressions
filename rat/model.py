@@ -306,7 +306,7 @@ class Model:
         self.program = (lambda: parser.parse(model_string))()
 
         # Compile the model
-        rat_compiler = RatCompiler(data, self.program, model_string, max_trace_iterations=max_trace_iterations)
+        rat_compiler = RatCompiler(data, self.program, max_trace_iterations=max_trace_iterations)
         self.variable_table, self.subscript_table = rat_compiler.compile()
 
         self.base_df_dict = {}

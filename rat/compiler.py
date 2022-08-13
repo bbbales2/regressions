@@ -7,29 +7,24 @@ import numpy
 import pandas
 
 from . import ast
-from .codegen_backends import BaseCodeGenerator, OpportunisticExecutor, TraceExecutor
+from .codegen_backends import OpportunisticExecutor, TraceExecutor
 from .exceptions import CompileError
 from .subscript_table import SubscriptTable
 from .variable_table import Tracer, VariableTable, VariableRecord, VariableType
 from .walker import RatWalker, NodeWalker
 
 
-@dataclass
-class StatementInfo:
-    statement: ast.Statement
-    primary: ast.Variable
-
-
-def combine(names: List[str]):
-    return functools.reduce(lambda x, y: x + y, filter(None, names))
-
 
 class NameWalker(RatWalker):
+    @staticmethod
+    def combine(names: List[str]):
+        return functools.reduce(lambda x, y: x + y, filter(None, names))
+
     def walk_Binary(self, node: ast.Binary):
-        return combine([self.walk(node.left), self.walk(node.right)])
+        return self.combine([self.walk(node.left), self.walk(node.right)])
 
     def walk_FunctionCall(self, node: ast.FunctionCall):
-        return combine([self.walk(arg) for arg in node.arglist])
+        return self.combine([self.walk(arg) for arg in node.arglist])
 
     def walk_Variable(self, node: ast.Variable):
         return {node.name}
@@ -238,6 +233,30 @@ class BindDataToFunctionsWalker(RatWalker):
 
 
 @dataclass
+class DomainDiscoveryWalker(RatWalker):
+    variable_table : VariableTable
+    def __init__(self, variable_table : VariableTable):
+        self.variable_table = variable_table
+
+        # Reset all the parameter tracers
+        self.tracers = {}
+        for name in self.variable_table:
+            variable = self.variable_table[name]
+            if not variable.tracer:
+                variable.tracer = Tracer()
+            self.tracers[name] = variable.tracer.copy()
+
+    def walk_Statement(self, node: ast.Statement):
+        # Find the primary variable
+        primary_ast_variable = get_primary_ast_variable(node)
+        primary_variable = self.variable_table[primary_ast_variable.name]
+
+        for row in primary_variable.itertuples():
+            executor = TraceExecutor(self.tracers, row._asdict())
+            executor.walk(node)
+
+
+@dataclass
 class SubscriptTableWalker(RatWalker):
     variable_table: VariableTable
     subscript_table: SubscriptTable = field(default_factory=SubscriptTable)
@@ -274,29 +293,114 @@ class SubscriptTableWalker(RatWalker):
                 self.trace_by_reference.add(node)
 
 
+# Apply constraints to parameters
+@dataclass
+class SingleConstraintCheckWalker(RatWalker):
+    variable_table: VariableTable
+    primary_name: str = None
+    found_constraints_for: Set[str] = field(default_factory=set)
+
+    def walk_Statement(self, node: ast.Statement):
+        self.primary_name = get_primary_ast_variable(node).name
+        self.walk(node.left)
+        self.walk(node.right)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.constraints is not None:
+            if self.primary_name != node.name:
+                msg = f"Attempting to set constraints on {node.name} which is not the primary variable" f" ({self.primary_name})"
+                raise CompileError(msg, node)
+            else:
+                if node.name in self.found_constraints_for:
+                    msg = f"Attempting to set constraints on {node.name} but they have previously been set"
+                    raise CompileError(msg, node)
+                else:
+                    self.found_constraints_for.add(node.name)
+
+
+# 1. If the variable on the left appears also on the right, mark this
+#   statement to be code-generated with a scan and also make sure that
+#   the right hand side is shifted appropriately
+@dataclass
+class CheckAssignedVariableWalker(NodeWalker):
+    variable_table: VariableTable
+    msg: str = f"The left hand side of an assignment must be a non-data variable"
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "=":
+            assigned_name = self.walk(node.left)
+            if not assigned_name:
+                raise CompileError(self.msg, node.left)
+            return assigned_name
+
+    def walk_Variable(self, node: ast.Variable):
+        if self.variable_table[node.name].variable_type == VariableType.DATA:
+            raise CompileError(self.msg, node)
+        else:
+            return node.name
+
+# 2. Check that the right hand side of a sampling statement is a
+#   function call
+@dataclass
+class CheckSamplingFunctionWalker(NodeWalker):
+    variable_table: VariableTable
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "~":
+            if not self.walk(node.right):
+                raise CompileError(self.msg, node.right)
+
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        return True
+
+# 5. Check that the predicate of IfElse statement contains no parameters
+@dataclass
+class IfElsePredicateCheckWalker(RatWalker):
+    variable_table: VariableTable
+    inside_predicate: bool = False
+
+    def walk_IfElse(self, node: ast.IfElse):
+        old_inside_predicate = self.inside_predicate
+        self.inside_predicate = True
+        self.walk(node.predicate)
+        self.inside_predicate = old_inside_predicate
+
+        self.walk(node.left)
+        self.walk(node.right)
+
+    def walk_Variable(self, node: ast.Variable):
+        if self.inside_predicate and self.variable_table[node.name] != VariableType.DATA:
+            msg = f"Non-data variables cannot appear in ifelse conditions"
+            raise CompileError(msg, node)
+
+
+# 4. Parameters cannot be assigned after they are referenced
+@dataclass
+class CheckTransformedParameterOrder(RatWalker):
+    referenced : Set[str] = field(default_factory=set)
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "=":
+            node_name = self.walk(node.left)
+            if node_name is not None:
+                if node_name in self.referenced:
+                    msg = f"Variable {node_name} cannot be assigned after it is used"
+                    raise CompileError(msg, node.left)
+
+                self.referenced.add(node_name)
+    def walk_Variable(self, node:ast.Variable):
+        return node.name
+
 class RatCompiler:
     data: Union[pandas.DataFrame, Dict]
     program: ast.Program
-    model_code_string: str
     max_trace_iterations: int
     variable_table: VariableTable
     subscript_table: SubscriptTable
-    statements: List[StatementInfo]
 
-    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, model_code_string: str, max_trace_iterations: int):
+    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, max_trace_iterations: int):
         self.data = data
         self.program = program
-        self.model_code_string = model_code_string
         self.max_trace_iterations = max_trace_iterations
-        self.statements = []
-
-    def _identify_primary_symbols(self):
-        """
-        Generate a StatementInfo for each statement in the program
-        """
-        for ast_statement in self.program.ast.statements:
-            primary = get_primary_ast_variable(ast_statement)
-            self.statements.append(StatementInfo(statement=ast_statement, primary=primary))
 
     def _build_variable_table(self):
         """
@@ -319,25 +423,11 @@ class RatCompiler:
 
         # Trace the program to determine parameter domains and check data domains
         for _ in range(self.max_trace_iterations):
-            # Reset all the parameter tracers
-            tracers = {}
-            for name in self.variable_table:
-                variable = self.variable_table[name]
-                if not variable.tracer:
-                    variable.tracer = Tracer()
-                tracers[name] = variable.tracer.copy()
-
-            for statement_info in self.statements:
-                # Find the primary variable
-                primary_ast_variable = statement_info.primary
-                primary_variable = self.variable_table[primary_ast_variable.name]
-
-                for row in primary_variable.itertuples():
-                    executor = TraceExecutor(tracers, row._asdict())
-                    executor.walk(statement_info.statement)
+            walker = DomainDiscoveryWalker(self.variable_table)
+            walker.walk(self.program)
 
             found_new_traces = False
-            for variable_name, tracer in tracers.items():
+            for variable_name, tracer in walker.tracers.items():
                 variable = self.variable_table[variable_name]
                 found_new_traces |= variable.ingest_new_trace(tracer)
 
@@ -346,148 +436,31 @@ class RatCompiler:
         else:
             raise CompileError(f"Unable to resolve subscripts after {self.max_trace_iterations} trace iterations")
 
-        # Apply constraints to parameters
-        @dataclass
-        class ConstraintWalker(RatWalker):
-            variable_table: VariableTable
-            primary_name: str = None
-            found_constraints_for: Set[str] = field(default_factory=set)
-
-            def walk_Statement(self, node: ast.Statement):
-                self.primary_name = get_primary_ast_variable(node).name
-                self.walk(node.left)
-                self.walk(node.right)
-
-            def walk_Variable(self, node: ast.Variable):
-                if node.constraints is not None:
-                    if self.primary_name != node.name:
-                        msg = f"Attempting to set constraints on {node.name} which is not the primary variable" f" ({self.primary_name})"
-                        raise CompileError(msg, node)
-                    else:
-                        if node.name in self.found_constraints_for:
-                            msg = f"Attempting to set constraints on {node.name} but they have previously been set"
-                            raise CompileError(msg, node)
-                        else:
-                            self.found_constraints_for.add(node.name)
-
-        walker = ConstraintWalker(self.variable_table)
+        walker = SingleConstraintCheckWalker(self.variable_table)
         walker.walk(self.program)
 
         # Allocate space for the unconstrained to constrained mapping
         self.variable_table.prepare_unconstrained_parameter_mapping()
-
-    def _pre_codegen_checks(self):
-        N_lines = len(self.statements)
-
-        @dataclass
-        class FindAndExplodeWalker(RatWalker):
-            search_name: str
-            error_msg: str
-
-            def walk_Variable(self, node: ast.Variable):
-                if self.search_name == node.name:
-                    raise CompileError(self.error_msg, node)
-
-        for line_index, statement_info in enumerate(self.statements):
-            primary_name = statement_info.primary.name
-            primary_variable = self.variable_table[primary_name]
-            statement = statement_info.statement
-
-            # 1. If the variable on the left appears also on the right, mark this
-            #   statement to be code-generated with a scan and also make sure that
-            #   the right hand side is shifted appropriately
-            @dataclass
-            class CheckAssignedVariableWalker(NodeWalker):
-                variable_table: VariableTable
-                msg: str = f"The left hand side of an assignment must be a non-data variable"
-
-                def walk_Statement(self, node: ast.Statement):
-                    if node.op == "=":
-                        assigned_name = self.walk(node.left)
-                        if not assigned_name:
-                            raise CompileError(self.msg, node.left)
-                        return assigned_name
-
-                def walk_Variable(self, node: ast.Variable):
-                    if self.variable_table[node.name].variable_type == VariableType.DATA:
-                        raise CompileError(self.msg, node)
-                    else:
-                        return node.name
-
-            walker = CheckAssignedVariableWalker(self.variable_table)
-            assigned_name = walker.walk(statement)
-
-            # 2. Check that the right hand side of a sampling statement is a
-            #   function call
-            @dataclass
-            class CheckSamplingFunctionWalker(NodeWalker):
-                variable_table: VariableTable
-
-                def walk_Statement(self, node: ast.Statement):
-                    if node.op == "~":
-                        if not self.walk(node.right):
-                            raise CompileError(self.msg, node.right)
-
-                def walk_FunctionCall(self, node: ast.FunctionCall):
-                    return True
-
-            walker = CheckSamplingFunctionWalker(self.variable_table)
-            walker.walk(statement)
-
-            # 3. Check that all secondary parameter uses precede primary uses (or throw an error)
-            if primary_variable.variable_type != VariableType.DATA:
-                msg = (
-                    f"Primary variable {primary_name} used on line {line_index} but then referenced as a non-prime"
-                    " variable. The primed uses must come last"
-                )
-                walker = FindAndExplodeWalker(primary_name, msg)
-                for j in range(line_index + 1, N_lines):
-                    following_statement_info = self.statements[j]
-                    # Throw an error for any subsequent non-primary uses of the primary variable
-                    if following_statement_info.primary.name != primary_name:
-                        walker.walk(following_statement_info.statement)
-
-            # 4. Parameters cannot be used after they are assigned
-            if statement.op == "=":
-                msg = (
-                    f"Parameter {assigned_name} is assigned on line {line_index} but used after. A variable cannot"
-                    " be used after it is assigned"
-                )
-                walker = FindAndExplodeWalker(assigned_name, msg)
-                for j in range(line_index + 1, N_lines):
-                    walker.walk(self.statements[j].statement)
-
-        # 5. Check that the predicate of IfElse statement contains no parameters
-        @dataclass
-        class IfElsePredicateCheckWalker(RatWalker):
-            variable_table: VariableTable
-            inside_predicate: bool = False
-
-            def walk_IfElse(self, node: ast.IfElse):
-                old_inside_predicate = self.inside_predicate
-                self.inside_predicate = True
-                self.walk(node.predicate)
-                self.inside_predicate = old_inside_predicate
-
-                self.walk(node.left)
-                self.walk(node.right)
-
-            def walk_Variable(self, node: ast.Variable):
-                if self.inside_predicate and self.variable_table[node.name] != VariableType.DATA:
-                    msg = f"Non-data variables cannot appear in ifelse conditions"
-                    raise CompileError(msg, node)
-
-        walker = IfElsePredicateCheckWalker(self.variable_table)
-        walker.walk(self.program)
 
     def _build_subscript_table(self):
         walker = SubscriptTableWalker(self.variable_table)
         walker.walk(self.program)
         self.subscript_table = walker.subscript_table
 
-    def compile(self):
-        self._identify_primary_symbols()
+    def _pre_codegen_checks(self):
+        walker = CheckAssignedVariableWalker(self.variable_table)
+        walker.walk(self.program)
 
+        walker = CheckSamplingFunctionWalker(self.variable_table)
+        walker.walk(self.program)
+
+        walker = CheckTransformedParameterOrder()
+        walker.walk(self.program)
+
+        walker = IfElsePredicateCheckWalker(self.variable_table)
+        walker.walk(self.program)
+
+    def compile(self):
         self._build_variable_table()
 
         self._build_subscript_table()
