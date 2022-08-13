@@ -396,40 +396,29 @@ class CheckTransformedParameterOrder(RatWalker):
 
 
 class RatCompiler:
-    data: Union[pandas.DataFrame, Dict]
-    program: ast.Program
-    max_trace_iterations: int
     variable_table: VariableTable
     subscript_table: SubscriptTable
 
     def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, max_trace_iterations: int):
-        self.data = data
-        self.program = program
-        self.max_trace_iterations = max_trace_iterations
-
-    def _build_variable_table(self):
-        """
-        Builds the variable table, which holds information for all variables in the model.
-        """
-        self.variable_table = VariableTable(self.data)
+        self.variable_table = VariableTable(data)
 
         walker = CreateVariableWalker(self.variable_table)
-        walker.walk(self.program)
+        walker.walk(program)
 
         # Do a sweep to rename the primary variables as necessary
         walker = RenameWalker(self.variable_table)
-        walker.walk(self.program)
+        walker.walk(program)
 
         walker = InferSubscriptNameWalker(self.variable_table)
-        walker.walk(self.program)
+        walker.walk(program)
 
-        bind_data_to_functions_walker = BindDataToFunctionsWalker(self.variable_table, self.data)
-        bind_data_to_functions_walker.walk(self.program)
+        bind_data_to_functions_walker = BindDataToFunctionsWalker(self.variable_table, data)
+        bind_data_to_functions_walker.walk(program)
 
         # Trace the program to determine parameter domains and check data domains
-        for _ in range(self.max_trace_iterations):
+        for _ in range(max_trace_iterations):
             walker = DomainDiscoveryWalker(self.variable_table)
-            walker.walk(self.program)
+            walker.walk(program)
 
             found_new_traces = False
             for variable_name, tracer in walker.tracers.items():
@@ -439,37 +428,26 @@ class RatCompiler:
             if not found_new_traces:
                 break
         else:
-            raise CompileError(f"Unable to resolve subscripts after {self.max_trace_iterations} trace iterations")
+            raise CompileError(f"Unable to resolve subscripts after {max_trace_iterations} trace iterations")
 
         walker = SingleConstraintCheckWalker(self.variable_table)
-        walker.walk(self.program)
+        walker.walk(program)
 
         # Allocate space for the unconstrained to constrained mapping
         self.variable_table.prepare_unconstrained_parameter_mapping()
 
-    def _build_subscript_table(self):
         walker = SubscriptTableWalker(self.variable_table)
-        walker.walk(self.program)
+        walker.walk(program)
         self.subscript_table = walker.subscript_table
 
-    def _pre_codegen_checks(self):
         walker = CheckAssignedVariableWalker(self.variable_table)
-        walker.walk(self.program)
+        walker.walk(program)
 
         walker = CheckSamplingFunctionWalker(self.variable_table)
-        walker.walk(self.program)
+        walker.walk(program)
 
         walker = CheckTransformedParameterOrder()
-        walker.walk(self.program)
+        walker.walk(program)
 
         walker = IfElsePredicateCheckWalker(self.variable_table)
-        walker.walk(self.program)
-
-    def compile(self):
-        self._build_variable_table()
-
-        self._build_subscript_table()
-
-        self._pre_codegen_checks()
-
-        return self.variable_table, self.subscript_table
+        walker.walk(program)
