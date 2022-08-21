@@ -32,8 +32,7 @@ def optimize(model, init=2, chains=4, retries=5, tolerance=1e-2):
         for retry in range(retries):
             params = 2 * init * numpy.random.uniform(size=model.size) - init
 
-            solution = scipy.optimize.minimize(negative_log_density, params, jac=grad_double, method="L-BFGS-B",
-                                               tol=1e-9)
+            solution = scipy.optimize.minimize(negative_log_density, params, jac=grad_double, method="L-BFGS-B", tol=1e-9)
 
             if solution.success:
                 unconstrained_draws[0, chain] = solution.x

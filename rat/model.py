@@ -226,7 +226,7 @@ class Model:
 
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             if len(record.subscripts) > 0:
-                unconstrained = unconstrained_parameter_vector[used: used + len(record)]
+                unconstrained = unconstrained_parameter_vector[used : used + len(record)]
                 used += len(record)
             else:
                 unconstrained = unconstrained_parameter_vector[used]
@@ -285,8 +285,7 @@ class Model:
         # # Copy back to numpy arrays
         return {name: numpy.array(draws) for name, draws in constrained_draws.items()}, self.base_df_dict
 
-    def __init__(self, model_string: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
-                 max_trace_iterations: int = 50):
+    def __init__(self, model_string: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]], max_trace_iterations: int = 50):
         """
         Create a model from some data (`data`) and a model (specified as a string, `model_string`).
 

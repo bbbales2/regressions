@@ -18,10 +18,7 @@ class AstException(Exception):
         else:
             node_range = get_range(node)
             code_string = node_range.document.split("\n")[node_range.start.line]
-            pointer_string = (
-                    " " * max(0, node_range.start.col - 1) +
-                    "^" + "~" * max(0, node_range.end.col - node_range.start.col - 1)
-            )
+            pointer_string = " " * max(0, node_range.start.col - 1) + "^" + "~" * max(0, node_range.end.col - node_range.start.col - 1)
             exception_message = (
                 f"An error occurred while {operation_message} at"
                 f" ({node_range.start.line}:{node_range.start.col}):\n{code_string}\n{pointer_string}\n{message}"

@@ -202,9 +202,7 @@ class ConstantVariableRecord(VariableRecord):
             if arguments in self.values:
                 existing_value = self.values[arguments]
                 if existing_value != return_value:
-                    arguments_string = (
-                        ",".join(f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments))
-                    )
+                    arguments_string = ",".join(f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments))
                     raise Exception(
                         f"Error binding {self.name} to dataframe {data_name}. Multiple rows matching"
                         f" {arguments_string} with different values ({existing_value}, {return_value})"

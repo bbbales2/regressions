@@ -65,8 +65,7 @@ class OpportunisticExecutor(NodeWalker):
     left_side_of_sampling: Union[None, ast.ModelBase]
     values: Dict[ast.ModelBase, Union[int, float, str]]
 
-    def __init__(self, variable_table: VariableTable, leaves: Dict[str, Union[int, float, str]],
-                 trace_by_reference: Set[ast.ModelBase]):
+    def __init__(self, variable_table: VariableTable, leaves: Dict[str, Union[int, float, str]], trace_by_reference: Set[ast.ModelBase]):
         self.variable_table = variable_table
         self.leaves = leaves
         self.trace_by_reference = trace_by_reference

@@ -10,8 +10,7 @@ from . import ast
 from .codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack
 from .exceptions import CompileError
 from .trace_table import TraceTable
-from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, \
-    DynamicVariableRecord
+from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord
 from .walker import RatWalker, NodeWalker
 
 
@@ -72,8 +71,7 @@ def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
                 if self.marked is None:
                     self.marked = node
                 else:
-                    msg = f"Found two marked primary variables {self.marked.name} and {node.name}. There should only"\
-                          "be one"
+                    msg = f"Found two marked primary variables {self.marked.name} and {node.name}. There should only" "be one"
                     raise CompileError(msg, node)
             else:
                 self.candidates.append(node)
@@ -320,8 +318,7 @@ class SingleConstraintCheckWalker(RatWalker):
     def walk_Variable(self, node: ast.Variable):
         if node.constraints is not None:
             if self.primary_name != node.name:
-                msg = f"Attempting to set constraints on {node.name} which is not the primary variable"\
-                      f" ({self.primary_name})"
+                msg = f"Attempting to set constraints on {node.name} which is not the primary variable" f" ({self.primary_name})"
                 raise CompileError(msg, node)
             else:
                 if node.name in self.found_constraints_for:
