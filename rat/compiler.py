@@ -7,10 +7,11 @@ import numpy
 import pandas
 
 from . import ast
-from .codegen_backends import OpportunisticExecutor, TraceExecutor
+from .codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack
 from .exceptions import CompileError
-from .subscript_table import SubscriptTable
-from .variable_table import Tracer, VariableTable, VariableRecord, VariableType
+from .trace_table import TraceTable
+from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, \
+    DynamicVariableRecord
 from .walker import RatWalker, NodeWalker
 
 
@@ -71,7 +72,8 @@ def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
                 if self.marked is None:
                     self.marked = node
                 else:
-                    msg = f"Found two marked primary variables {self.marked.name} and {node.name}. There should only" "be one"
+                    msg = f"Found two marked primary variables {self.marked.name} and {node.name}. There should only"\
+                          "be one"
                     raise CompileError(msg, node)
             else:
                 self.candidates.append(node)
@@ -106,57 +108,90 @@ def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
         raise CompileError(msg, statement)
 
 
-# Add entries to the variable table for all ast variables
+# 1. If the variable on the left appears also on the right, mark this
+#   statement to be code-generated with a scan and also make sure that
+#   the right hand side is shifted appropriately
 @dataclass
-class CreateVariableWalker(RatWalker):
+class CreateAssignedVariablesWalker(RatWalker):
     variable_table: VariableTable
-    in_control_flow: bool = False
-    left_hand_of_assignment: bool = False
 
     def walk_Statement(self, node: ast.Statement):
         if node.op == "=":
-            old_left_hand_of_assignment = self.left_hand_of_assignment
-            self.left_hand_of_assignment = True
-            self.walk(node.left)
-            self.left_hand_of_assignment = old_left_hand_of_assignment
-        else:
+            assigned_name = self.walk(node.left)
+            if not assigned_name:
+                msg = "The left hand side of an assignment must be a variable"
+                raise CompileError(msg, node.left)
+            return assigned_name
+
+    def walk_Variable(self, node: ast.Variable):
+        self.variable_table[node.name] = AssignedVariableRecord(node.name, len(node.arglist) if node.arglist else 0)
+        return True
+
+
+@dataclass
+class CreateVariableWalker(RatWalker):
+    variable_table: VariableTable
+    data: Dict[str, pandas.DataFrame]
+    in_control_flow: ContextStack[bool] = field(default_factory=lambda: ContextStack(False))
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op != "=":
             self.walk(node.left)
         self.walk(node.right)
 
     def walk_IfElse(self, node: ast.IfElse):
-        self.in_control_flow = True
-        self.walk(node.predicate)
-        self.in_control_flow = False
+        with self.in_control_flow.push(True):
+            self.walk(node.predicate)
 
         self.walk(node.left)
         self.walk(node.right)
 
     def walk_Variable(self, node: ast.Variable):
+        unallocated = node.name not in self.variable_table
+        subscript_names = _get_subscript_names(node)
+
         if node.arglist:
             argument_count = len(node.arglist)
         else:
             argument_count = 0
 
-        if self.in_control_flow:
-            # Variable nodes without subscripts in control flow must come from primary variable
-            if node.arglist:
-                self.variable_table.insert(variable_name=node.name, argument_count=argument_count, variable_type=VariableType.DATA)
-        else:
-            # Overwrite table entry for assigned parameters
-            # (so they don't get turned back into regular parameters)
-            if self.left_hand_of_assignment:
-                self.variable_table.insert(
-                    variable_name=node.name, argument_count=argument_count, variable_type=VariableType.ASSIGNED_PARAM
-                )
+        if unallocated:
+            if self.in_control_flow.peek():
+                record = ConstantVariableRecord(node.name, argument_count)
+                try:
+                    record.bind(subscript_names, self.data)
+                except KeyError:
+                    if argument_count > 0:
+                        msg = f"{node.name} is in control flow and must bind to input data but that failed"
+                        raise CompileError(msg, node)
+                    else:
+                        # It's okay if an argument_count == 0 something doesn't bind -- it (hopefully) will be provided by
+                        #  the primary variable instead
+                        return
             else:
-                if node.name not in self.variable_table:
-                    self.variable_table.insert(variable_name=node.name, argument_count=argument_count, variable_type=VariableType.PARAM)
+                record = ConstantVariableRecord(node.name, argument_count)
+                try:
+                    record.bind(subscript_names, self.data)
+                except KeyError:
+                    record = SampledVariableRecord(node.name, argument_count)
+
+            self.variable_table[node.name] = record
+        else:
+            record = self.variable_table[node.name]
+            if isinstance(record, ConstantVariableRecord):
+                try:
+                    record.bind(subscript_names, self.data)
+                except KeyError as e:
+                    if argument_count > 0:
+                        raise CompileError(str(e), node)
+                    else:
+                        # I think it's okay if an argument_count == 0 something doesn't bind here.
+                        return
 
         if node.arglist:
-            self.in_control_flow = True
-            for arg in node.arglist:
-                self.walk(arg)
-            self.in_control_flow = False
+            with self.in_control_flow.push(True):
+                for arg in node.arglist:
+                    self.walk(arg)
 
 
 @dataclass
@@ -170,7 +205,6 @@ class RenameWalker(RatWalker):
         primary_subscript_names = _get_subscript_names(primary_ast_variable)
 
         if primary_subscript_names:
-            # TODO: Make property?
             try:
                 primary_variable.rename(primary_subscript_names)
             except AttributeError:
@@ -197,7 +231,7 @@ class InferSubscriptNameWalker(RatWalker):
                 variable = self.variable_table[node.name]
                 subscript_names = _get_subscript_names(node)
 
-                if variable.variable_type != VariableType.DATA and not variable.renamed and subscript_names is not None:
+                if isinstance(variable, DynamicVariableRecord) and not variable.renamed and subscript_names is not None:
                     try:
                         variable.suggest_names(subscript_names)
                     except AttributeError:
@@ -213,38 +247,18 @@ class InferSubscriptNameWalker(RatWalker):
                 self.walk(arg)
 
 
-# Greedily try to bind variables to data
-@dataclass
-class BindDataToFunctionsWalker(RatWalker):
-    variable_table: VariableTable
-    data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]
-
-    def walk_Variable(self, node: ast.Variable):
-        # Do not bind variables without an argument list
-        if node.arglist:
-            subscript_names = _get_subscript_names(node)
-
-            variable = self.variable_table[node.name]
-            variable.bind(subscript_names, self.data)
-
-            for arg in node.arglist:
-                self.walk(arg)
-
-
-@dataclass
 class DomainDiscoveryWalker(RatWalker):
     variable_table: VariableTable
 
     def __init__(self, variable_table: VariableTable):
+        super().__init__()
+
         self.variable_table = variable_table
 
-        # Reset all the parameter tracers
-        self.tracers = {}
         for name in self.variable_table:
             variable = self.variable_table[name]
-            if not variable.tracer:
-                variable.tracer = Tracer()
-            self.tracers[name] = variable.tracer.copy()
+            if isinstance(variable, DynamicVariableRecord):
+                variable.swap_and_clear_write_buffer()
 
     def walk_Statement(self, node: ast.Statement):
         # Find the primary variable
@@ -252,14 +266,14 @@ class DomainDiscoveryWalker(RatWalker):
         primary_variable = self.variable_table[primary_ast_variable.name]
 
         for row in primary_variable.itertuples():
-            executor = TraceExecutor(self.tracers, row._asdict())
+            executor = TraceExecutor(self.variable_table, row._asdict())
             executor.walk(node)
 
 
 @dataclass
 class SubscriptTableWalker(RatWalker):
     variable_table: VariableTable
-    subscript_table: SubscriptTable = field(default_factory=SubscriptTable)
+    trace_table: TraceTable = field(default_factory=TraceTable)
     trace_by_reference: Set[ast.Variable] = field(default_factory=set)
 
     def walk_Statement(self, node: ast.Statement):
@@ -273,23 +287,21 @@ class SubscriptTableWalker(RatWalker):
         self.walk(node.left)
         self.walk(node.right)
 
-        tracers = self.variable_table.tracers()
-
         traces = defaultdict(lambda: [])
         for row in primary_variable.itertuples():
-            executor = OpportunisticExecutor(tracers, row._asdict(), self.trace_by_reference)
+            executor = OpportunisticExecutor(self.variable_table, row._asdict(), self.trace_by_reference)
             executor.walk(node)
 
             for traced_node, value in executor.values.items():
                 traces[traced_node].append(value)
 
         for traced_node, values in traces.items():
-            self.subscript_table.insert(traced_node, numpy.array(values))
+            self.trace_table.insert(traced_node, numpy.array(values))
 
     def walk_Variable(self, node: ast.Variable):
         if node.name in self.variable_table:
             node_variable = self.variable_table[node.name]
-            if node_variable.variable_type != VariableType.DATA:
+            if isinstance(node_variable, DynamicVariableRecord):
                 self.trace_by_reference.add(node)
 
 
@@ -308,7 +320,8 @@ class SingleConstraintCheckWalker(RatWalker):
     def walk_Variable(self, node: ast.Variable):
         if node.constraints is not None:
             if self.primary_name != node.name:
-                msg = f"Attempting to set constraints on {node.name} which is not the primary variable" f" ({self.primary_name})"
+                msg = f"Attempting to set constraints on {node.name} which is not the primary variable"\
+                      f" ({self.primary_name})"
                 raise CompileError(msg, node)
             else:
                 if node.name in self.found_constraints_for:
@@ -316,28 +329,6 @@ class SingleConstraintCheckWalker(RatWalker):
                     raise CompileError(msg, node)
                 else:
                     self.found_constraints_for.add(node.name)
-
-
-# 1. If the variable on the left appears also on the right, mark this
-#   statement to be code-generated with a scan and also make sure that
-#   the right hand side is shifted appropriately
-@dataclass
-class CheckAssignedVariableWalker(NodeWalker):
-    variable_table: VariableTable
-    msg: str = f"The left hand side of an assignment must be a non-data variable"
-
-    def walk_Statement(self, node: ast.Statement):
-        if node.op == "=":
-            assigned_name = self.walk(node.left)
-            if not assigned_name:
-                raise CompileError(self.msg, node.left)
-            return assigned_name
-
-    def walk_Variable(self, node: ast.Variable):
-        if self.variable_table[node.name].variable_type == VariableType.DATA:
-            raise CompileError(self.msg, node)
-        else:
-            return node.name
 
 
 # 2. Check that the right hand side of a sampling statement is a
@@ -349,7 +340,8 @@ class CheckSamplingFunctionWalker(NodeWalker):
     def walk_Statement(self, node: ast.Statement):
         if node.op == "~":
             if not self.walk(node.right):
-                raise CompileError(self.msg, node.right)
+                msg = "The right hand side of a sampling statement must be a function"
+                raise CompileError(msg, node.right)
 
     def walk_FunctionCall(self, node: ast.FunctionCall):
         return True
@@ -371,8 +363,8 @@ class IfElsePredicateCheckWalker(RatWalker):
         self.walk(node.right)
 
     def walk_Variable(self, node: ast.Variable):
-        if self.inside_predicate and self.variable_table[node.name] != VariableType.DATA:
-            msg = f"Non-data variables cannot appear in ifelse conditions"
+        if self.inside_predicate and isinstance(self.variable_table[node.name], DynamicVariableRecord):
+            msg = f"Non-data variables cannot appear in if-else conditions"
             raise CompileError(msg, node)
 
 
@@ -397,12 +389,15 @@ class CheckTransformedParameterOrder(RatWalker):
 
 class RatCompiler:
     variable_table: VariableTable
-    subscript_table: SubscriptTable
+    trace_table: TraceTable
 
-    def __init__(self, data: Union[pandas.DataFrame, Dict], program: ast.Program, max_trace_iterations: int):
-        self.variable_table = VariableTable(data)
+    def __init__(self, data: Dict[str, pandas.DataFrame], program: ast.Program, max_trace_iterations: int):
+        self.variable_table = VariableTable()
 
-        walker = CreateVariableWalker(self.variable_table)
+        walker = CreateAssignedVariablesWalker(self.variable_table)
+        walker.walk(program)
+
+        walker = CreateVariableWalker(self.variable_table, data)
         walker.walk(program)
 
         # Do a sweep to rename the primary variables as necessary
@@ -412,20 +407,20 @@ class RatCompiler:
         walker = InferSubscriptNameWalker(self.variable_table)
         walker.walk(program)
 
-        bind_data_to_functions_walker = BindDataToFunctionsWalker(self.variable_table, data)
-        bind_data_to_functions_walker.walk(program)
+        # bind_data_to_functions_walker = BindDataToFunctionsWalker(self.variable_table, data)
+        # bind_data_to_functions_walker.walk(program)
 
         # Trace the program to determine parameter domains and check data domains
         for _ in range(max_trace_iterations):
             walker = DomainDiscoveryWalker(self.variable_table)
             walker.walk(program)
 
-            found_new_traces = False
-            for variable_name, tracer in walker.tracers.items():
-                variable = self.variable_table[variable_name]
-                found_new_traces |= variable.ingest_new_trace(tracer)
+            any_domain_changed = False
+            for variable in self.variable_table.variables():
+                if isinstance(variable, DynamicVariableRecord):
+                    any_domain_changed |= variable.buffers_are_different()
 
-            if not found_new_traces:
+            if not any_domain_changed:
                 break
         else:
             raise CompileError(f"Unable to resolve subscripts after {max_trace_iterations} trace iterations")
@@ -433,15 +428,9 @@ class RatCompiler:
         walker = SingleConstraintCheckWalker(self.variable_table)
         walker.walk(program)
 
-        # Allocate space for the unconstrained to constrained mapping
-        self.variable_table.prepare_unconstrained_parameter_mapping()
-
         walker = SubscriptTableWalker(self.variable_table)
         walker.walk(program)
-        self.subscript_table = walker.subscript_table
-
-        walker = CheckAssignedVariableWalker(self.variable_table)
-        walker.walk(program)
+        self.trace_table = walker.trace_table
 
         walker = CheckSamplingFunctionWalker(self.variable_table)
         walker.walk(program)

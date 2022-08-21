@@ -11,8 +11,8 @@ from tatsu.walkers import NodeWalker
 from .compiler import RatCompiler
 from .exceptions import AstException
 from .parser import RatParser
-from .subscript_table import SubscriptTable
-from .variable_table import VariableTable, VariableType
+from .trace_table import TraceTable
+from .variable_table import VariableTable, SampledVariableRecord, DynamicVariableRecord
 from . import ast
 from . import compiler
 from . import constraints
@@ -82,7 +82,7 @@ class CodeExecutor(NodeWalker):
 @dataclass
 class TransformedParametersFunctionGenerator(walker.RatWalker):
     variable_table: VariableTable
-    subscript_table: SubscriptTable
+    trace_table: TraceTable
     parameters: Dict[str, Any]
     traced_nodes: List[ast.Variable] = field(default_factory=list)
 
@@ -108,7 +108,7 @@ class TransformedParametersFunctionGenerator(walker.RatWalker):
         self.walk(node.left)
         self.walk(node.right)
 
-        arguments = tuple(self.subscript_table[traced_node].array for traced_node in self.traced_nodes)
+        arguments = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
 
         def mapper(*mapper_arguments):
             executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
@@ -125,14 +125,14 @@ class TransformedParametersFunctionGenerator(walker.RatWalker):
     def walk_Variable(self, node: ast.Variable):
         node_variable = self.variable_table[node.name]
         if node_variable.argument_count > 0:
-            if node in self.subscript_table:
+            if node in self.trace_table:
                 self.traced_nodes.append(node)
 
 
 @dataclass
 class EvaluateDensityWalker(walker.RatWalker):
     variable_table: VariableTable
-    subscript_table: SubscriptTable
+    trace_table: TraceTable
     parameters: Dict[str, Any]
     traced_nodes: List[ast.Variable] = field(default_factory=list)
 
@@ -155,7 +155,7 @@ class EvaluateDensityWalker(walker.RatWalker):
         self.walk(node.left)
         self.walk(node.right)
 
-        arguments = tuple(self.subscript_table[traced_node].array for traced_node in self.traced_nodes)
+        arguments = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
 
         def mapper(*mapper_arguments):
             executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
@@ -169,14 +169,14 @@ class EvaluateDensityWalker(walker.RatWalker):
     def walk_Variable(self, node: ast.Variable):
         node_variable = self.variable_table[node.name]
         if node_variable.argument_count > 0:
-            if node in self.subscript_table:
+            if node in self.trace_table:
                 self.traced_nodes.append(node)
 
 
 @dataclass
 class ConstraintFinder(walker.RatWalker):
     variable_table: VariableTable
-    subscript_table: SubscriptTable
+    trace_table: TraceTable
     constraints: Dict[str, Union[float, numpy.ndarray]] = field(default_factory=dict)
 
     def walk_Variable(self, node: ast.Variable):
@@ -185,26 +185,26 @@ class ConstraintFinder(walker.RatWalker):
 
             variable = self.variable_table[node.name]
 
-            constraints = {}
+            node_constraints = {}
 
             if node.constraints.left:
                 left_name = node.constraints.left.name
-                values = self.subscript_table[node.constraints.left.value].array
-                constraints[left_name] = values if variable.argument_count > 0 else values[0]
+                values = self.trace_table[node.constraints.left.value].array
+                node_constraints[left_name] = values if variable.argument_count > 0 else values[0]
 
             if node.constraints.right:
                 right_name = node.constraints.right.name
-                self.subscript_table[node.constraints.right.value].array
-                constraints[right_name] = values if variable.argument_count > 0 else values[0]
+                values = self.trace_table[node.constraints.right.value].array
+                node_constraints[right_name] = values if variable.argument_count > 0 else values[0]
 
-            self.constraints[node.name] = constraints
+            self.constraints[node.name] = node_constraints
 
 
 class Model:
     base_df_dict: Dict[str, pandas.DataFrame]
     program: ast.Program
     variable_table: VariableTable
-    subscript_table: SubscriptTable
+    trace_table: TraceTable
 
     @property
     def size(self):
@@ -212,24 +212,25 @@ class Model:
 
     @partial(jax.jit, static_argnums=(0,))
     def constrain(self, unconstrained_parameter_vector: numpy.ndarray):
-        constraint_finder = ConstraintFinder(self.variable_table, self.subscript_table)
+        constraint_finder = ConstraintFinder(self.variable_table, self.trace_table)
         constraint_finder.walk(self.program)
         jacobian_adjustments = 0.0
         parameters = {}
+        used = 0
 
         for name in self.variable_table:
             record = self.variable_table[name]
 
-            if record.variable_type != VariableType.PARAM:
+            if not isinstance(record, SampledVariableRecord):
                 continue
 
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             if len(record.subscripts) > 0:
-                unconstrained = unconstrained_parameter_vector[
-                    record.unconstrained_vector_start_index : record.unconstrained_vector_end_index + 1
-                ]
+                unconstrained = unconstrained_parameter_vector[used: used + len(record)]
+                used += len(record)
             else:
-                unconstrained = unconstrained_parameter_vector[record.unconstrained_vector_start_index]
+                unconstrained = unconstrained_parameter_vector[used]
+                used += 1
 
             if name in constraint_finder.constraints:
                 variable_constraints = constraint_finder.constraints[name]
@@ -255,7 +256,7 @@ class Model:
     def constrain_and_transform(self, unconstrained_parameter_vector: numpy.ndarray):
         jacobian, parameters = self.constrain(unconstrained_parameter_vector)
 
-        transform = TransformedParametersFunctionGenerator(self.variable_table, self.subscript_table, parameters)
+        transform = TransformedParametersFunctionGenerator(self.variable_table, self.trace_table, parameters)
         transform.walk(self.program)
 
         return jacobian, parameters
@@ -265,10 +266,10 @@ class Model:
         jacobian, parameters = self.constrain(unconstrained_parameter_vector)
 
         # Modify parameters in place
-        transform = TransformedParametersFunctionGenerator(self.variable_table, self.subscript_table, parameters)
+        transform = TransformedParametersFunctionGenerator(self.variable_table, self.trace_table, parameters)
         transform.walk(self.program)
 
-        likelihood = EvaluateDensityWalker(self.variable_table, self.subscript_table, parameters)
+        likelihood = EvaluateDensityWalker(self.variable_table, self.trace_table, parameters)
         target = likelihood.walk(self.program)
 
         return target + (jacobian if include_jacobian else 0.0)
@@ -284,7 +285,8 @@ class Model:
         # # Copy back to numpy arrays
         return {name: numpy.array(draws) for name, draws in constrained_draws.items()}, self.base_df_dict
 
-    def __init__(self, model_string: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]], max_trace_iterations: int = 50):
+    def __init__(self, model_string: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
+                 max_trace_iterations: int = 50):
         """
         Create a model from some data (`data`) and a model (specified as a string, `model_string`).
 
@@ -297,6 +299,16 @@ class Model:
         max_trace_iterations determines how many tracing iterations the program will do to resolve
         parameter domains
         """
+        data_dict = {}
+
+        match data:
+            case pandas.DataFrame():
+                data_dict["__default"] = data.reset_index().copy()
+            case dict():
+                for key, value in data.items():
+                    data_dict[key] = value.reset_index().copy()
+            case _:
+                raise Exception("Data must either be pandas data frames or a dict of pandas dataframes")
 
         # Parse the model to get AST
         semantics = ModelBuilderSemantics()
@@ -306,16 +318,16 @@ class Model:
         self.program = (lambda: parser.parse(model_string))()
 
         # Compile the model
-        rat_compiler = RatCompiler(data, self.program, max_trace_iterations=max_trace_iterations)
+        rat_compiler = RatCompiler(data_dict, self.program, max_trace_iterations=max_trace_iterations)
         self.variable_table = rat_compiler.variable_table
-        self.subscript_table = rat_compiler.subscript_table
+        self.trace_table = rat_compiler.trace_table
 
         self.base_df_dict = {}
 
         for variable_name in self.variable_table:
             record = self.variable_table[variable_name]
             # The base_dfs are used for putting together the output
-            if record.variable_type != VariableType.DATA:
+            if isinstance(record, DynamicVariableRecord):
                 rows = list(record.itertuples())
                 self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns=record.subscripts)
 

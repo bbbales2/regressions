@@ -1,14 +1,13 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
 from distutils.errors import CompileError
-from typing import Set, List, Iterable, Dict, Any, TypeVar, Generic, Union
+from typing import Set, List, Dict, Any, TypeVar, Generic, Union
 
 from tatsu.model import NodeWalker
 
 from . import ast
 from . import math
-from .subscript_table import SubscriptTable
-from .variable_table import VariableTable, VariableType, Tracer
+from .variable_table import VariableTable
 
 
 @dataclass
@@ -60,14 +59,15 @@ class OpportunisticExecutor(NodeWalker):
     Execute as much of the code as possible
     """
 
-    tracers: Dict[str, Tracer]
+    variable_table: VariableTable
     leaves: Dict[str, Any]
     trace_by_reference: Set[ast.ModelBase]
-    left_side_of_sampling: ast.ModelBase
+    left_side_of_sampling: Union[None, ast.ModelBase]
     values: Dict[ast.ModelBase, Union[int, float, str]]
 
-    def __init__(self, tracers: Dict[str, Tracer], leaves: Dict[str, Union[int, float, str]], trace_by_reference: Set[ast.ModelBase]):
-        self.tracers = tracers
+    def __init__(self, variable_table: VariableTable, leaves: Dict[str, Union[int, float, str]],
+                 trace_by_reference: Set[ast.ModelBase]):
+        self.variable_table = variable_table
         self.leaves = leaves
         self.trace_by_reference = trace_by_reference
         self.left_side_of_sampling = None
@@ -155,9 +155,9 @@ class OpportunisticExecutor(NodeWalker):
 
             if all(arg is not None for arg in arglist):
                 if node in self.trace_by_reference:
-                    output = self.tracers[node.name].lookup(arglist)
+                    output = self.variable_table[node.name].get_index(arglist)
                 else:
-                    output = self.tracers[node.name](*arglist)
+                    output = self.variable_table[node.name].get_value(arglist)
             else:
                 output = None
 
@@ -182,18 +182,14 @@ class TraceExecutor(NodeWalker):
     instead shunted off into tuples
     """
 
-    tracers: Dict[str, Tracer]
+    variable_table: VariableTable
     leaves: Dict[str, Any]
     shunt: ContextStack[bool]
-    trace_by_reference: Set[ast.Variable]
-    first_level_values: Dict[ast.Variable, Any]
 
-    def __init__(self, tracers: Dict[str, Tracer], leaves: Dict[str, Any], trace_by_reference: Set[ast.Variable] = None):
-        self.tracers = tracers
+    def __init__(self, variable_table: VariableTable, leaves: Dict[str, Any]):
+        self.variable_table = variable_table
         self.leaves = leaves
         self.shunt = ContextStack(True)
-        self.trace_by_reference = trace_by_reference if trace_by_reference else set()
-        self.first_level_values = {}
 
     def walk_Statement(self, node: ast.Statement):
         self.walk(node.left)
@@ -209,9 +205,6 @@ class TraceExecutor(NodeWalker):
         with self.shunt.push(False):
             predicate = self.walk(node.predicate)
 
-        if self.shunt.peek():
-            self.first_level_values[node] = predicate
-
         return self.walk(node.left) if predicate else self.walk(node.right)
 
     def walk_FunctionCall(self, node: ast.FunctionCall):
@@ -221,11 +214,11 @@ class TraceExecutor(NodeWalker):
             arglist = ()
 
         if not self.shunt.peek():
-            return eval(node.name)(*arglist)
+            return getattr(math, node.name)(*arglist)
 
     def walk_Variable(self, node: ast.Variable):
         if node.name in self.leaves:
-            return_value = self.leaves[node.name]
+            return self.leaves[node.name]
         else:
             with self.shunt.push(False):
                 if node.arglist:
@@ -233,15 +226,7 @@ class TraceExecutor(NodeWalker):
                 else:
                     arglist = ()
 
-            if node in self.trace_by_reference:
-                return_value = self.tracers[node.name].lookup(arglist)
-            else:
-                return_value = self.tracers[node.name](*arglist)
-
-        if self.shunt.peek():
-            self.first_level_values[node] = return_value
-
-        return return_value
+            return self.variable_table[node.name](*arglist)
 
     def walk_Literal(self, node: ast.Literal):
         return node.value

@@ -1,6 +1,5 @@
 from . import ast
 from tatsu.model import NodeWalker
-from tatsu.model import ModelBuilderSemantics
 
 
 class RatWalker(NodeWalker):
