@@ -193,7 +193,7 @@ class CreateVariableWalker(RatWalker):
 
 
 @dataclass
-class RenameWalker(RatWalker):
+class RenameSubscriptWalker(RatWalker):
     variable_table: VariableTable
 
     def walk_Statement(self, node: ast.Statement):
@@ -398,7 +398,7 @@ class RatCompiler:
         walker.walk(program)
 
         # Do a sweep to rename the primary variables as necessary
-        walker = RenameWalker(self.variable_table)
+        walker = RenameSubscriptWalker(self.variable_table)
         walker.walk(program)
 
         walker = InferSubscriptNameWalker(self.variable_table)

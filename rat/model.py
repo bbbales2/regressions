@@ -26,12 +26,12 @@ class ExecuteException(AstException):
 
 
 class CodeExecutor(NodeWalker):
-    arguments: Dict[ast.Variable, Any]
+    traced_values: Dict[ast.Variable, Any]
     parameters: Dict[str, Any]
     left_side_of_sampling: Union[None, ast.ModelBase]
 
-    def __init__(self, arguments: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None):
-        self.arguments = arguments
+    def __init__(self, traced_values: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None):
+        self.traced_values = traced_values
         self.parameters = parameters
         self.left_side_of_sampling = None
         super().__init__()
@@ -51,7 +51,7 @@ class CodeExecutor(NodeWalker):
         return eval(f"left {node.op} right")
 
     def walk_IfElse(self, node: ast.IfElse):
-        predicate = self.arguments[node.predicate]
+        predicate = self.traced_values[node.predicate]
         return jax.lax.cond(predicate, lambda: self.walk(node.left), lambda: self.walk(node.right))
 
     def walk_FunctionCall(self, node: ast.FunctionCall):
@@ -66,12 +66,12 @@ class CodeExecutor(NodeWalker):
         return getattr(math, node.name)(*argument_list)
 
     def walk_Variable(self, node: ast.Variable):
-        if node in self.arguments:
+        if node in self.traced_values:
             if node.name in self.parameters:
-                trace = self.arguments[node]
+                trace = self.traced_values[node]
                 return self.parameters[node.name][trace]
             else:
-                return self.arguments[node]
+                return self.traced_values[node]
         else:
             return self.parameters[node.name]
 
@@ -108,7 +108,7 @@ class TransformedParametersFunctionGenerator(walker.RatWalker):
         self.walk(node.left)
         self.walk(node.right)
 
-        arguments = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
+        traced_values = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
 
         def mapper(*mapper_arguments):
             executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
@@ -118,9 +118,9 @@ class TransformedParametersFunctionGenerator(walker.RatWalker):
         assert primary_name not in self.parameters
 
         if primary_variable.argument_count > 0:
-            self.parameters[primary_name] = jax.vmap(mapper)(*arguments)
+            self.parameters[primary_name] = jax.vmap(mapper)(*traced_values)
         else:
-            self.parameters[primary_name] = mapper(*arguments)
+            self.parameters[primary_name] = mapper(*traced_values)
 
     def walk_Variable(self, node: ast.Variable):
         node_variable = self.variable_table[node.name]
@@ -155,16 +155,16 @@ class EvaluateDensityWalker(walker.RatWalker):
         self.walk(node.left)
         self.walk(node.right)
 
-        arguments = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
+        traced_values = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
 
         def mapper(*mapper_arguments):
             executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
             return executor.walk(node)
 
         if primary_variable.argument_count > 0:
-            return jax.numpy.sum(jax.vmap(mapper)(*arguments))
+            return jax.numpy.sum(jax.vmap(mapper)(*traced_values))
         else:
-            return mapper(*arguments)
+            return mapper(*traced_values)
 
     def walk_Variable(self, node: ast.Variable):
         node_variable = self.variable_table[node.name]

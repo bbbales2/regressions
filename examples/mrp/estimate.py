@@ -1,6 +1,7 @@
 import os
 import pandas
 from rat.model import Model
+import rat
 
 mrp_folder = os.path.dirname(__file__)
 
