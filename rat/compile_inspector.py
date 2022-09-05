@@ -11,17 +11,17 @@ from .walker import RatWalker
 
 
 class bcolors:
-    BLACK = '\033[90m'
-    RED = '\033[91m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    MAGENTA = '\033[95m'
-    CYAN = '\033[96m'
-    WHITE = '\033[97m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    RESET = '\033[0m'
+    BLACK = "\033[90m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    MAGENTA = "\033[95m"
+    CYAN = "\033[96m"
+    WHITE = "\033[97m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    RESET = "\033[0m"
 
 
 class VarTypeColor:
@@ -62,7 +62,15 @@ class TraceInfoWalker(RatWalker):
                 var_color = VarTypeColor.DATA
 
         if record:
-            print("\t", var_color, node.name, bcolors.RESET + " array dim: ", ",".join(str(x) for x in record.array.shape), " - ", record.array)
+            print(
+                "\t",
+                var_color,
+                node.name,
+                bcolors.RESET + " array dim: ",
+                ",".join(str(x) for x in record.array.shape),
+                " - ",
+                record.array,
+            )
         else:
             print("\t", var_color, node.name, bcolors.RESET + " array dim: ", bcolors.RED, "Not present in trace table!")
 
@@ -74,7 +82,9 @@ class RatCompileInspector(RatCompiler):
         super().__init__(data, program, max_trace_iterations)
 
     def print_inspect_info(self):
-        print(f"Variable Table Information({VarTypeColor.data('data')}, {VarTypeColor.param('param')}, {VarTypeColor.assigned_param('assigned param')}):")
+        print(
+            f"Variable Table Information({VarTypeColor.data('data')}, {VarTypeColor.param('param')}, {VarTypeColor.assigned_param('assigned param')}):"
+        )
         for variable_name, value in self.variable_table.variable_dict.items():
             match value:
                 case AssignedVariableRecord():
