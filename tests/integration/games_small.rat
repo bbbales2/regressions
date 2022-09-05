@@ -1,0 +1,5 @@
+score_diff[game_id]' ~ normal(skills[home_team[game_id], year[game_id]] - skills[away_team[game_id], year[game_id]], sigma);
+skills[team, year]' ~ normal(skills_mu[year], tau);
+skills_mu[year] ~ normal(0.0, 1.0);
+tau<lower = 0.0> ~ normal(0.0, 1.0);
+sigma<lower = 0.0> ~ normal(0.0, 1.0);
