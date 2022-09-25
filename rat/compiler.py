@@ -154,8 +154,7 @@ class CreateVariableWalker(RatWalker):
     def walk_Statement(self, node: ast.Statement):
         primary_node = get_primary_ast_variable(node)
         self.primary_node_and_subscript_names = (
-            { primary_node.name }
-            | { node.name for node in primary_node.arglist } if primary_node.arglist else {}
+            {primary_node.name} | {node.name for node in primary_node.arglist} if primary_node.arglist else {}
         )
 
         if node.op != "=":
@@ -214,7 +213,9 @@ class CreateVariableWalker(RatWalker):
             if isinstance(record, ConstantVariableRecord):
                 if argument_count == 0:
                     if node.name not in self.primary_node_and_subscript_names:
-                        msg = f"{node.name} is a constant variable and must be a primary variable subscript if it appears with no subscripts"
+                        msg = (
+                            f"{node.name} is a constant variable and must be a primary variable subscript if it appears with no subscripts"
+                        )
                         raise CompileError(msg, node)
                     else:
                         return

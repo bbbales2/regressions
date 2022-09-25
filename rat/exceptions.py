@@ -2,7 +2,7 @@ from .position_and_range import Range, Position
 from . import ast
 
 
-def find_line_and_relative_position(text : str, target_position : int) -> int:
+def find_line_and_relative_position(text: str, target_position: int) -> int:
     """
     Reinterpret target_position (given as an absolute offset in a block of text)
     as a line number and relative offset
