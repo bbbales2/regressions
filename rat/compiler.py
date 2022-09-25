@@ -10,7 +10,7 @@ from . import ast
 from .codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack
 from .exceptions import CompileError
 from .trace_table import TraceTable
-from .variable_table import VariableTable, RecoverableBindingException, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord
+from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord
 from .walker import RatWalker, NodeWalker
 
 
