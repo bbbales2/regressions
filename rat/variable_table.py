@@ -179,8 +179,8 @@ class ConstantVariableRecord(VariableRecord):
         # Find if there's a dataframe that supplies the requested values
         try:
             data_name = get_dataframe_name_by_column_name(self.name, data)
-        except KeyError:
-            raise KeyError(f"{self.name} not found in the input data")
+        except KeyError as e:
+            raise KeyError(f"{self.name} not found in the input data") from e
 
         df = data[data_name]
 
@@ -188,11 +188,11 @@ class ConstantVariableRecord(VariableRecord):
             raise Exception("Unimplemented")
         else:
             if data_subscripts is None:
-                raise KeyError(f"No subscripts to bind")
+                raise Exception(f"No subscripts to bind but {self.name} found in {data_name} input data")
 
             for subscript in data_subscripts:
                 if subscript not in df.columns:
-                    raise KeyError(f"{self.name} found in {data_name}, but subscript {subscript} not found")
+                    raise Exception(f"{self.name} found in {data_name}, but subscript {subscript} not found")
 
         for row in df.itertuples():
             row_as_dict = row._asdict()

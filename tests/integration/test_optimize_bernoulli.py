@@ -3,7 +3,6 @@ import os
 import pathlib
 import pandas
 import pytest
-
 import rat
 
 test_dir = pathlib.Path(__file__).parent

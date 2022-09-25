@@ -1,12 +1,12 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
-from distutils.errors import CompileError
 from typing import Set, List, Dict, Any, TypeVar, Generic, Union
 
 from tatsu.model import NodeWalker
 
 from . import ast
 from . import math
+from .exceptions import CompileError
 from .variable_table import VariableTable
 
 
@@ -225,7 +225,11 @@ class TraceExecutor(NodeWalker):
                 else:
                     arglist = ()
 
-            return self.variable_table[node.name](*arglist)
+            variable = self.variable_table[node.name]
+            if len(variable.subscripts) != len(arglist):
+                msg = f"{node.name} should have {len(variable.subscripts)} subscripts, found {len(arglist)}"
+                raise CompileError(msg, node)
+            return variable(*arglist)
 
     def walk_Literal(self, node: ast.Literal):
         return node.value

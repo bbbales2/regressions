@@ -10,7 +10,7 @@ from . import ast
 from .codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack
 from .exceptions import CompileError
 from .trace_table import TraceTable
-from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord
+from .variable_table import VariableTable, RecoverableBindingException, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord
 from .walker import RatWalker, NodeWalker
 
 
@@ -126,13 +126,38 @@ class CreateAssignedVariablesWalker(RatWalker):
         return True
 
 
+# Check that subscripts of primary variables don't include expressions
+@dataclass
+class CheckPrimaryVariableSubscriptWalker(NodeWalker):
+    msg: str = "Primary variables cannot have expressions in their subscripts"
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "~":
+            if not self.walk(node.right):
+                raise CompileError(self.msg, node.right)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.arglist:
+            for arg in node.arglist:
+                if not self.walk(arg):
+                    raise CompileError(self.msg, node)
+        return True
+
+
 @dataclass
 class CreateVariableWalker(RatWalker):
     variable_table: VariableTable
     data: Dict[str, pandas.DataFrame]
     in_control_flow: ContextStack[bool] = field(default_factory=lambda: ContextStack(False))
+    primary_node_and_subscript_names: Set[str] = field(default_factory=set)
 
     def walk_Statement(self, node: ast.Statement):
+        primary_node = get_primary_ast_variable(node)
+        self.primary_node_and_subscript_names = (
+            { primary_node.name }
+            | { node.name for node in primary_node.arglist } if primary_node.arglist else {}
+        )
+
         if node.op != "=":
             self.walk(node.left)
         self.walk(node.right)
@@ -145,7 +170,7 @@ class CreateVariableWalker(RatWalker):
         self.walk(node.right)
 
     def walk_Variable(self, node: ast.Variable):
-        unallocated = node.name not in self.variable_table
+        unknown = node.name not in self.variable_table
         subscript_names = _get_subscript_names(node)
 
         if node.arglist:
@@ -153,38 +178,55 @@ class CreateVariableWalker(RatWalker):
         else:
             argument_count = 0
 
-        if unallocated:
+        if unknown:
             if self.in_control_flow.peek():
-                record = ConstantVariableRecord(node.name, argument_count)
-                try:
-                    record.bind(subscript_names, self.data)
-                except KeyError:
-                    if argument_count > 0:
-                        msg = f"{node.name} is in control flow and must bind to input data but that failed"
+                if argument_count == 0:
+                    if node.name not in self.primary_node_and_subscript_names:
+                        msg = f"{node.name} is in control flow and must be a primary variable subscript, but it is not"
                         raise CompileError(msg, node)
                     else:
-                        # It's okay if an argument_count == 0 something doesn't bind -- it (hopefully) will be provided by
-                        #  the primary variable instead
                         return
+
+                record = ConstantVariableRecord(node.name, argument_count)
+
+                try:
+                    record.bind(subscript_names, self.data)
+                except KeyError as e:
+                    msg = f"{node.name} is in control flow and must bind to input data but that failed"
+                    raise CompileError(msg, node) from e
+                except Exception as e:
+                    msg = f"Irrecoverable error binding {node.name} in control flow to data"
+                    raise CompileError(msg, node) from e
             else:
                 record = ConstantVariableRecord(node.name, argument_count)
                 try:
                     record.bind(subscript_names, self.data)
                 except KeyError:
                     record = SampledVariableRecord(node.name, argument_count)
+                except Exception as e:
+                    msg = f"Irrecoverable error binding {node.name} to data"
+                    raise CompileError(msg, node) from e
 
             self.variable_table[node.name] = record
         else:
             record = self.variable_table[node.name]
+
             if isinstance(record, ConstantVariableRecord):
+                if argument_count == 0:
+                    if node.name not in self.primary_node_and_subscript_names:
+                        msg = f"{node.name} is a constant variable and must be a primary variable subscript if it appears with no subscripts"
+                        raise CompileError(msg, node)
+                    else:
+                        return
+
                 try:
                     record.bind(subscript_names, self.data)
                 except KeyError as e:
-                    if argument_count > 0:
-                        raise CompileError(str(e), node)
-                    else:
-                        # I think it's okay if an argument_count == 0 something doesn't bind here.
-                        return
+                    msg = f"Failed to bind data to constant variable {node.name}"
+                    raise CompileError(msg, node) from e
+                except Exception as e:
+                    msg = f"Irrecoverable error binding constant variable {node.name} in control flow to data"
+                    raise CompileError(msg, node) from e
 
         if node.arglist:
             with self.in_control_flow.push(True):
@@ -344,25 +386,29 @@ class CheckSamplingFunctionWalker(NodeWalker):
         return True
 
 
-# 5. Check that the predicate of IfElse statement contains no parameters
+# 5. Check that control flow contains no parameters
 @dataclass
-class IfElsePredicateCheckWalker(RatWalker):
+class ControlFlowParameterCheckWalker(RatWalker):
     variable_table: VariableTable
-    inside_predicate: bool = False
+    in_control_flow: ContextStack[bool] = field(default_factory=lambda: ContextStack(False))
 
     def walk_IfElse(self, node: ast.IfElse):
-        old_inside_predicate = self.inside_predicate
-        self.inside_predicate = True
-        self.walk(node.predicate)
-        self.inside_predicate = old_inside_predicate
+        with self.in_control_flow.push(True):
+            self.walk(node.predicate)
 
         self.walk(node.left)
         self.walk(node.right)
 
     def walk_Variable(self, node: ast.Variable):
-        if self.inside_predicate and isinstance(self.variable_table[node.name], DynamicVariableRecord):
-            msg = f"Non-data variables cannot appear in if-else conditions"
-            raise CompileError(msg, node)
+        if node.name in self.variable_table:
+            if self.in_control_flow.peek() and isinstance(self.variable_table[node.name], DynamicVariableRecord):
+                msg = f"Non-data variables cannot appear in if-else conditions"
+                raise CompileError(msg, node)
+
+            if node.arglist:
+                with self.in_control_flow.push(True):
+                    for arg in node.arglist:
+                        self.walk(arg)
 
 
 # 4. Parameters cannot be assigned after they are referenced
@@ -390,6 +436,9 @@ class RatCompiler:
 
     def __init__(self, data: Dict[str, pandas.DataFrame], program: ast.Program, max_trace_iterations: int):
         self.variable_table = VariableTable()
+
+        walker = CheckPrimaryVariableSubscriptWalker()
+        walker.walk(program)
 
         walker = CreateAssignedVariablesWalker(self.variable_table)
         walker.walk(program)
@@ -435,5 +484,5 @@ class RatCompiler:
         walker = CheckTransformedParameterOrder()
         walker.walk(program)
 
-        walker = IfElsePredicateCheckWalker(self.variable_table)
+        walker = ControlFlowParameterCheckWalker(self.variable_table)
         walker.walk(program)
