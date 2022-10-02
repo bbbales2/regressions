@@ -3,6 +3,13 @@ import jax.scipy
 from jax.numpy import *
 
 
+def binomial_logit(y, N, logit_p):
+    log_binomial = jax.scipy.special.gammaln(N + 1) - jax.scipy.special.gammaln(y + 1) - jax.scipy.special.gammaln(N - y + 1)
+    log_p = -jax.numpy.log1p(jax.numpy.exp(-logit_p))
+    log1m_p = -logit_p + log_p
+    return log_binomial + (N - y) * log1m_p + y * log_p
+
+
 def bernoulli_logit(y, logit_p):
     log_p = -jax.numpy.log1p(jax.numpy.exp(-logit_p))
     log1m_p = -logit_p + log_p
@@ -20,6 +27,23 @@ def cauchy(y, loc, scale):
 def log_normal(y, mu, sigma):
     logy = jax.numpy.log(y)
     return jax.scipy.stats.norm.logpdf(logy, mu, sigma) - logy
+
+
+def negative_binomial(y, mu, phi):
+    log_mu_phi = jax.numpy.log(mu + phi)
+    log_binomial = jax.scipy.special.gammaln(y + phi) - jax.scipy.special.gammaln(y + 1) - jax.scipy.special.gammaln(phi)
+    log_term1 = y * (jax.numpy.log(mu) - log_mu_phi)
+    log_term2 = phi * (jax.numpy.log(phi) - log_mu_phi)
+    return log_binomial + log_term1 + log_term2
+
+
+def negative_binomial_log(y, eta, phi):
+    log_phi = jax.numpy.log(phi)
+    log_mu_phi = jax.numpy.logaddexp(eta, log_phi)
+    log_binomial = jax.scipy.special.gammaln(y + phi) - jax.scipy.special.gammaln(y + 1) - jax.scipy.special.gammaln(phi)
+    log_term1 = y * (eta - log_mu_phi)
+    log_term2 = phi * (log_phi - log_mu_phi)
+    return log_binomial + log_term1 + log_term2
 
 
 def lax_select_scalar(pred, on_true, on_false):
