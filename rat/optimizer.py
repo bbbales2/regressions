@@ -2,7 +2,7 @@ import jax
 import numpy
 import scipy.optimize
 
-from . import fit
+from .fit import OptimizationFit
 
 
 def optimize(model, init=2, chains=4, retries=5, tolerance=1e-2):
@@ -40,5 +40,4 @@ def optimize(model, init=2, chains=4, retries=5, tolerance=1e-2):
         else:
             raise Exception(f"Optimization failed on chain {chain} with message: {solution.message}")
 
-    constrained_draws, base_dfs = model._prepare_draws_and_dfs(unconstrained_draws)
-    return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
+    return OptimizationFit.from_unconstrained_draws(model, unconstrained_draws, tolerance)

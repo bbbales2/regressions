@@ -13,70 +13,12 @@ from .exceptions import AstException
 from .parser import RatParser
 from .trace_table import TraceTable
 from .variable_table import VariableTable, SampledVariableRecord, DynamicVariableRecord
+from .codegen_backends import CodeExecutor
 from . import ast
 from . import compiler
 from . import constraints
 from . import math
 from . import walker
-
-
-class ExecuteException(AstException):
-    def __init__(self, message: str, node: ast.ModelBase):
-        super().__init__("evaluating log density", message, node)
-
-
-class CodeExecutor(NodeWalker):
-    traced_values: Dict[ast.Variable, Any]
-    parameters: Dict[str, Any]
-    left_side_of_sampling: Union[None, ast.ModelBase]
-
-    def __init__(self, traced_values: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None):
-        self.traced_values = traced_values
-        self.parameters = parameters
-        self.left_side_of_sampling = None
-        super().__init__()
-
-    def walk_Statement(self, node: ast.Statement):
-        if node.op == "~":
-            self.left_side_of_sampling = node.left
-            return_value = self.walk(node.right)
-            self.left_side_of_sampling = None
-            return return_value
-        else:
-            raise ExecuteException(f"{node.op} operator not supported in BaseCodeGenerator", node)
-
-    def walk_Binary(self, node: ast.Binary):
-        left = self.walk(node.left)
-        right = self.walk(node.right)
-        return eval(f"left {node.op} right")
-
-    def walk_IfElse(self, node: ast.IfElse):
-        predicate = self.traced_values[node.predicate]
-        return jax.lax.cond(predicate, lambda: self.walk(node.left), lambda: self.walk(node.right))
-
-    def walk_FunctionCall(self, node: ast.FunctionCall):
-        argument_list = []
-
-        if self.left_side_of_sampling:
-            argument_list += [self.walk(self.left_side_of_sampling)]
-
-        if node.arglist:
-            argument_list += [self.walk(arg) for arg in node.arglist]
-
-        return getattr(math, node.name)(*argument_list)
-
-    def walk_Variable(self, node: ast.Variable):
-        if node in self.traced_values:
-            if node.name in self.parameters:
-                trace = self.traced_values[node]
-                return self.parameters[node.name][trace]
-            else:
-                return self.traced_values[node]
-        else:
-            return self.parameters[node.name]
-
-    def walk_Literal(self, node: ast.Literal):
-        return node.value
 
 
 @dataclass
@@ -278,6 +220,7 @@ class Model:
         return self.log_density(unconstrained_parameter_vector, False)
 
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
+        # One vmap vectorizes over draws and one over chains
         constrain_and_transform_jax = jax.jit(jax.vmap(jax.vmap(lambda x: self.constrain_and_transform(x))))
 
         _, constrained_draws = constrain_and_transform_jax(device_unconstrained_draws)
