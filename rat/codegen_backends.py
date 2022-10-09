@@ -1,13 +1,18 @@
+import jax
+import numpy
+from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Set, List, Dict, Any, TypeVar, Generic, Union
 
 from tatsu.model import NodeWalker
 
 from . import ast
 from . import math
-from .exceptions import CompileError
-from .variable_table import VariableTable
+from .exceptions import CompileError, ExecuteException
+from .variable_table import VariableTable, DynamicVariableRecord
+from .trace_table import TraceTable
+from .walker import RatWalker
 
 
 @dataclass
@@ -30,6 +35,61 @@ class IndentWriter:
 
     def __str__(self):
         return self.string
+
+
+def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
+    """
+    Compute the primary variable reference in a line of code with the rules:
+    1. There can only be one primary variable reference (priming two references to the same variable is still an error)
+    2. If a variable is marked as primary, then it is the primary variable.
+    3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
+    4. If there are no variables with dataframes, the leftmost one is the primary one
+    5. It is an error if no primary variable can be identified
+    """
+
+    @dataclass
+    class PrimaryWalker(RatWalker):
+        marked: ast.Variable = None
+        candidates: List[ast.Variable] = field(default_factory=list)
+
+        def walk_Variable(self, node: ast.Variable):
+            if node.prime:
+                if self.marked is None:
+                    self.marked = node
+                else:
+                    msg = f"Found two marked primary variables {self.marked.name} and {node.name}. There should only" "be one"
+                    raise CompileError(msg, node)
+            else:
+                self.candidates.append(node)
+
+    walker = PrimaryWalker()
+    walker.walk(statement)
+    marked = walker.marked
+    candidates = walker.candidates
+
+    if marked is not None:
+        return marked
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    if len(candidates) > 1:
+        if len(set(candidate.name for candidate in candidates)) == 1:
+            msg = (
+                f"No marked primary variable but found multiple references to {candidates[0].name}. One reference"
+                " should be marked manually"
+            )
+            raise CompileError(msg, candidates[0])
+        else:
+            msg = (
+                f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are"
+                " candidates. A primary variable should be marked manually"
+            )
+            raise CompileError(msg, candidates[0])
+
+    if len(candidates) == 0:
+        msg = f"No primary variable found on line (this means there are no candidate variables)"
+        raise CompileError(msg, statement)
 
 
 T = TypeVar("T")
@@ -233,3 +293,102 @@ class TraceExecutor(NodeWalker):
 
     def walk_Literal(self, node: ast.Literal):
         return node.value
+
+
+class CodeExecutor(NodeWalker):
+    traced_values: Dict[ast.Variable, Any]
+    parameters: Dict[str, Any]
+    left_side_of_sampling: Union[None, ast.ModelBase]
+
+    def __init__(self, traced_values: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None):
+        self.traced_values = traced_values
+        self.parameters = parameters
+        self.left_side_of_sampling = None
+        super().__init__()
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "~":
+            self.left_side_of_sampling = node.left
+            return_value = self.walk(node.right)
+            self.left_side_of_sampling = None
+            return return_value
+        else:
+            raise ExecuteException(f"{node.op} operator not supported in BaseCodeGenerator", node)
+
+    def walk_Binary(self, node: ast.Binary):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        return eval(f"left {node.op} right")
+
+    def walk_IfElse(self, node: ast.IfElse):
+        predicate = self.traced_values[node.predicate]
+        return jax.lax.cond(predicate, lambda: self.walk(node.left), lambda: self.walk(node.right))
+
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        argument_list = []
+
+        if self.left_side_of_sampling:
+            argument_list += [self.walk(self.left_side_of_sampling)]
+
+        if node.arglist:
+            argument_list += [self.walk(arg) for arg in node.arglist]
+
+        return getattr(math, node.name)(*argument_list)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node in self.traced_values:
+            if node.name in self.parameters:
+                trace = self.traced_values[node]
+                return self.parameters[node.name][trace]
+            else:
+                return self.traced_values[node]
+        else:
+            return self.parameters[node.name]
+
+    def walk_Literal(self, node: ast.Literal):
+        return node.value
+
+
+@dataclass
+class DynamicVariableRecordFinderWalker(RatWalker):
+    variable_table: VariableTable
+    dynamic_variable_nodes: Set[ast.Node] = field(default_factory=set)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.name in self.variable_table:
+            node_variable = self.variable_table[node.name]
+            if isinstance(node_variable, DynamicVariableRecord):
+                self.dynamic_variable_nodes.add(node)
+
+
+@dataclass
+class SubscriptTableWalker(RatWalker):
+    variable_table: VariableTable
+    trace_table: TraceTable = field(default_factory=TraceTable)
+
+    def process_node(self, node: ast.ModelBase):
+        primary_node = get_primary_ast_variable(node)
+        primary_variable = self.variable_table[primary_node.name]
+
+        # Identify variables we won't know the value of yet -- don't try to
+        # trace the values of those but trace any indexing into them
+        self.trace_by_reference = set()
+
+        walker = DynamicVariableRecordFinderWalker(self.variable_table)
+        walker.walk(node)
+        trace_by_reference = walker.dynamic_variable_nodes
+
+        traces = defaultdict(lambda: [])
+        for row in primary_variable.itertuples():
+            executor = OpportunisticExecutor(self.variable_table, row._asdict(), trace_by_reference)
+            executor.walk(node)
+
+            for traced_node, value in executor.values.items():
+                traces[traced_node].append(value)
+
+        for traced_node, values in traces.items():
+            self.trace_table.insert(traced_node, numpy.array(values))
+
+
+    def walk_Statement(self, node: ast.Statement):
+        self.process_node(node)

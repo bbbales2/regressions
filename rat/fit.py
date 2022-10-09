@@ -1,13 +1,25 @@
+from dataclasses import dataclass, field
+from inspect import trace
 import arviz
 import functools
 import glob
+import jax
 import numpy
 import os
 import pandas
-from typing import List, Dict, Union, Iterable
+from typing import Any, List, Dict, Union, Iterable
+from tatsu.model import ModelBuilderSemantics
+
+from rat import ast
+from rat.exceptions import AstException, ExecuteException
+from rat.walker import RatWalker
 
 from . import constraints
-from . import model
+from .codegen_backends import SubscriptTableWalker, CodeExecutor, get_primary_ast_variable
+from .model import Model
+from .parser import RatParser
+from .variable_table import VariableTable
+from .trace_table import TraceTable
 
 
 def _check_writeable(path, overwrite):
@@ -31,6 +43,21 @@ def _read_folder_into_dict(folder: str):
     return dfs
 
 
+def _build_constrained_df(constrained_variable: numpy.array, base_df: pandas.DataFrame):
+    if len(constrained_variable.shape) == 2:
+        size = 1
+    else:
+        size = constrained_variable.shape[-1]
+    num_draws = constrained_variable.shape[0]
+    num_chains = constrained_variable.shape[1]
+
+    df = pandas.concat([base_df] * num_draws * num_chains, ignore_index=True)
+    df["chain"] = numpy.repeat(numpy.arange(num_chains), size * num_draws)
+    df["draw"] = numpy.tile(numpy.repeat(numpy.arange(num_draws), size), num_chains)
+    df["value"] = constrained_variable.flatten(order="C")
+    return df
+
+
 def _build_constrained_dfs(
     constrained_variables: Dict[str, numpy.array], base_dfs: Dict[str, pandas.DataFrame]
 ) -> Dict[str, pandas.DataFrame]:
@@ -43,20 +70,11 @@ def _build_constrained_dfs(
     draw_dfs: Dict[str, pandas.DataFrame] = {}
     for name in constrained_variables:
         constrained_variable = constrained_variables[name]
-        if len(constrained_variable.shape) == 2:
-            size = 1
-        else:
-            size = constrained_variable.shape[-1]
-        num_draws = constrained_variable.shape[0]
-        num_chains = constrained_variable.shape[1]
-
         base_df = base_dfs[name]
 
-        df = pandas.concat([base_df] * num_draws * num_chains, ignore_index=True)
-        df["chain"] = numpy.repeat(numpy.arange(num_chains), size * num_draws)
-        df["draw"] = numpy.tile(numpy.repeat(numpy.arange(num_draws), size), num_chains)
-        df[name] = constrained_variable.flatten(order="C")
-        draw_dfs[name] = df
+        df = _build_constrained_df(constrained_variable, base_df)
+        # TODO: I think I'd like the output names to just be value (without the rename)
+        draw_dfs[name] = df.rename(columns = { "value" : name })
 
     return draw_dfs
 
@@ -139,18 +157,84 @@ class Fit:
             f.write(self.__class__.__name__)
 
 
+@dataclass
+class GeneratedQuantitiesFunctionGenerator(RatWalker):
+    variable_table: VariableTable
+    trace_table: TraceTable
+    parameters: Dict[str, Any]
+    traced_nodes: List[ast.Variable] = field(default_factory=list)
+
+    def process_node(self, node: ast.ModelBase):
+        primary_node = get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+
+        self.traced_nodes = []
+
+        self.walk(node)
+
+        traced_values = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
+
+        def mapper(*mapper_arguments):
+            executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
+            return executor.walk(node)
+
+        if primary_variable.argument_count > 0:
+            return jax.vmap(mapper)(*traced_values)
+        else:
+            return mapper(*traced_values)
+
+    def walk_Variable(self, node: ast.Variable):
+        node_variable = self.variable_table[node.name]
+        if node_variable.argument_count > 0:
+            if node in self.trace_table:
+                self.traced_nodes.append(node)
+
+
 class OptimizationFit(Fit):
     """
     Stores optimization results
     """
-
-    def __init__(self, draw_dfs):
+    def __init__(self, model : Model, draw_dfs: Dict[str, pandas.DataFrame], unconstrained_draws: numpy.ndarray):
+        self.model = model
         self.draw_dfs = draw_dfs
+        self.unconstrained_draws = unconstrained_draws
+
+    def expr(self, expression_string : str):
+        # Parse the model to get AST
+        semantics = ModelBuilderSemantics()
+        parser = RatParser(semantics=semantics)
+        # TODO: This lambda is just here to make sure pylance formatting works -- should work
+        # without it as well
+        expression = (lambda: parser.parse(expression_string, start = "expression"))()
+
+        walker = SubscriptTableWalker(self.model.variable_table)
+        walker.process_node(expression)
+        trace_table = walker.trace_table
+
+        @jax.jit
+        @jax.vmap
+        @jax.vmap
+        def run(unconstrained_draws : numpy.ndarray):
+            _, parameters = self.model.constrain_and_transform(unconstrained_draws)
+
+            walker = GeneratedQuantitiesFunctionGenerator(self.model.variable_table, trace_table, parameters)
+            output = walker.process_node(expression)
+            return output
+
+        generated = run(self.unconstrained_draws)
+        primary_variable_ast = get_primary_ast_variable(expression)
+        primary_variable = self.model.variable_table[primary_variable_ast.name]
+        base_df = pandas.DataFrame(primary_variable.itertuples())
+
+        output = _build_constrained_df(generated, base_df)
+        return output
 
     @classmethod
-    def _from_constrained_variables(cls, constrained_variables: Dict[str, numpy.array], base_dfs: Dict[str, pandas.DataFrame], tolerance):
-        draw_dfs = _build_constrained_dfs(constrained_variables, base_dfs)
-        return cls(_check_convergence_and_select_one_chain(draw_dfs, tolerance))
+    def from_unconstrained_draws(cls, model : Model, unconstrained_draws: Dict[str, numpy.array], tolerance):
+        constrained_draws, base_dfs = model._prepare_draws_and_dfs(unconstrained_draws)
+        draw_dfs = _build_constrained_dfs(constrained_draws, base_dfs)
+        return cls(model, _check_convergence_and_select_one_chain(draw_dfs, tolerance), unconstrained_draws)
 
 
 class SampleFit(Fit):

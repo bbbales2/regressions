@@ -7,7 +7,7 @@ import numpy
 import pandas
 
 from . import ast
-from .codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack
+from .codegen_backends import SubscriptTableWalker, TraceExecutor, ContextStack, get_primary_ast_variable
 from .exceptions import CompileError
 from .trace_table import TraceTable
 from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord
@@ -49,61 +49,6 @@ def _get_subscript_names(node: ast.Variable) -> Union[None, List[str]]:
             # It wasn't possible to get a unique name for each subscript
             return None
     return names
-
-
-def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
-    """
-    Compute the primary variable reference in a line of code with the rules:
-    1. There can only be one primary variable reference (priming two references to the same variable is still an error)
-    2. If a variable is marked as primary, then it is the primary variable.
-    3. If there is no marked primary variable, then all variables with dataframes are treated as prime.
-    4. If there are no variables with dataframes, the leftmost one is the primary one
-    5. It is an error if no primary variable can be identified
-    """
-
-    @dataclass
-    class PrimaryWalker(RatWalker):
-        marked: ast.Variable = None
-        candidates: List[ast.Variable] = field(default_factory=list)
-
-        def walk_Variable(self, node: ast.Variable):
-            if node.prime:
-                if self.marked is None:
-                    self.marked = node
-                else:
-                    msg = f"Found two marked primary variables {self.marked.name} and {node.name}. There should only" "be one"
-                    raise CompileError(msg, node)
-            else:
-                self.candidates.append(node)
-
-    walker = PrimaryWalker()
-    walker.walk(statement)
-    marked = walker.marked
-    candidates = walker.candidates
-
-    if marked is not None:
-        return marked
-
-    if len(candidates) == 1:
-        return candidates[0]
-
-    if len(candidates) > 1:
-        if len(set(candidate.name for candidate in candidates)) == 1:
-            msg = (
-                f"No marked primary variable but found multiple references to {candidates[0].name}. One reference"
-                " should be marked manually"
-            )
-            raise CompileError(msg, candidates[0])
-        else:
-            msg = (
-                f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are"
-                " candidates. A primary variable should be marked manually"
-            )
-            raise CompileError(msg, candidates[0])
-
-    if len(candidates) == 0:
-        msg = f"No primary variable found on line (this means there are no candidate variables)"
-        raise CompileError(msg, statement)
 
 
 # 1. If the variable on the left appears also on the right, mark this
@@ -309,41 +254,6 @@ class DomainDiscoveryWalker(RatWalker):
         for row in primary_variable.itertuples():
             executor = TraceExecutor(self.variable_table, row._asdict())
             executor.walk(node)
-
-
-@dataclass
-class SubscriptTableWalker(RatWalker):
-    variable_table: VariableTable
-    trace_table: TraceTable = field(default_factory=TraceTable)
-    trace_by_reference: Set[ast.Variable] = field(default_factory=set)
-
-    def walk_Statement(self, node: ast.Statement):
-        primary_node = get_primary_ast_variable(node)
-        primary_variable = self.variable_table[primary_node.name]
-
-        # Identify variables we won't know the value of yet -- don't try to
-        # trace the values of those but trace any indexing into them
-        self.trace_by_reference = set()
-
-        self.walk(node.left)
-        self.walk(node.right)
-
-        traces = defaultdict(lambda: [])
-        for row in primary_variable.itertuples():
-            executor = OpportunisticExecutor(self.variable_table, row._asdict(), self.trace_by_reference)
-            executor.walk(node)
-
-            for traced_node, value in executor.values.items():
-                traces[traced_node].append(value)
-
-        for traced_node, values in traces.items():
-            self.trace_table.insert(traced_node, numpy.array(values))
-
-    def walk_Variable(self, node: ast.Variable):
-        if node.name in self.variable_table:
-            node_variable = self.variable_table[node.name]
-            if isinstance(node_variable, DynamicVariableRecord):
-                self.trace_by_reference.add(node)
 
 
 # Apply constraints to parameters
