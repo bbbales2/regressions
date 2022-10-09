@@ -389,6 +389,5 @@ class SubscriptTableWalker(RatWalker):
         for traced_node, values in traces.items():
             self.trace_table.insert(traced_node, numpy.array(values))
 
-
     def walk_Statement(self, node: ast.Statement):
         self.process_node(node)

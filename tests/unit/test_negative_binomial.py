@@ -25,6 +25,7 @@ def test_negative_binomial_values():
     # stats::dnbinom(10, mu = 11.7, size = 3.0, log = TRUE)
     assert negative_binomial(y, mu, phi) == pytest.approx(-2.860637)
 
+
 def test_negative_binomial_log_values():
     y = 2
     eta = numpy.log(0.3)

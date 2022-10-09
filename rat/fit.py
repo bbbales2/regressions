@@ -74,7 +74,7 @@ def _build_constrained_dfs(
 
         df = _build_constrained_df(constrained_variable, base_df)
         # TODO: I think I'd like the output names to just be value (without the rename)
-        draw_dfs[name] = df.rename(columns = { "value" : name })
+        draw_dfs[name] = df.rename(columns={"value": name})
 
     return draw_dfs
 
@@ -195,18 +195,19 @@ class OptimizationFit(Fit):
     """
     Stores optimization results
     """
-    def __init__(self, model : Model, draw_dfs: Dict[str, pandas.DataFrame], unconstrained_draws: numpy.ndarray):
+
+    def __init__(self, model: Model, draw_dfs: Dict[str, pandas.DataFrame], unconstrained_draws: numpy.ndarray):
         self.model = model
         self.draw_dfs = draw_dfs
         self.unconstrained_draws = unconstrained_draws
 
-    def expr(self, expression_string : str):
+    def expr(self, expression_string: str):
         # Parse the model to get AST
         semantics = ModelBuilderSemantics()
         parser = RatParser(semantics=semantics)
         # TODO: This lambda is just here to make sure pylance formatting works -- should work
         # without it as well
-        expression = (lambda: parser.parse(expression_string, start = "expression"))()
+        expression = (lambda: parser.parse(expression_string, start="expression"))()
 
         walker = SubscriptTableWalker(self.model.variable_table)
         walker.process_node(expression)
@@ -215,7 +216,7 @@ class OptimizationFit(Fit):
         @jax.jit
         @jax.vmap
         @jax.vmap
-        def run(unconstrained_draws : numpy.ndarray):
+        def run(unconstrained_draws: numpy.ndarray):
             _, parameters = self.model.constrain_and_transform(unconstrained_draws)
 
             walker = GeneratedQuantitiesFunctionGenerator(self.model.variable_table, trace_table, parameters)
@@ -231,7 +232,7 @@ class OptimizationFit(Fit):
         return output
 
     @classmethod
-    def from_unconstrained_draws(cls, model : Model, unconstrained_draws: Dict[str, numpy.array], tolerance):
+    def from_unconstrained_draws(cls, model: Model, unconstrained_draws: Dict[str, numpy.array], tolerance):
         constrained_draws, base_dfs = model._prepare_draws_and_dfs(unconstrained_draws)
         draw_dfs = _build_constrained_dfs(constrained_draws, base_dfs)
         return cls(model, _check_convergence_and_select_one_chain(draw_dfs, tolerance), unconstrained_draws)
