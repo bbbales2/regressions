@@ -154,7 +154,10 @@ class OpportunisticExecutor(NodeWalker):
 
             if all(arg is not None for arg in arglist):
                 if node in self.trace_by_reference:
-                    output = self.variable_table[node.name].get_index(arglist)
+                    if len(arglist) > 0:
+                        output = self.variable_table[node.name].get_index(arglist)
+                    else:
+                        output = None
                 else:
                     output = self.variable_table[node.name].get_value(arglist)
             else:

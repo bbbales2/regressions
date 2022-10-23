@@ -4,14 +4,14 @@ import jax
 import jax.experimental.host_callback
 import numpy
 import pandas
-from typing import Dict, Union, List, Any
+from typing import Dict, Union, List, Any, Set, Tuple
 from tatsu.model import ModelBuilderSemantics
 from tatsu.walkers import NodeWalker
 
 from .compiler import RatCompiler
 from .exceptions import AstException
 from .parser import RatParser
-from .trace_table import TraceTable
+from .trace_table import TraceTable, TraceRecord
 from .variable_table import VariableTable, SampledVariableRecord, DynamicVariableRecord
 from . import ast
 from . import compiler
@@ -25,16 +25,41 @@ class ExecuteException(AstException):
         super().__init__("evaluating log density", message, node)
 
 
-class CodeExecutor(NodeWalker):
-    traced_values: Dict[ast.Variable, Any]
-    parameters: Dict[str, Any]
-    left_side_of_sampling: Union[None, ast.ModelBase]
+@dataclass
+class CodeExecutorDependencyFinder(NodeWalker):
+    trace_table: TraceTable
+    traces_used: List[ast.ModelBase] = field(default_factory=list)
 
-    def __init__(self, traced_values: Dict[ast.Variable, Any] = None, parameters: Dict[str, Any] = None):
-        self.traced_values = traced_values
-        self.parameters = parameters
-        self.left_side_of_sampling = None
-        super().__init__()
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "~":
+            self.walk(node.left)
+            self.walk(node.right)
+        else:
+            raise ExecuteException(f"{node.op} operator not supported in {type(self)}", node)
+
+    def walk_Binary(self, node: ast.Binary):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+
+    def walk_IfElse(self, node: ast.IfElse):
+        self.traces_used.append(node.predicate)
+        self.walk(node.left)
+        self.walk(node.right)
+
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        for arg in node.arglist:
+            self.walk(arg)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node in self.trace_table:
+            self.traces_used.append(node)
+
+
+@dataclass
+class CodeExecutor(NodeWalker):
+    traced_values: Dict[ast.ModelBase, Any]
+    parameters: Dict[str, Any]
+    left_side_of_sampling: Union[None, ast.ModelBase] = field(default=None)
 
     def walk_Statement(self, node: ast.Statement):
         if node.op == "~":
@@ -43,7 +68,7 @@ class CodeExecutor(NodeWalker):
             self.left_side_of_sampling = None
             return return_value
         else:
-            raise ExecuteException(f"{node.op} operator not supported in BaseCodeGenerator", node)
+            raise ExecuteException(f"{node.op} operator not supported in {type(self)}", node)
 
     def walk_Binary(self, node: ast.Binary):
         left = self.walk(node.left)
@@ -84,7 +109,6 @@ class TransformedParametersFunctionGenerator(walker.RatWalker):
     variable_table: VariableTable
     trace_table: TraceTable
     parameters: Dict[str, Any]
-    traced_nodes: List[ast.Variable] = field(default_factory=list)
 
     def walk_Program(self, node: ast.Program):
         # TODO -- there is some order required here!
@@ -103,15 +127,14 @@ class TransformedParametersFunctionGenerator(walker.RatWalker):
             msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
             raise AstException("computing transformed parameters", msg, node)
 
-        self.traced_nodes = []
+        dependency_finder = CodeExecutorDependencyFinder(self.trace_table)
+        dependency_finder.walk(node)
+        traces_used = dependency_finder.traces_used
 
-        self.walk(node.left)
-        self.walk(node.right)
-
-        traced_values = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
+        traced_values = tuple(self.trace_table[traced_node].array for traced_node in traces_used)
 
         def mapper(*mapper_arguments):
-            executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
+            executor = CodeExecutor(dict(zip(traces_used, mapper_arguments)), self.parameters)
             return executor.walk(node.right)
 
         # We can't be overwriting parameters
@@ -122,19 +145,12 @@ class TransformedParametersFunctionGenerator(walker.RatWalker):
         else:
             self.parameters[primary_name] = mapper(*traced_values)
 
-    def walk_Variable(self, node: ast.Variable):
-        node_variable = self.variable_table[node.name]
-        if node_variable.argument_count > 0:
-            if node in self.trace_table:
-                self.traced_nodes.append(node)
-
 
 @dataclass
 class EvaluateDensityWalker(walker.RatWalker):
     variable_table: VariableTable
     trace_table: TraceTable
     parameters: Dict[str, Any]
-    traced_nodes: List[ast.Variable] = field(default_factory=list)
 
     def walk_Program(self, node: ast.Program):
         target = 0.0
@@ -150,27 +166,20 @@ class EvaluateDensityWalker(walker.RatWalker):
         primary_name = primary_node.name
         primary_variable = self.variable_table[primary_name]
 
-        self.traced_nodes = []
+        dependency_finder = CodeExecutorDependencyFinder(self.trace_table)
+        dependency_finder.walk(node)
+        traces_used = dependency_finder.traces_used
 
-        self.walk(node.left)
-        self.walk(node.right)
-
-        traced_values = tuple(self.trace_table[traced_node].array for traced_node in self.traced_nodes)
+        traced_values = tuple(self.trace_table[traced_node].array for traced_node in traces_used)
 
         def mapper(*mapper_arguments):
-            executor = CodeExecutor(dict(zip(self.traced_nodes, mapper_arguments)), self.parameters)
+            executor = CodeExecutor(dict(zip(traces_used, mapper_arguments)), self.parameters)
             return executor.walk(node)
 
         if primary_variable.argument_count > 0:
             return jax.numpy.sum(jax.vmap(mapper)(*traced_values))
         else:
             return mapper(*traced_values)
-
-    def walk_Variable(self, node: ast.Variable):
-        node_variable = self.variable_table[node.name]
-        if node_variable.argument_count > 0:
-            if node in self.trace_table:
-                self.traced_nodes.append(node)
 
 
 @dataclass

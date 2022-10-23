@@ -1,4 +1,4 @@
-mu[school] ~ normal(ifelse(school' <= 4, 0.0, 1.0), 0.1);
+y[school]' ~ normal(ifelse(school <= 4, 0.0, 1.0), 0.1);
 #y' ~ normal(theta[school], sigma);
 #theta' = mu + z[school] * tau;
 #z ~ normal(0, 1);

@@ -22,6 +22,9 @@ class NameWalker(RatWalker):
     def walk_Binary(self, node: ast.Binary):
         return self.combine([self.walk(node.left), self.walk(node.right)])
 
+    def walk_IfElse(self, node: ast.IfElse):
+        return self.combine([self.walk(node.left), self.walk(node.right)])
+
     def walk_FunctionCall(self, node: ast.FunctionCall):
         return self.combine([self.walk(arg) for arg in node.arglist])
 
@@ -312,7 +315,7 @@ class DomainDiscoveryWalker(RatWalker):
 
 
 @dataclass
-class SubscriptTableWalker(RatWalker):
+class TraceTableWalker(RatWalker):
     variable_table: VariableTable
     trace_table: TraceTable = field(default_factory=TraceTable)
     trace_by_reference: Set[ast.Variable] = field(default_factory=set)
@@ -329,15 +332,24 @@ class SubscriptTableWalker(RatWalker):
         self.walk(node.right)
 
         traces = defaultdict(lambda: [])
-        for row in primary_variable.itertuples():
+        for row_number, row in enumerate(primary_variable.itertuples()):
             executor = OpportunisticExecutor(self.variable_table, row._asdict(), self.trace_by_reference)
             executor.walk(node)
 
             for traced_node, value in executor.values.items():
-                traces[traced_node].append(value)
+                traces[traced_node].append((row_number, value))
 
-        for traced_node, values in traces.items():
-            self.trace_table.insert(traced_node, numpy.array(values))
+        dense_size = len(primary_variable)
+        for traced_node, trace in traces.items():
+            idxs, values = zip(*trace)
+
+            numpy_idxs = numpy.array(idxs)
+            numpy_values = numpy.array(values)
+
+            dense_values = numpy.zeros(dense_size, dtype=numpy_values.dtype)
+            dense_values[numpy_idxs] = numpy_values
+
+            self.trace_table.insert(traced_node, numpy.array(dense_values))
 
     def walk_Variable(self, node: ast.Variable):
         if node.name in self.variable_table:
@@ -475,7 +487,7 @@ class RatCompiler:
         walker = SingleConstraintCheckWalker(self.variable_table)
         walker.walk(program)
 
-        walker = SubscriptTableWalker(self.variable_table)
+        walker = TraceTableWalker(self.variable_table)
         walker.walk(program)
         self.trace_table = walker.trace_table
 
