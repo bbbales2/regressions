@@ -28,6 +28,7 @@ def test_ifelse_basic():
     assert mu1_df.loc[0].mu1 == pytest.approx(10.0)
     assert mu2_df.loc[0].mu2 == pytest.approx(7.5)
 
+
 # def test_ifelse_recursive():
 #     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 #
