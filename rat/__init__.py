@@ -118,7 +118,7 @@ y' ~ normal(a * x + b, sigma);
 
 This would compile in a Stan model -- the thing you should notice though is the single
 tick mark. In Stan that would mean transpose but in Rat that has to do with
-vectorization. In Rat as in Stan, sampling statements increment a hidden unormalized
+vectorization. In Rat as in Stan, sampling statements increment a hidden unnormalized
 log density variable (known as `target` in Stan). The statements themselves do
 not actually lead to any sampling.
 
@@ -196,8 +196,7 @@ Statements and expressions in Rat are always written in terms of scalars. There
 is no concept of vectors exposed in the language (yet).
 
 Vectorization in Rat comes from an understanding of primary variables. In every
-statement there will be exactly one primary variable. The rules for identifying
-a primary variable are:
+statement there will be exactly one primary variable.
 
 The rules for primary variable deduction are as follows (executed in order):
 
@@ -219,13 +218,14 @@ is understood to be a function. Vectorization is handled by executing the statem
 across the domain of the function and exposing the named arguments as local variables.
 
 Function domains for variables not in dataframes are computed from their use. As part
-of compiling a Rat program, Rat must compute the smallest function domain for
+of compiling a Rat program, Rat must compute the least fixed point function domain for
 every variable that allows the program to execute. This is done by repeatedly
 running a Rat program, recording what functions are called for what arguments,
-and repeating this process until the domains of all functions have stabilized.
+and repeating this process until the domains of all functions have stabilized, reaching a fixed point.
 
 It is entirely possible to write infinite recursions that make it impossible for
-this calculation to succeed (in which case the compiler should throw an error).
+this calculation to succeed, since such fixed point does not exist. The compiler attempts to detect this problem by
+trying to find a fixed point up to a set number of iterations, and will emit an error if it has not converged.
 
 To make this process possible, control flow in Rat cannot depend on non-data variables.
 
@@ -237,10 +237,11 @@ Values for non-primary variables in statements can come from three places (searc
   be thrown)
 3. They can come from nowhere (yet)! Variables that cannot be pulled from dataframes
   don't need values yet -- the Rat program can compile without them. These values are
-  exposed by the compiler to the sampler which is then responsible for providing them.
-  It is on these values that control flow in a Rat program cannot depend (because they
+  exposed by the compiler to the sampler which is then responsible for providing them, which are then treated as
+  uninitialized parameters.
+  It is on these values that control flow in a Rat program cannot depend, because they
   will not be available until after compilation, and Rat needs to know the control
-  flow at compilation to infer function domains).
+  flow result at compilation to infer function domains.
 
 ==================
 
