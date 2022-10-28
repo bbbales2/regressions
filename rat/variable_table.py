@@ -183,7 +183,6 @@ class ConstantVariableRecord(VariableRecord):
             raise KeyError(f"{self.name} not found in the input data") from e
 
         df = data[data_name]
-
         if data_subscripts == ():
             raise Exception("Unimplemented")
         else:
@@ -194,8 +193,11 @@ class ConstantVariableRecord(VariableRecord):
                 if subscript not in df.columns:
                     raise Exception(f"{self.name} found in {data_name}, but subscript {subscript} not found")
 
-        for row in df.itertuples():
+        # Iterate over each row of the target dataframe
+        row: NamedTuple
+        for row in df.itertuples():  # row here is a namedtuple
             row_as_dict = row._asdict()
+            # Pluck out only the relevant columns
             arguments = tuple(row_as_dict[subscript] for subscript in data_subscripts)
             return_value = row_as_dict[self.name]
 
