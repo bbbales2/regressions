@@ -11,7 +11,7 @@ test_dir = pathlib.Path(__file__).parent
 
 
 def test_grammar():
-    with open(os.path.join(test_dir, "grammar.rat")) as f:
+    with open(test_dir / "grammar.rat") as f:
         text = f.read()
 
     # semantics = ModelBuilderSemantics()

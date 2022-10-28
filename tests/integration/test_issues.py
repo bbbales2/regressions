@@ -7,13 +7,13 @@ from rat.model import Model
 from rat import optimize
 
 test_dir = pathlib.Path(__file__).parent
-issue_data_dir = os.path.join(test_dir, "issue_data")
+issue_data_dir = test_dir / "issue_data"
 
 # https://github.com/bbbales2/regressions/issues/90
 def test_ifelse_issue_90():
-    data_df = pandas.read_csv(os.path.join(issue_data_dir, "90.csv"))
+    data_df = pandas.read_csv(issue_data_dir / "90.csv")
 
-    with open(os.path.join(issue_data_dir, "90.rat")) as f:
+    with open(issue_data_dir / "90.rat") as f:
         model_string = f.read()
 
     Model(model_string, data_df)

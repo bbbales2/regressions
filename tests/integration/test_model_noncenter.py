@@ -14,7 +14,7 @@ test_dir = pathlib.Path(__file__).parent
 def eight_schools_model():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
-    model_string = open("eight_schools.rat").read()
+    model_string = open(test_dir / "eight_schools.rat").read()
 
     return rat.Model(model_string=model_string, data=data_df)
 
