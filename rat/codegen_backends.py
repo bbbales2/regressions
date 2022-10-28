@@ -230,7 +230,7 @@ class TraceExecutor(NodeWalker):
 
             variable = self.variable_table[node.name]
             if len(variable.subscripts) != len(arglist):
-                msg = f"{node.name} should have {len(variable.subscripts)} subscripts, found {len(arglist)}"
+                msg = f"{node.name} should have {len(variable.subscripts)} subscript(s), found {len(arglist)}"
                 raise CompileError(msg, node)
             return variable(*arglist)
 
