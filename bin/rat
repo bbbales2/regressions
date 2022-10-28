@@ -87,6 +87,7 @@ if os.path.exists(output_folder) and not overwrite:
 
 import pandas
 from rat.model import Model
+from rat import sample, optimize
 
 data = {}
 for name, dataframe_filename in data_filenames.items():
@@ -109,11 +110,11 @@ model = Model(model_string=model_string, data=data)
 
 if method == "optimize":
     print("Running optimization")
-    fit = model.optimize(init=init, chains=chains, retries=retries, tolerance=tolerance)
+    fit = optimize(model, init=init, chains=chains, retries=retries, tolerance=tolerance)
     print("Writing output")
     fit.save(output_folder, overwrite = overwrite)
 else:
     print("Running MCMC")
-    fit = model.sample(num_warmup=num_warmup, num_draws=num_draws, chains=chains, init=init, thin = thin, target_acceptance_rate=target_acceptance_rate)
+    fit = sample(model, num_warmup=num_warmup, num_draws=num_draws, chains=chains, init=init, thin = thin, target_acceptance_rate=target_acceptance_rate)
     print("Writing output")
     fit.save(output_folder, overwrite = overwrite)
