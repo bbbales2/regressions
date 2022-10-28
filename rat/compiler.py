@@ -127,20 +127,20 @@ class AugmentDataVariableSubscriptsWalker(RatWalker):
     primary_variable_is_data: bool = False
 
     """
-    This class adds an "Index" subscripts to data variables that don't have subscripts.
-    For example, consider we have a input dataframe with columns ("y", "sigma")
-
-    In order for create the variable table, we have to write Rat code as follows:
+    This class adds an "index" subscript to data variables that don't have any subscripts.
+    For example, consider we have a input dataframe with columns ("y", "sigma") like in eightschools.
+    We'd naturally write the following rat code:
+    
+    y' ~ normal(mu, sigma);
+    
+    But in order to create the variable table, we have to add a subscript to y and sigma indicating that we want to
+    vectorize over the dataframe rows:
 
     y[index]' ~ normal(mu, sigma[index]);
 
-    We can see that a subscript indicating the index of the dataframe is required.
-
-    This class transforms the AST representing the following code:
-
-    y ~ normal(mu, sigma);
-
-    to the above index-augmented AST by adding an "index' subscript, which represents the index of the input dataframe.
+    So if a statement has a primary variable that's from data and that primary data variable doesn't have subscripts:
+    we augment all data variables that doesn't have subscripts with the "index" subscript, effectively telling the 
+    compiler to vectorize over the dataframe rows. This operation is done inplace on the existing AST.
     """
 
     def walk_Statement(self, node: ast.Statement):
