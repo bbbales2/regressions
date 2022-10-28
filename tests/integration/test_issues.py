@@ -4,7 +4,7 @@ import pandas
 import pytest
 
 from rat.model import Model
-
+from rat import optimize
 test_dir = pathlib.Path(__file__).parent
 issue_data_dir = os.path.join(test_dir, "issue_data")
 
@@ -23,15 +23,15 @@ def test_distribution_lhs_expression_issue_88():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     model_string = """
-    2.0 * y' - y ~ normal(theta[school], sigma);
-    theta' = mu + z[school] * tau;
-    z ~ normal(0, 1);
+    (2.0 * y' - y) ~ normal(theta[school], sigma);
+    theta[school]' = mu + z[school] * tau;
+    z[school] ~ normal(0, 1);
     mu ~ normal(0, 5);
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
     model = Model(model_string, data_df)
-    fit = rat.optimize(model)
+    fit = optimize(model)
 
     mu_df = fit.draws("mu")
     tau_df = fit.draws("tau")
@@ -48,5 +48,5 @@ def test_primed_variable_does_not_exist_issue_89():
     made' ~ normal(mu[group], 1.0);
     """
 
-    with pytest.raises(Exception, match="Subscript group not found in dataframe of primary variable made"):
+    with pytest.raises(Exception, match="group is in control flow/subscripts and must be a primary variable subscript, but it is not"):
         model = Model(model_string=model_string, data=data_df)

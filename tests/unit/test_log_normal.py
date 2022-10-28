@@ -7,7 +7,9 @@ from rat.math import log_normal
 def test_log_normal_parser():
     model_string = "y ~ log_normal(mu, sigma');"
 
-    parsed = RatParser(model_string)
+    parser = RatParser()
+    program = (lambda: parser.parse(model_string))()
+    assert program.statements[0].right.name == "log_normal"
 
 
 def test_log_normal_values():

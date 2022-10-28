@@ -38,7 +38,7 @@ def test_optimize_normal_mu_sigma():
     sigma<lower = 0.0> ~ normal(0.0, 0.7);
     """
 
-    model = Model(data_df, model_string=model_string)
+    model = rat.Model(model_string=model_string, data=data_df)
     fit = rat.optimize(model, init=2.0)
     mu_df = fit.draws("mu")
     sigma_df = fit.draws("sigma")
@@ -56,7 +56,7 @@ def test_optimize_normal_mu_sigma_bounded():
     sigma<lower = 0.0, upper = 0.1> ~ normal(0.0, 0.7);
     """
 
-    model = Model(data_df, model_string=model_string)
+    model = rat.Model(model_string=model_string, data=data_df)
     fit = rat.optimize(model, init=2.0)
     mu_df = fit.draws("mu")
     sigma_df = fit.draws("sigma")

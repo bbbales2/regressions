@@ -14,13 +14,7 @@ test_dir = pathlib.Path(__file__).parent
 def eight_schools_model():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
-    model_string = """
-    y[school]' ~ normal(theta[school], sigma[school]);
-    theta[school]' = mu + z[school] * tau;
-    z[school] ~ normal(0, 1);
-    mu ~ normal(0, 5);
-    tau<lower = 0.0> ~ log_normal(0, 1);
-    """
+    model_string = open("eight_schools.rat").read()
 
     return rat.Model(model_string=model_string, data=data_df)
 

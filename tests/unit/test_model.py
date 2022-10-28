@@ -7,7 +7,7 @@ import pytest
 import tempfile
 
 from rat.model import Model
-from rat.parser import Parser
+from rat import optimize
 from pathlib import Path
 
 test_dir = pathlib.Path(__file__).parent
@@ -21,15 +21,8 @@ def test_model_compile_path():
     mu ~ normal(-0.5, 0.3);
     """
 
-    with tempfile.TemporaryDirectory(prefix="rat.") as working_dir:
-        model_path = os.path.join(working_dir, "model_path.py")
-        model = Model(model_string=model_string, data=data_df)
-
-        assert not os.path.exists(model_path)
-
-        model = Model(model_string=model_string, data=data_df)
-
-        assert os.path.exists(model_path)
+    model = Model(model_string=model_string, data=data_df)
+    optimize(model)
 
 
 if __name__ == "__main__":

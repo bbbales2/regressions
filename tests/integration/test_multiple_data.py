@@ -7,6 +7,7 @@ import pytest
 
 from rat import ast
 from rat.model import Model
+from rat import optimize
 
 test_dir = pathlib.Path(__file__).parent
 
@@ -27,7 +28,7 @@ def test_multiple_dataframes_eight_schools_optimize():
 
     eight_schools_model = Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
-    optimization_fit = eight_schools_rat.optimize(model, init=0.1)
+    optimization_fit = optimize(eight_schools_model, init=0.1)
 
     mu_df = optimization_fit.draws("mu")
     theta_df = optimization_fit.draws("theta")
@@ -70,7 +71,7 @@ def test_multiple_dataframes_eight_schools_optimize_2():
 
     eight_schools_model = Model(model_string=model_string, data={"data1": data1_df, "data2": data2_df})
 
-    optimization_fit = eight_schools_rat.optimize(model, init=0.1)
+    optimization_fit = optimize(eight_schools_model, init=0.1)
 
     ref_theta = [
         4.63356000,

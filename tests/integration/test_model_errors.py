@@ -15,23 +15,11 @@ def test_optimize_unknown_subscript():
 
     model_string = "y' ~ normal(theta[rabbit], sigma);"
 
-    with pytest.raises(Exception, match="Subscript rabbit not found in dataframe"):
+    with pytest.raises(Exception, match="rabbit is in control flow/subscripts and must be a primary variable subscript, but it is not"):
         model = Model(model_string, data_df)
 
 
-def test_lines_in_wrong_order_for_primes():
-    data_df = pandas.read_csv(os.path.join(test_dir, "bernoulli.csv"))
-
-    model_string = """
-    mu ~ normal(-0.5, 0.3);
-    y' ~ bernoulli_logit(mu[group]);
-    """
-
-    with pytest.raises(Exception, match="The primed uses must come last"):
-        model = Model(model_string=model_string, data=data_df)
-
-
-def test_lines_in_wrong_order_for_assignments():
+def test_subscripts_not_specified():
     data_df = pandas.read_csv(os.path.join(test_dir, "bernoulli.csv"))
 
     model_string = """
@@ -41,7 +29,7 @@ def test_lines_in_wrong_order_for_assignments():
     mu2 ~ normal(-0.5, 0.3);
     """
 
-    with pytest.raises(Exception, match="A variable cannot be used after it is assigned"):
+    with pytest.raises(Exception, match="mu should have 1 subscript(s)"):
         model = Model(model_string=model_string, data=data_df)
 
 
