@@ -246,7 +246,7 @@ class Model:
 
                 if "lower" in variable_constraints and "upper" not in variable_constraints:
                     constrained, jacobian_adjustment = constraints.lower(unconstrained, variable_constraints["lower"])
-                elif "lower" not in constraints and "upper" in variable_constraints:
+                elif "lower" not in variable_constraints and "upper" in variable_constraints:
                     constrained, jacobian_adjustment = constraints.upper(unconstrained, variable_constraints["upper"])
                 else:  # "lower" in constraints and "upper" in constraints:
                     constrained, jacobian_adjustment = constraints.finite(
