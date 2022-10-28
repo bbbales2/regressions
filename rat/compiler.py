@@ -10,7 +10,7 @@ from . import ast
 from .codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack
 from .exceptions import CompileError
 from .trace_table import TraceTable
-from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord
+from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord, get_dataframe_name_by_column_name
 from .walker import RatWalker, NodeWalker
 
 
@@ -97,6 +97,10 @@ def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
                 " should be marked manually"
             )
             raise CompileError(msg, candidates[0])
+        # If all candidate variables don't have subscripts: leftmost variable is primary
+        elif all(not candidate.arglist for candidate in candidates):
+            candidates[0].prime = True
+            return candidates[0]
         else:
             msg = (
                 f"No marked primary variable and at least {candidates[0].name} and {candidates[1].name} are"
@@ -107,6 +111,62 @@ def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
     if len(candidates) == 0:
         msg = f"No primary variable found on line (this means there are no candidate variables)"
         raise CompileError(msg, statement)
+
+
+@dataclass
+class AugmentDataVariableSubscriptsWalker(RatWalker):
+    data_dict: Dict[str, pandas.DataFrame]
+    primary_node: ast.Variable = None
+    primary_variable_is_data: bool = False
+
+    """
+    This class adds an "Index" subscripts to data variables that don't have subscripts.
+    For example, consider we have a input dataframe with columns ("y", "sigma")
+
+    In order for create the variable table, we have to write Rat code as follows:
+
+    y[index]' ~ normal(mu, sigma[index]);
+
+    We can see that a subscript indicating the index of the dataframe is required.
+
+    This class transforms the AST representing the following code:
+
+    y ~ normal(mu, sigma);
+
+    to the above index-augmented AST by adding an "index' subscript, which represents the index of the input dataframe.
+    """
+
+    def walk_Statement(self, node: ast.Statement):
+        self.primary_node = get_primary_ast_variable(node)
+
+        # We only augment data variables if the primary variable is a data, and has no subscripts.
+        try:
+            get_dataframe_name_by_column_name(self.primary_node.name, self.data_dict)
+        except KeyError:
+            self.primary_variable_is_data = False
+            return
+        else:
+            self.primary_variable_is_data = True
+
+        if self.primary_node.arglist:
+            return
+
+        if node.op == "~":
+            self.walk(node.left)
+            self.walk(node.right)
+
+    def walk_Variable(self, node: ast.Variable):
+        try:
+            get_dataframe_name_by_column_name(node.name, self.data_dict)
+        except KeyError:
+            if node.arglist:
+                for subscript in node.arglist:
+                    self.walk(subscript)
+        else:
+            # If it's a data variable and has no subscripts, add dataframe Index to subscript.
+            if not node.arglist:
+                node.arglist = [ast.Variable(name="index")]
+
 
 
 # 1. If the variable on the left appears also on the right, mark this
@@ -172,7 +232,6 @@ class CreateVariableWalker(RatWalker):
         self.walk(node.right)
 
     def walk_Variable(self, node: ast.Variable):
-        unknown = node.name not in self.variable_table
         subscript_names = _get_subscript_names(node)
 
         if node.arglist:
@@ -180,11 +239,12 @@ class CreateVariableWalker(RatWalker):
         else:
             argument_count = 0
 
-        if unknown:
+        # Create a variable table record
+        if node.name not in self.variable_table:
             if self.in_control_flow.peek():
                 if argument_count == 0:
                     if node.name not in self.primary_node_and_subscript_names:
-                        msg = f"{node.name} is in control flow and must be a primary variable subscript, but it is not"
+                        msg = f"{node.name} is in control flow/subscripts and must be a primary variable subscript, but it is not"
                         raise CompileError(msg, node)
                     else:
                         return
@@ -211,6 +271,7 @@ class CreateVariableWalker(RatWalker):
 
             self.variable_table[node.name] = record
         else:
+            # Update an existing variable record
             record = self.variable_table[node.name]
 
             if isinstance(record, ConstantVariableRecord):
@@ -451,6 +512,9 @@ class RatCompiler:
         self.variable_table = VariableTable()
 
         walker = CheckPrimaryVariableSubscriptWalker()
+        walker.walk(program)
+
+        walker = AugmentDataVariableSubscriptsWalker(data)
         walker.walk(program)
 
         walker = CreateAssignedVariablesWalker(self.variable_table)
