@@ -10,7 +10,14 @@ from . import ast
 from .codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack
 from .exceptions import CompileError
 from .trace_table import TraceTable
-from .variable_table import VariableTable, AssignedVariableRecord, SampledVariableRecord, ConstantVariableRecord, DynamicVariableRecord, get_dataframe_name_by_column_name
+from .variable_table import (
+    VariableTable,
+    AssignedVariableRecord,
+    SampledVariableRecord,
+    ConstantVariableRecord,
+    DynamicVariableRecord,
+    get_dataframe_name_by_column_name,
+)
 from .walker import RatWalker, NodeWalker
 
 
@@ -166,7 +173,6 @@ class AugmentDataVariableSubscriptsWalker(RatWalker):
             # If it's a data variable and has no subscripts, add dataframe Index to subscript.
             if not node.arglist:
                 node.arglist = [ast.Variable(name="index")]
-
 
 
 # 1. If the variable on the left appears also on the right, mark this

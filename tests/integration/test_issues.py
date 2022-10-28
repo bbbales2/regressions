@@ -5,6 +5,7 @@ import pytest
 
 from rat.model import Model
 from rat import optimize
+
 test_dir = pathlib.Path(__file__).parent
 issue_data_dir = os.path.join(test_dir, "issue_data")
 
