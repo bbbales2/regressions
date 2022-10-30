@@ -8,6 +8,7 @@ import pytest
 from rat.model import Model
 from rat import optimize
 from rat.exceptions import CompileError
+
 test_dir = pathlib.Path(__file__).parent
 
 
@@ -126,7 +127,9 @@ def test_multiple_dataframes_eight_schools_error_to_many_to_few_rows():
     # with pytest.raises(Exception, match="Multiple rows matching school = 1"):
     #     Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
-    sigma_data_df = data_df[["school", "sigma"]].iloc[:1,]
+    sigma_data_df = data_df[["school", "sigma"]].iloc[
+        :1,
+    ]
     with pytest.raises(KeyError, match="Argument \(2,\) not found in values placeholder"):
         Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 

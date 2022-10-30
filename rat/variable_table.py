@@ -8,7 +8,9 @@ K = TypeVar("K")
 V = TypeVar("V")
 
 
-def get_dataframe_name_by_variable_and_column_name(data: Dict[str, pandas.DataFrame], variable_name: str = None, subscript_name: str = None):
+def get_dataframe_name_by_variable_and_column_name(
+    data: Dict[str, pandas.DataFrame], variable_name: str = None, subscript_name: str = None
+):
     """
     Look up the dataframe associated with a given variable and/or subscript name. variable_name and column_name
     should both be within the same one and only one dataframe.
@@ -42,13 +44,13 @@ def get_dataframe_name_by_variable_and_column_name(data: Dict[str, pandas.DataFr
         # If we have multiple dataframes containing a subscript, raise an error if the variable isn't a data column
         # and the variable is present in multiple dataframes.
         if subscript_name and variable_name:
-            raise KeyError(f"Subscript '{subscript_name}' for data variable '{variable_name}' is ambiguous; it is found in dataframes {matching_dfs}")
+            raise KeyError(
+                f"Subscript '{subscript_name}' for data variable '{variable_name}' is ambiguous; it is found in dataframes {matching_dfs}"
+            )
         elif variable_name:
             raise KeyError(f"Data variable '{variable_name}' is ambiguous; it is found in dataframes {matching_dfs}")
         elif subscript_name:
             raise KeyError(f"Subscript '{subscript_name}' is ambiguous; it is found in dataframes {matching_dfs}")
-
-
 
     return matching_dfs[0]
 
