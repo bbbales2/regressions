@@ -31,11 +31,8 @@ class CodeExecutorDependencyFinder(NodeWalker):
     traces_used: List[ast.ModelBase] = field(default_factory=list)
 
     def walk_Statement(self, node: ast.Statement):
-        if node.op == "~":
-            self.walk(node.left)
-            self.walk(node.right)
-        else:
-            raise ExecuteException(f"{node.op} operator not supported in {type(self)}", node)
+        self.walk(node.left)
+        self.walk(node.right)
 
     def walk_Binary(self, node: ast.Binary):
         left = self.walk(node.left)
