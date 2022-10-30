@@ -1,0 +1,9 @@
+{
+    "python.testing.pytestArgs": [
+        "-s",
+        "--enable-vscode-break-on-exception"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "editor.showUnused": true
+}

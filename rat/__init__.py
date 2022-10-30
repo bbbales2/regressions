@@ -2,8 +2,10 @@ r"""
 
 Rat is an attempt to build an easy to use regression syntax, particularly
 focused on player skill models. It is similar in theme to the many fine
-regression packages (lm, lme4, rstanarm, brms, etc.), but tries to take
-its own twist on the problem.
+regression packages (lm, lme4, rstanarm, brms, etc.), but tries to put
+its own twist on the problem. It shares many features with more full featured
+statistical packages (Stan, PyMC3, Turing, Bean Machine), but is for a
+more constrained problem space than those.
 
 Some central Rat features are:
 
@@ -21,7 +23,7 @@ Rat works in a limited language space to keep the backend stuff simple
 
 # Language
 
-## Anatomy of a Rat (program)
+## Learning by Example
 
 There are two full Rat examples included with the repo that are worth glancing at.
 The first ([examples/mrp](https://github.com/bbbales2/regressions/tree/main/examples/mrp))
@@ -32,33 +34,33 @@ The second ([examples/fakeball](https://github.com/bbbales2/regressions/tree/mai
 is an attempt to simulate some fake basketball-like data and estimate player on-off
 effectiveness numbers.
 
-The example folders contain information on how to run these models, but a quick look at
-the second model might be useful to see where we're going with all this:
+The example folders contain information on how to run these models, but let us take
+a quick glance at the fakeball example to at least expose ourselves to most of the features
+Rat offers:
 
 ```
 # We're modeling whether or not shots were made as a function of the time
-# varying skill of the five players playing offense and the five players
-# playing defense. `made`, `date`, `o0-o4`, and `d0-d4` come from the input,
-# dataframe. o0-o4 and d0-d4 are names of the five players on the floor
-# playing offense and defense
+#  varying skill of the five players playing offense and the five players
+#  playing defense. `made`, `date`, `o0-o4`, and `d0-d4` come from one of
+#  the input dataframes. o0-o4 and d0-d4 are names of the five players on
+#  the floor playing offense and defense
 made ~ bernoulli_logit(
     offense[o0, date] + offense[o1, date] + offense[o2, date] + offense[o3, date] + offense[o4, date] -
     (defense[d0, date] + defense[d1, date] + defense[d2, date] + defense[d3, date] + defense[d4, date])
 );
 
-# A player's skill is a function of their initial skill plus some random
-# walk that changes over time
-offense[player, date] = offense0[player] + offense_rw[player, date];
-defense[player, date] = defense0[player] + defense_rw[player, date];
+# Offense and defense are represented as random walks with some initial condition
+#  A second dataframe is passed to the program that contains the date for which every
+#  player makes their first appearance
+offense[player, date] = ifelse(first_appearance[player] == date, offense0[player], offense[player, shift(date, 1)] + epsilon_offense[player, date]);
+defense[player, date] = ifelse(first_appearance[player] == date, defense0[player], defense[player, shift(date, 1)] + epsilon_defense[player, date]);
 
-# Parameters are defined by use -- we need to define offense0 and defense0
-# because they are used elsewhere
+# These are centered parameterizations
 offense0[player] ~ normal(0.0, tau0_offense);
 defense0[player] ~ normal(0.0, tau0_defense);
 
-# This is the random walk -- read on to understand how `shift` actually works
-offense_rw[player, date] ~ normal(offense_rw[player, shift(date, 1)], tau_offense);
-defense_rw[player, date] ~ normal(defense_rw[player, shift(date, 1)], tau_defense);
+epsilon_offense[player, date] ~ normal(0.0, tau_offense);
+epsilon_defense[player, date] ~ normal(0.0, tau_defense);
 
 # Some parameters have constraints!
 tau_offense<lower = 0.0> ~ log_normal(0.0, 0.5);
@@ -72,7 +74,7 @@ be run on the command-line (or from Python, but the command line is convenient f
 this sort of thing):
 
 ```
-rat fakeball.rat shots.csv samples
+rat fakeball.rat samples shots.csv first_appearance.csv
 ```
 
 The output can be extracted and summarized in Python like:
@@ -101,7 +103,147 @@ offense_summary_df = (
 )
 ```
 
-## Basics
+## Learning by Analogy
+
+Rat builds on syntax and technology pioneered in a few different areas. To make the
+connections clearer, we will call these connections out. Rat should be understood as
+its own thing (learning by analogy is likely to be ineffective), but it was also
+developed at a certain place and time and we believe the source material is enlightening.
+
+Rat's *sampling* statements come from Stan:
+
+```
+y' ~ normal(a * x + b, sigma);
+```
+
+This would compile in a Stan model -- the thing you should notice though is the single
+tick mark. In Stan that would mean transpose but in Rat that has to do with
+vectorization. In Rat as in Stan, sampling statements increment a hidden unnormalized
+log density variable (known as `target` in Stan). The statements themselves do
+not actually lead to any sampling.
+
+Rat uses dataframes as input, and by referencing columns of these dataframes Rat
+programs can vectorize over them. This comes from the lm, lme4, brms, rstanarm world.
+
+For instance, the above Rat program could be coupled with the dataframe:
+
+```
+ y, x
+10, 1
+15, 2
+21, 3
+24, 4
+```
+
+In this case, the sampling statement will accumulate four terms into the unnormalized
+log density. In computing each term, the symbols `x` and `y` will be substituted with
+values from the dataframe.
+
+The same model could also be coupled with the following dataframe:
+
+```
+ y, x, sigma
+10, 1,   1.1
+15, 2,   2.0
+21, 3,   1.7
+24, 4,   0.9
+```
+
+In this case, the values for `sigma` would come from the dataframe as well.
+
+This may lead you to ask, in any case, where do the values for `a` and `b` come from
+(and `sigma` itself if we're using the first dataframe)?
+
+We can see in the original sampling statement that there is enough information to
+infer what `a`, `b`, and `sigma` are -- they are scalar parameters that we'll need
+to do MCMC on.
+
+How about something more complex? Let us estimate a logit scale win probability for a
+group of teams based on some win loss data:
+
+```
+made, player
+   0,  curry
+   0,  curry
+   1,  curry
+   1,  green
+   0,  thompson
+   1,  thomspon
+```
+
+```
+made' ~ bernoulli_logit(skill[player]);
+```
+
+In this case the syntax suggests that there is one `skill` parameter for each
+player somewhere. Rat treats unresolved parameters like this like functions and
+is in this way works similarly to Bean Machine.
+
+This is more or less where learning by analogy ends for Rat
+
+## Learning by Actually How It Works
+
+Rat programs are written as a series of unordered *statements* of which there are
+two types, *sampling* statements and *assignment* statements.
+
+Sampling statements take the form of two expressions separated by a `~` and
+assignments have a variable on the left hand side of an `=` and an expression
+on the right hand side.
+
+[It would be nice if we could write down our grammar and put it here]
+
+Statements and expressions in Rat are always written in terms of scalars. There
+is no concept of vectors exposed in the language (yet).
+
+Vectorization in Rat comes from an understanding of primary variables. In every
+statement there will be exactly one primary variable.
+
+The rules for primary variable deduction are as follows (executed in order):
+
+1. Search for all variables in a statement
+2. If there is only one variable, that is the primary variable
+3. If there are multiple variables, then one must be marked with ' to indicate
+ it is the primary variable.
+
+Vectorization proceeds in two directions, depending on if the primary variable
+is associated with an input dataframe or not.
+
+If the identifier of the primary variable can be found in one of the input dataframes,
+then vectorization for a statement is done by executing that statement across
+all rows of the input dataframe with column-values of the input dataframe
+exposed as local variables that can be referenced by name in the calculation.
+
+If the identifier of the primary variable is not found in an input dataframe, then it
+is understood to be a function. Vectorization is handled by executing the statement
+across the domain of the function and exposing the named arguments as local variables.
+
+Function domains for variables not in dataframes are computed from their use. As part
+of compiling a Rat program, Rat must compute the least fixed point function domain for
+every variable that allows the program to execute. This is done by repeatedly
+running a Rat program, recording what functions are called for what arguments,
+and repeating this process until the domains of all functions have stabilized, reaching a fixed point.
+
+It is entirely possible to write infinite recursions that make it impossible for
+this calculation to succeed, since such fixed point does not exist. The compiler attempts to detect this problem by
+trying to find a fixed point up to a set number of iterations, and will emit an error if it has not converged.
+
+To make this process possible, control flow in Rat cannot depend on non-data variables.
+
+Values for non-primary variables in statements can come from three places (searched in this order):
+1. They can be exposed as local variables as part of the primary variable vectorization process
+2. They can come from other input dataframes -- if the identifier matches a column in
+  another input dataframe then the subscript arguments are used to look up a unique value
+  (if there is no row or more than one row corresponding to the subscripts and error will
+  be thrown)
+3. They can come from nowhere (yet)! Variables that cannot be pulled from dataframes
+  don't need values yet -- the Rat program can compile without them. These values are
+  exposed by the compiler to the sampler which is then responsible for providing them, which are then treated as
+  uninitialized parameters.
+  It is on these values that control flow in a Rat program cannot depend, because they
+  will not be available until after compilation, and Rat needs to know the control
+  flow result at compilation to infer function domains.
+
+==================
 
 Rat syntax is built for writing vectorized calculations across dataframes. The idea
 is that this is a useful framework for conceptualizing multilevel regressions, and
@@ -510,6 +652,10 @@ Type `rat -h` for full usage info.
 """
 
 __all__ = ["model", "fit"]
+
+from .model import Model
+from .optimizer import optimize
+from .sampler import sample
 
 _todo_figure_out_internal_docs = """
 

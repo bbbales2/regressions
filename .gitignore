@@ -9,3 +9,5 @@ build/
 __pycache__/
 venv/
 old
+.Rproj.user
+.DS_Store

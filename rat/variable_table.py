@@ -1,202 +1,274 @@
-from dataclasses import dataclass, field
-from enum import Enum
-import numpy
+from collections import namedtuple
+from typing import Any, Dict, List, Tuple, Iterable, Union, TypeVar, NamedTuple
+
 import pandas
-import pprint
-from typing import Dict, Set, Tuple, Iterable, Union
+from sortedcontainers import SortedDict, SortedSet
 
-from .exceptions import CompileError, MergeError
-
-
-class VariableType(Enum):
-    DATA = 1
-    PARAM = 2
-    ASSIGNED_PARAM = 3
+K = TypeVar("K")
+V = TypeVar("V")
 
 
-@dataclass()
+def get_dataframe_name_by_variable_and_column_name(
+    data: Dict[str, pandas.DataFrame], variable_name: str = None, subscript_name: str = None
+):
+    """
+    Look up the dataframe associated with a given variable and/or subscript name. variable_name and column_name
+    should both be within the same one and only one dataframe.
+
+    Exactly one dataframe must be found or a KeyError will be thrown
+    """
+    matching_dfs = []
+    for key, data_df in data.items():
+        variable_found = subscript_found = False
+        if variable_name in data_df:
+            variable_found = True
+        if subscript_name in data_df:
+            subscript_found = True
+
+        if (variable_name and variable_found) and (subscript_found and subscript_name):
+            # If both variable and subscript names are given, both must exist
+            matching_dfs.append(key)
+        elif (variable_name and variable_found) or (subscript_name and subscript_found):
+            # Just either one supplied means only check for that one
+            matching_dfs.append(key)
+
+    if len(matching_dfs) == 0:
+        if subscript_name and variable_name:
+            raise KeyError(f"Subscript '{subscript_name}' for data variable '{variable_name}' not found")
+        elif subscript_name:
+            raise KeyError(f"Subscript '{subscript_name}' not found")
+        elif variable_name:
+            raise KeyError(f"Data variable '{variable_name}' not found")
+
+    elif len(matching_dfs) > 1:
+        # If we have multiple dataframes containing a subscript, raise an error if the variable isn't a data column
+        # and the variable is present in multiple dataframes.
+        if subscript_name and variable_name:
+            raise KeyError(
+                f"Subscript '{subscript_name}' for data variable '{variable_name}' is ambiguous; it is found in dataframes {matching_dfs}"
+            )
+        elif variable_name:
+            raise KeyError(f"Data variable '{variable_name}' is ambiguous; it is found in dataframes {matching_dfs}")
+        elif subscript_name:
+            raise KeyError(f"Subscript '{subscript_name}' is ambiguous; it is found in dataframes {matching_dfs}")
+
+    return matching_dfs[0]
+
+
 class VariableRecord:
     """
     A record within the VariableTable
 
     name: Name of the variable
-    variable_type: Variable type
-    base_df: The current base dataframe
-
-    subscript_rename: If the variable is renamed, save the rename here (otherwise None)
-
-    constraint_lower: Value of the lower constraint
-    constraint_upper: Value of the upper constraint
-    pad_needed: True if a padding is needed for the variable
-
-    unconstrained_vector_start_index: For parameters, the start index of the unconstrained parameter vector
-    unconstrained_vector_end_index: For parameters, the end index of the unconstrained parameter vector
+    argument_count: Number of arguments
     """
 
     name: str
-    variable_type: VariableType
-    base_df: pandas.DataFrame
+    argument_count: int
 
-    names_set: bool = False
-    constraints_set: bool = False
+    _subscripts: Union[None, Tuple[str]]
+    renamed: bool
 
-    constraint_lower: float = field(default=float("-inf"))
-    constraint_upper: float = field(default=float("inf"))
-    pad_needed: bool = field(default=False)
-
-    unconstrained_vector_start_index: int = field(default=None, init=False)
-    unconstrained_vector_end_index: int = field(default=None, init=False)
+    def __init__(self, name: str, argument_count: int):
+        self.name = name
+        self.argument_count = argument_count
+        self._subscripts = None
+        self.renamed = False
 
     @property
     def subscripts(self):
-        if self.base_df is not None:
-            return tuple(self.base_df.columns)
+        if self._subscripts:
+            return self._subscripts
         else:
-            return ()
+            return tuple(f"arg{n}" for n in range(self.argument_count))
 
-    def set_subscript_names(self, subscript_names: Tuple[str]):
+    def rename(self, subscript_names: Iterable[str]):
         """
         Set subscript names.
 
-        This function should only be called once, it it is called more
+        This function should only be called once, if it is called more
         than that it will raise an AttributeError
 
-        This function will raise a ValueError if called with the wrong
-        number of names
+        This function will raise a ValueError if called after tracing has
+        been done (tracing uses the values here)
         """
-        if not self.names_set:
-            if len(self.base_df.columns) != len(subscript_names):
-                raise ValueError("Internal compiler error: Number of subscript names must match number of dataframe columns")
-            self.base_df.columns = subscript_names
-            self.names_set = True
+        if self.renamed:
+            raise AttributeError("Internal compiler error: A variable cannot be renamed twice")
+
+        self._subscripts = tuple(subscript_names)
+        self.renamed = True
+
+    def suggest_names(self, subscript_names: List[str]):
+        if not self.renamed:
+            if self._subscripts is not None:
+                if len(self._subscripts) != len(subscript_names):
+                    raise AttributeError("Internal compiler error: Number of subscript names must match between uses")
+                if self._subscripts != subscript_names:
+                    raise AttributeError("Internal compiler error: If variable isn't renamed, then all uses must match")
+            self._subscripts = tuple(subscript_names)
+
+    def __len__(self):
+        raise Exception("Internal error: Use subclass instead")
+
+    def get_index(self, args):
+        raise Exception("Internal error: Use a subclass instead")
+
+    def get_value(self, args):
+        raise Exception("Internal error: Use a subclass instead")
+
+    def swap_and_clear_write_buffer(self):
+        raise Exception("Internal error: Use a dynamic subclass instead")
+
+    def buffers_are_different(self):
+        raise Exception("Internal error: Use a dynamic subclass instead")
+
+    def itertuples(self) -> Iterable[NamedTuple]:
+        raise Exception("Internal error: Use a subclass instead")
+
+
+class DynamicVariableRecord(VariableRecord):
+    read_arguments_set: SortedSet
+    write_arguments_set: SortedSet
+
+    def __init__(self, name: str, argument_count: int):
+        super().__init__(name, argument_count)
+        self.read_arguments_set = SortedSet()
+        self.write_arguments_set = SortedSet()
+
+    def __len__(self):
+        return len(self.read_arguments_set)
+
+    def __iter__(self):
+        for args in self.read_arguments_set:
+            yield args
+
+    def __call__(self, *args) -> V:
+        self.write_arguments_set.add(args)
+        return None
+
+    def itertuples(self) -> Iterable[NamedTuple]:
+        Type = namedtuple(f"{self.name}_domain", self.subscripts)
+        for arguments in self.read_arguments_set:
+            yield Type(*arguments)
+
+    def swap_and_clear_write_buffer(self):
+        self.read_arguments_set = self.write_arguments_set
+        self.write_arguments_set = SortedSet()
+
+    def buffers_are_different(self) -> bool:
+        read_size = len(self.read_arguments_set)
+        write_size = len(self.write_arguments_set)
+        intersection_size = len(self.read_arguments_set.intersection(self.write_arguments_set))
+        return read_size != intersection_size or write_size != intersection_size
+
+    def get_index(self, args):
+        return self.read_arguments_set.index(args)
+
+    def get_value(self, args):
+        raise TypeError("Internal error: cannot call get_value on a dynamic record")
+
+
+class AssignedVariableRecord(DynamicVariableRecord):
+    def __repr__(self) -> str:
+        return f"{self.name}[{','.join(self.subscripts)}]@transformed"
+
+
+class SampledVariableRecord(DynamicVariableRecord):
+    def __repr__(self) -> str:
+        return f"{self.name}[{','.join(self.subscripts)}]@sampled"
+
+
+class ConstantVariableRecord(VariableRecord):
+    values: SortedDict
+    value_type: Any
+
+    def __init__(self, name: str, argument_count: int):
+        super().__init__(name, argument_count)
+        self.values = SortedDict()
+        self.value_type = None
+
+    def __len__(self) -> int:
+        return len(self.values)
+
+    def __iter__(self) -> Iterable[K]:
+        for args in self.values:
+            yield args
+
+    def __call__(self, *args: K):
+        try:
+            return self.values[args]
+        except KeyError:
+            raise KeyError(f"Argument {args} not found in values placeholder")
+
+    def bind(self, data_subscripts: List[str], data: Dict[str, pandas.DataFrame]):
+        """
+        Bind function to data
+        """
+        # Find if there's a dataframe that supplies the requested values
+        try:
+            data_name = get_dataframe_name_by_variable_and_column_name(data, subscript_name=self.name)
+        except KeyError as e:
+            raise KeyError(f"{self.name} not found in the input data") from e
+
+        df = data[data_name]
+        if data_subscripts == ():
+            raise Exception("Unimplemented")
         else:
-            raise AttributeError("Internal compiler error: If there are multiple renames, the rename values must match")
+            if data_subscripts is None:
+                raise Exception(f"No subscripts to bind but {self.name} found in {data_name} input data")
 
-    def add_rows_from_dataframe(self, new_rows_df: pandas.DataFrame):
-        """
-        Add rows to the base_df, ensure there aren't any duplicates, and make
-        sure that the base_df is sorted by it's columns (in order left to right)
-        """
-        if self.base_df is None:
-            combined_df = new_rows_df
-        else:
-            combined_df = pandas.DataFrame(numpy.concatenate([self.base_df.values, new_rows_df.values]), columns=self.base_df.columns)
+            for subscript in data_subscripts:
+                if subscript not in df.columns:
+                    raise Exception(f"{self.name} found in {data_name}, but subscript {subscript} not found")
 
-        self.base_df = combined_df.drop_duplicates().sort_values(list(combined_df.columns)).reset_index(drop=True)
+        # Iterate over each row of the target dataframe
+        row: NamedTuple
+        for row in df.itertuples():  # row here is a namedtuple
+            row_as_dict = row._asdict()
+            # Pluck out only the relevant columns
+            arguments = tuple(row_as_dict[subscript] for subscript in data_subscripts)
+            return_value = row_as_dict[self.name]
 
-    def set_constraints(self, constraint_lower: float, constraint_upper: float):
-        """
-        Set scalar constraints on a variable unless constraint_lower is negative
-        infinity and constraint upper is positive infinity -- in that case do nothing!
+            if arguments in self.values:
+                existing_value = self.values[arguments]
+                if existing_value != return_value:
+                    arguments_string = ",".join(f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments))
+                    raise Exception(
+                        f"Error binding {self.name} to dataframe {data_name}. Multiple rows matching"
+                        f" {arguments_string} with different values ({existing_value}, {return_value})"
+                    )
 
-        TODO: Should have the parser indicate no constraints in a different way so this
-        function is less weird.
-
-        Once this function is called, it can
-        be called again but it will throw an AttributeError if on following calls
-        the arguments do not exactly match what was passed on the first call.
-        """
-        if constraint_lower == float("-inf") and constraint_upper == float("inf"):
-            return
-
-        if not self.constraints_set:
-            self.constraint_lower = constraint_lower
-            self.constraint_upper = constraint_upper
-            self.constraints_set = True
-        else:
-            if self.constraint_lower != constraint_lower or self.constraint_upper != constraint_upper:
-                raise AttributeError("Internal compiler error: Once changed from defaults, constraints must match")
-
-    def to_numpy(self) -> numpy.ndarray:
-        """
-        Materialize data variable as a numpy array
-        """
-        if self.variable_type == VariableType.DATA:
-            series = self.base_df[self.name]
-            # Pandas Int64Dtype()s don't play well with jax
-            if series.dtype == pandas.Int64Dtype():
-                return series.astype(int).to_numpy()
+            if self.value_type is None:
+                self.value_type = type(return_value)
             else:
-                return series.to_numpy()
-        else:
-            raise AttributeError("Internal compiler error: `to_numpy` can only be used if variable_type is data")
+                if not isinstance(return_value, self.value_type):
+                    raise Exception("Value type inconsistent")
+
+            self.values[arguments] = return_value
+
+    def get_index(self, args):
+        return self.values.index(args)
+
+    def get_value(self, args):
+        return self.values[args]
+
+    def itertuples(self) -> Iterable[NamedTuple]:
+        Type = namedtuple(f"{self.name}_value", (self.name, *self.subscripts))
+        for arguments, value in self.values.items():
+            yield Type(value, *arguments)
+
+    def __repr__(self) -> str:
+        return f"{self.name}[{','.join(self.subscripts)}]@data"
 
 
 class VariableTable:
-    variable_dict: Dict[str, VariableRecord]
-    unconstrained_parameter_size: int
-    data: Dict[str, pandas.DataFrame]
+    variable_dict: SortedDict[str, VariableRecord]
 
-    generated_subscript_dict: Dict[str, numpy.ndarray]
-    first_in_group_indicator: Dict[str, numpy.ndarray]
+    def __init__(self):
+        self.variable_dict = SortedDict()
 
-    _unique_number: int
-
-    def __init__(self, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
-        self.variable_dict = {}
-        self.data = {}
-        self.unconstrained_parameter_size = None
-
-        match data:
-            case pandas.DataFrame():
-                self.data["__default"] = data.copy()
-            case _:
-                for key, value in data.items():
-                    self.data[key] = value.copy()
-
-        # Convert all integer columns to a type that supports NA
-        for key, data_df in self.data.items():
-            for column in data_df.columns:
-                if pandas.api.types.is_integer_dtype(data_df[column].dtype):
-                    data_df[column] = data_df[column].astype(pandas.Int64Dtype())
-
-        self.generated_subscript_dict = {}
-        self.first_in_group_indicator = {}
-
-        self._unique_number = 0
-
-    def get_unique_number(self):
-        self._unique_number += 1
-        return self._unique_number
-
-    def get_dataframe_name(self, variable_name):
-        """
-        Look up the dataframe associated with a given variable name
-
-        Exactly one dataframe must be found or a KeyError will be thrown
-        """
-        matching_dfs = []
-        for key, data_df in self.data.items():
-            if variable_name in data_df:
-                matching_dfs.append(key)
-
-        if len(matching_dfs) == 0:
-            raise KeyError(f"Variable {variable_name} not found")
-        elif len(matching_dfs) > 1:
-            raise KeyError(f"Variable {variable_name} is ambiguous; it is found in dataframes {matching_dfs}")
-
-        return matching_dfs[0]
-
-    def insert(
-        self,
-        variable_name: str,
-        variable_type: VariableType = None,
-    ):
-        """
-        Insert a variable record. If it is data, attach an input dataframe to it
-        """
-        if variable_name not in self.variable_dict:
-            if variable_type == VariableType.DATA:
-                base_df = self.data[self.get_dataframe_name(variable_name)]
-            else:
-                base_df = None
-
-            # Insert if new
-            self.variable_dict[variable_name] = VariableRecord(
-                variable_name,
-                variable_type,
-                base_df,
-            )
+    def __setitem__(self, variable_name: str, record: VariableRecord):
+        self.variable_dict[variable_name] = record
 
     def __contains__(self, name: str) -> bool:
         return name in self.variable_dict
@@ -204,141 +276,20 @@ class VariableTable:
     def __getitem__(self, variable_name: str) -> VariableRecord:
         return self.variable_dict[variable_name]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[str]:
         for name in self.variable_dict:
             yield name
 
-    def prepare_unconstrained_parameter_mapping(self):
-        """
-        Compute the size of vector that can hold everything and figure out
-        how each record maps into this vector
-        """
-        current_index = 0
+    def variables(self):
+        for variable in self.variable_dict.values():
+            yield variable
+
+    @property
+    def unconstrained_parameter_size(self) -> int:
+        size = 0
 
         for variable_name, record in self.variable_dict.items():
-            if not record.variable_type:
-                error_msg = f"Fatal internal error - variable type information for '{variable_name}' not present within the symbol table. Aborting compilation."
-                raise CompileError(error_msg)
+            if isinstance(record, SampledVariableRecord):
+                size += len(record)
 
-            # Allocate space on unconstrained parameter vector for parameters
-            if record.variable_type == VariableType.PARAM:
-                if len(record.subscripts) > 0:
-                    nrows = record.base_df.shape[0]
-                else:
-                    nrows = 1
-
-                record.unconstrained_vector_start_index = current_index
-                record.unconstrained_vector_end_index = current_index + nrows - 1
-                current_index += nrows
-
-        self.unconstrained_parameter_size = current_index
-
-    def get_subscript_key(
-        self,
-        primary_variable_name: str,
-        target_variable_name: str,
-        target_variable_subscripts: Tuple[str],
-        shifts: Tuple[int],
-    ) -> str:
-        primary_variable = self[primary_variable_name]
-        target_variable = self[target_variable_name]
-
-        shifts_by_subscript_name = {name: shift for name, shift in zip(target_variable_subscripts, shifts)}
-
-        shift_subscripts = []
-        shift_values = []
-        grouping_subscripts = []
-        for column in primary_variable.base_df.columns:
-            if column in shifts_by_subscript_name:
-                shift = shifts_by_subscript_name[column]
-            else:
-                shift = 0
-
-            if shift == 0:
-                grouping_subscripts.append(column)
-            else:
-                shift_subscripts.append(column)
-                shift_values.append(shift)
-
-        primary_base_df = primary_variable.base_df.copy()
-
-        if len(grouping_subscripts) > 0:
-            grouped_df = primary_base_df.groupby(grouping_subscripts)
-        else:
-            grouped_df = primary_base_df
-
-        for column, shift in zip(shift_subscripts, shift_values):
-            shifted_column = grouped_df[column].shift(shift).reset_index(drop=True)
-            primary_base_df[column] = shifted_column
-
-        # TODO: It would be nice if this logic weren't different for data and parameters
-        if target_variable.variable_type == VariableType.DATA:
-            # If the target variable is data, then assume the subscripts here are
-            # referencing columns of the dataframe by name
-            target_base_df = target_variable.base_df[list(target_variable_subscripts)].copy()
-        else:
-            # If the target variable is parameter, then assume the subscripts here are
-            # referencing columns of the dataframe by position
-            target_base_df = target_variable.base_df.copy()
-            target_base_df.columns = list(target_variable_subscripts)
-
-        target_base_df["__in_dataframe_index"] = pandas.Series(range(target_base_df.shape[0]), dtype=pandas.Int64Dtype())
-
-        key_name = f"subscript__{self.get_unique_number()}"
-
-        try:
-            in_dataframe_index = primary_base_df.merge(target_base_df, on=target_variable_subscripts, how="left", validate="many_to_one")[
-                "__in_dataframe_index"
-            ]
-        except pandas.errors.MergeError as e:
-            base_msg = f"Unable to merge {target_variable_name} into {primary_variable_name} on subscripts {target_variable_subscripts}"
-            extended_msg = (
-                base_msg + f" because values of {target_variable_name} are not unique with given subscripts"
-                if "many-to-one" in str(e)
-                else ""
-            )
-            raise MergeError(extended_msg)
-
-        if target_variable.variable_type == VariableType.DATA:
-            # NAs in a data dataframe should not be ignored -- these
-            # all need to be defined
-            na_count = in_dataframe_index.isna().sum()
-            if na_count > 0:
-                for row in primary_base_df[in_dataframe_index.isna()].itertuples(index=False):
-                    dataframe_name = self.get_dataframe_name(target_variable_name)
-                    base_msg = (
-                        f"Unable to merge {target_variable_name} into {primary_variable_name} on subscripts {target_variable_subscripts}"
-                    )
-                    extended_msg = (
-                        base_msg + f" because there are {na_count} required values not found in {dataframe_name}"
-                        f" (associated with {target_variable_name}). For instance, there should be a value for"
-                        f" {row} but this is not there."
-                    )
-                    raise MergeError(extended_msg)
-
-            filled_in_dataframe_index = in_dataframe_index
-        else:
-            filled_in_dataframe_index = (
-                in_dataframe_index
-                # NAs correspond to out of bounds accesses -- those should map
-                # to zero (and any parameter that needs to do out of bounds
-                # accesses will have zeros allocated for the last element)
-                .fillna(target_base_df.shape[0])
-            )
-
-        self.generated_subscript_dict[key_name] = filled_in_dataframe_index.astype(int).to_numpy()
-
-        # If this is a recursively assigned parameter and there are groupings then we'll
-        # need to generate some special values for the jax.lax.scan recursive assignment
-        # implementation
-        if (
-            len(grouping_subscripts) > 0
-            and (primary_variable_name == target_variable_name)
-            and (target_variable.variable_type == VariableType.ASSIGNED_PARAM)
-        ):
-            self.first_in_group_indicator[primary_variable_name] = (~primary_base_df.duplicated(subset=grouping_subscripts)).to_numpy()
-
-        return key_name
-
-    def __str__(self):
-        return pprint.pformat(self.variable_dict)
+        return size

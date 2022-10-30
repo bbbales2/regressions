@@ -9,10 +9,10 @@ shots_df = pandas.read_csv(os.path.join(fakeball_folder, "shots.csv"))
 with open(os.path.join(fakeball_folder, "fakeball.rat")) as f:
     model_string = f.read()
 
-model = Model(shots_df, model_string=model_string)
+model = Model(model_string=model_string, data=shots_df)
 
 print("Running MCMC")
-fit = model.sample(num_warmup=1000, num_draws=1000)
+fit = rat.sample(model, num_warmup=1000, num_draws=1000)
 
 print("Writing output")
 fit.save(os.path.join(fakeball_folder, "samples"), overwrite=True)

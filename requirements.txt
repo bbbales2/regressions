@@ -7,4 +7,6 @@ plotnine
 pytest
 pyarrow
 scipy
+sortedcontainers
 tqdm
+tatsu

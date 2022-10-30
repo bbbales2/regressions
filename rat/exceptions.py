@@ -1,42 +1,51 @@
-from .position_and_range import Range
-
-# TODO: These four errors are basically all the same thing. Probably be possible to simplify them somehow
-
-
-class TokenizeError(Exception):
-    def __init__(self, message: str, range: Range):
-        code_string = range.document.split("\n")[range.start.line]
-        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
-        exception_message = f"An error occured while tokenizing string at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
-        super().__init__(exception_message)
+from .position_and_range import Range, Position
+from . import ast
 
 
-class ParseError(Exception):
-    def __init__(self, message, range: Range):
-        code_string = range.document.split("\n")[range.start.line]
-        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
-        exception_message = f"An error occured while parsing the expression at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
-        super().__init__(exception_message)
+def find_line_and_relative_position(text: str, target_position: int) -> int:
+    """
+    Reinterpret target_position (given as an absolute offset in a block of text)
+    as a line number and relative offset
+    """
+    if target_position > len(text):
+        raise ValueError(f"Internal error: target_position {target_position} must be less than text length {len(text)}")
+
+    line_start = 0
+    for line_number, line in enumerate(text.split("\n")):
+        line_end = line_start + len(line)
+        if line_end >= target_position:
+            return line_number, target_position - line_start
+        line_start = line_end + 1
+    else:
+        raise ValueError("Internal error: Failed to find line number")
 
 
-class CompileError(Exception):
-    def __init__(self, message, range: Range = None):
-        if range is None:
-            exception_message = message
+def get_range(node: ast.ModelBase):
+    text = node.ast.parseinfo.tokenizer.text
+    start_pos = node.ast.parseinfo.pos
+    end_pos = node.ast.parseinfo.endpos
+
+    start_line, relative_start_pos = find_line_and_relative_position(text, start_pos)
+    end_line, relative_end_pos = find_line_and_relative_position(text, end_pos)
+
+    return Range(Position(start_line, relative_start_pos, text), Position(end_line, relative_end_pos, text))
+
+
+class AstException(Exception):
+    def __init__(self, operation_message: str, message: str, node: ast.ModelBase = None):
+        if node is None:
+            exception_message = f"An error occurred while {operation_message}\n{message}"
         else:
-            code_string = range.document.split("\n")[range.start.line]
-            pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
-            exception_message = f"An error occurred while compiling code at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
+            node_range = get_range(node)
+            code_string = node_range.document.split("\n")[node_range.start.line]
+            pointer_string = " " * node_range.start.col + "^" + "~" * max(0, node_range.end.col - node_range.start.col - 1)
+            exception_message = (
+                f"An error occurred while {operation_message} at"
+                f" ({node_range.start.line}:{node_range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
+            )
         super().__init__(exception_message)
 
 
-class CompileWarning(UserWarning):
-    def __init__(self, message, range: Range):
-        code_string = range.document.split("\n")[range.start.line]
-        pointer_string = " " * range.start.col + "^" + "~" * max(0, range.end.col - range.start.col - 1)
-        warning_message = f"Warning generated at ({range.start.line}:{range.start.col}):\n{code_string}\n{pointer_string}\n{message}"
-        super().__init__(warning_message)
-
-
-class MergeError(Exception):
-    pass
+class CompileError(AstException):
+    def __init__(self, message: str, node: ast.ModelBase = None):
+        super().__init__("compiling code", message, node)

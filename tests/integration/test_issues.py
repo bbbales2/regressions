@@ -4,18 +4,19 @@ import pandas
 import pytest
 
 from rat.model import Model
+from rat import optimize
 
 test_dir = pathlib.Path(__file__).parent
-issue_data_dir = os.path.join(test_dir, "issue_data")
+issue_data_dir = test_dir / "issue_data"
 
 # https://github.com/bbbales2/regressions/issues/90
 def test_ifelse_issue_90():
-    data_df = pandas.read_csv(os.path.join(issue_data_dir, "90.csv"))
+    data_df = pandas.read_csv(issue_data_dir / "90.csv")
 
-    with open(os.path.join(issue_data_dir, "90.rat")) as f:
+    with open(issue_data_dir / "90.rat") as f:
         model_string = f.read()
 
-    Model(data_df, model_string)
+    Model(model_string, data_df)
 
 
 # https://github.com/bbbales2/regressions/issues/88
@@ -23,15 +24,15 @@ def test_distribution_lhs_expression_issue_88():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     model_string = """
-    2.0 * y' - y ~ normal(theta[school], sigma);
-    theta' = mu + z[school] * tau;
-    z ~ normal(0, 1);
+    (2.0 * y' - y) ~ normal(theta[school], sigma);
+    theta[school]' = mu + z[school] * tau;
+    z[school] ~ normal(0, 1);
     mu ~ normal(0, 5);
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    model = Model(data_df, model_string)
-    fit = model.optimize()
+    model = Model(model_string, data_df)
+    fit = optimize(model)
 
     mu_df = fit.draws("mu")
     tau_df = fit.draws("tau")
@@ -48,5 +49,5 @@ def test_primed_variable_does_not_exist_issue_89():
     made' ~ normal(mu[group], 1.0);
     """
 
-    with pytest.raises(Exception, match="Subscript group not found in dataframe of primary variable made"):
-        model = Model(data_df, model_string=model_string)
+    with pytest.raises(Exception, match="group is in control flow/subscripts and must be a primary variable subscript, but it is not"):
+        model = Model(model_string=model_string, data=data_df)

@@ -106,7 +106,7 @@ class Fit:
 
     draw_dfs: Dict[str, pandas.DataFrame]
 
-    def draws(self, parameter_names: Union[str, Iterable[str]]) -> pandas.DataFrame:
+    def draws(self, parameter_names: Union[str, Iterable[str], None] = None) -> pandas.DataFrame:
         """
         Get the draws for given parameter(s) with columns for the
         subscripts.
@@ -114,9 +114,13 @@ class Fit:
         If multiple parameter names given, outer join the tables for
         each name and return that result.
 
+        If no parameter names are given, will attempt to return all parameters.
+
         For optimizations there will only ever be one draw in the
         results (the optimum).
         """
+        if not parameter_names:
+            parameter_names = tuple(self.draw_dfs.keys())
         if isinstance(parameter_names, str):
             return self.draw_dfs[parameter_names]
         else:

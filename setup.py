@@ -24,4 +24,5 @@ setuptools.setup(
     python_requires=">=3.10",
     install_requires=requirements,
     zip_safe=False,
+    package_data={"rat": ["grammar.ebnf"]},
 )

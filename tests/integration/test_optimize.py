@@ -3,8 +3,7 @@ import pathlib
 import pandas
 import pytest
 
-from rat import ast
-from rat.model import Model
+import rat
 
 test_dir = pathlib.Path(__file__).parent
 
@@ -13,7 +12,7 @@ def test_optimize_normal_mu():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, 1.5);
+    y[n]' ~ normal(mu, 1.5);
     mu ~ normal(-0.5, 0.3);
     """
 
@@ -23,8 +22,8 @@ def test_optimize_normal_mu():
     #    ops.Normal(ops.Param("mu"), ops.RealConstant(-0.5), ops.RealConstant(0.3)),
     # ]
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=2.0)
+    model = rat.Model(model_string=model_string, data=data_df)
+    fit = rat.optimize(model, init=2.0)
     mu_df = fit.draws("mu")
 
     assert mu_df["mu"][0] == pytest.approx(-1.11249, rel=1e-2)
@@ -34,13 +33,13 @@ def test_optimize_normal_mu_sigma():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, sigma);
+    y[n]' ~ normal(mu, sigma);
     mu ~ normal(-0.5, 0.3);
     sigma<lower = 0.0> ~ normal(0.0, 0.7);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=2.0)
+    model = rat.Model(model_string=model_string, data=data_df)
+    fit = rat.optimize(model, init=2.0)
     mu_df = fit.draws("mu")
     sigma_df = fit.draws("sigma")
 
@@ -52,13 +51,13 @@ def test_optimize_normal_mu_sigma_bounded():
     data_df = pandas.read_csv(os.path.join(test_dir, "normal.csv"))
 
     model_string = """
-    y ~ normal(mu, sigma);
+    y[n]' ~ normal(mu, sigma);
     mu<lower = 0.0> ~ normal(-0.5, 0.3);
     sigma<lower = 0.0, upper = 0.1> ~ normal(0.0, 0.7);
     """
 
-    model = Model(data_df, model_string=model_string)
-    fit = model.optimize(init=2.0)
+    model = rat.Model(model_string=model_string, data=data_df)
+    fit = rat.optimize(model, init=2.0)
     mu_df = fit.draws("mu")
     sigma_df = fit.draws("sigma")
 

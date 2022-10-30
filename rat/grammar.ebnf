@@ -1,0 +1,56 @@
+@@grammar::Rat
+@@eol_comments :: /#.*?$/
+@@keyword :: let in end fun
+@@parseinfo :: True
+
+start::Program = { statements+:statement }+ $;
+
+statement::Statement = left:factor ~ op:('~' | '=') ~ right:expression ';';
+
+expression =
+    | logical
+    | addition_expression
+;
+
+logical::Binary = left:addition_expression op:("==" | "<=" | ">=" | "<" | ">") ~ right:expression;
+
+addition_expression =
+    | addition
+    | multiplication_expression
+;
+
+addition::Binary = left:multiplication_expression op:('+' | '-') ~ right:addition_expression;
+
+multiplication_expression =
+    | multiplication
+    | factor
+;
+
+multiplication::Binary = left:factor op:('*' | '/') ~ right:multiplication_expression;
+
+factor
+    =
+    | ifelse
+    | function_call
+    | subexpression
+    | variable
+    | literal
+;
+
+ifelse::IfElse = 'ifelse' '(' ~ predicate:expression ',' left:expression ',' right:expression ')';
+function_call::FunctionCall = name:identifier '(' [ arglist:arglist ] ')';
+variable::Variable = name:identifier [ constraints:constraints ] [ '[' arglist:arglist ']' ] [ prime:"'" ];
+constraints::Constraints = '<' left:constraint ~ [',' right:constraint] '>';
+constraint = name:('lower'|'upper') ~ '=' ~ value:literal;
+arglist = @+:expression {',' ~ @+:expression}*;
+subexpression = '(' ~ @:expression ')';
+
+literal::Literal = value:(real | integer);
+
+integer::int = /[-]?\d+/;
+real::float =
+    | /[-]?[0-9]+\.[0-9]*e[-+]?[0-9]+/
+    | /[-]?[0-9]+\.[0-9]*/
+;
+@name
+identifier::str = /[a-zA-Z_][a-zA-Z0-9_]*/; 

@@ -5,8 +5,7 @@ import pathlib
 import pandas
 import pytest
 
-from rat import ast
-from rat.model import Model
+import rat
 
 test_dir = pathlib.Path(__file__).parent
 
@@ -15,30 +14,25 @@ test_dir = pathlib.Path(__file__).parent
 def eight_schools_model():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
-    model_string = """
-    y' ~ normal(theta[school], sigma);
-    theta' = mu + z[school] * tau;
-    z ~ normal(0, 1);
-    mu ~ normal(0, 5);
-    tau<lower = 0.0> ~ log_normal(0, 1);
-    """
+    model_string = open(test_dir / "eight_schools.rat").read()
 
-    return Model(data_df, model_string=model_string)
+    return rat.Model(model_string=model_string, data=data_df)
 
 
 @pytest.fixture
 def optimization_fit(eight_schools_model):
-    return eight_schools_model.optimize(init=0.1)
+    return rat.optimize(eight_schools_model, init=0.1)
 
 
 @pytest.fixture
 def sample_fit(eight_schools_model):
-    return eight_schools_model.sample(init=0.1, num_draws=1000, num_warmup=1000)
+    return rat.sample(eight_schools_model, init=0.1, num_draws=1000, num_warmup=1000)
 
 
 def test_optimize_eight_schools(optimization_fit):
     mu_df = optimization_fit.draws("mu")
     z_df = optimization_fit.draws("z")
+    theta_df = optimization_fit.draws("theta")
     tau_df = optimization_fit.draws("tau")
 
     ref_z = [
@@ -65,6 +59,7 @@ def test_optimize_eight_schools(optimization_fit):
 
     assert mu_df["mu"][0] == pytest.approx(4.61934000, rel=1e-2)
     assert tau_df["tau"][0] == pytest.approx(0.36975800, rel=1e-2)
+    assert theta_df["theta"].to_list() == pytest.approx(ref_theta_mean, rel=1e-2, abs=1e-3)
     assert z_df["z"].to_list() == pytest.approx(ref_z, rel=1e-2, abs=1e-3)
 
 

@@ -1,79 +1,297 @@
-from concurrent.futures import ThreadPoolExecutor
-import functools
-import itertools
-import importlib.util
+from dataclasses import dataclass, field
+from functools import partial
 import jax
 import jax.experimental.host_callback
-import numbers
 import numpy
-import os
 import pandas
-import scipy.optimize
-import tempfile
-import time
-import types
-from typing import Callable, List, Dict, Union
-from tqdm import tqdm
+from typing import Dict, Union, List, Any, Set, Tuple
+from tatsu.model import ModelBuilderSemantics
+from tatsu.walkers import NodeWalker
 
-from . import compiler
+from .compiler import RatCompiler
+from .exceptions import AstException
+from .parser import RatParser
+from .trace_table import TraceTable, TraceRecord
+from .variable_table import VariableTable, SampledVariableRecord, DynamicVariableRecord
 from . import ast
-from .scanner import Scanner
-from .parser import Parser
-from . import fit
-from . import nuts
+from . import compiler
+from . import constraints
+from . import math
+from . import walker
+
+
+class ExecuteException(AstException):
+    def __init__(self, message: str, node: ast.ModelBase):
+        super().__init__("evaluating log density", message, node)
+
+
+@dataclass
+class CodeExecutorDependencyFinder(NodeWalker):
+    trace_table: TraceTable
+    traces_used: List[ast.ModelBase] = field(default_factory=list)
+
+    def walk_Statement(self, node: ast.Statement):
+        self.walk(node.left)
+        self.walk(node.right)
+
+    def walk_Binary(self, node: ast.Binary):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+
+    def walk_IfElse(self, node: ast.IfElse):
+        self.traces_used.append(node.predicate)
+        self.walk(node.left)
+        self.walk(node.right)
+
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        for arg in node.arglist:
+            self.walk(arg)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node in self.trace_table:
+            self.traces_used.append(node)
+
+
+@dataclass
+class CodeExecutor(NodeWalker):
+    traced_values: Dict[ast.ModelBase, Any]
+    parameters: Dict[str, Any]
+    left_side_of_sampling: Union[None, ast.ModelBase] = field(default=None)
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op == "~":
+            self.left_side_of_sampling = node.left
+            return_value = self.walk(node.right)
+            self.left_side_of_sampling = None
+            return return_value
+        else:
+            raise ExecuteException(f"{node.op} operator not supported in {type(self)}", node)
+
+    def walk_Binary(self, node: ast.Binary):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        return eval(f"left {node.op} right")
+
+    def walk_IfElse(self, node: ast.IfElse):
+        predicate = self.traced_values[node.predicate]
+        return jax.lax.cond(predicate, lambda: self.walk(node.left), lambda: self.walk(node.right))
+
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        argument_list = []
+
+        if self.left_side_of_sampling:
+            argument_list += [self.walk(self.left_side_of_sampling)]
+
+        if node.arglist:
+            argument_list += [self.walk(arg) for arg in node.arglist]
+
+        return getattr(math, node.name)(*argument_list)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node in self.traced_values:
+            if node.name in self.parameters:
+                trace = self.traced_values[node]
+                return self.parameters[node.name][trace]
+            else:
+                return self.traced_values[node]
+        else:
+            return self.parameters[node.name]
+
+    def walk_Literal(self, node: ast.Literal):
+        return node.value
+
+
+@dataclass
+class TransformedParametersFunctionGenerator(walker.RatWalker):
+    variable_table: VariableTable
+    trace_table: TraceTable
+    parameters: Dict[str, Any]
+
+    def walk_Program(self, node: ast.Program):
+        # TODO -- there is some order required here!
+        for statement in node.statements:
+            self.walk(statement)
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op != "=":
+            return
+
+        primary_node = compiler.get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+
+        if node.left.name != primary_name:
+            msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
+            raise AstException("computing transformed parameters", msg, node)
+
+        dependency_finder = CodeExecutorDependencyFinder(self.trace_table)
+        dependency_finder.walk(node)
+        traces_used = dependency_finder.traces_used
+
+        traced_values = tuple(self.trace_table[traced_node].array for traced_node in traces_used)
+
+        def mapper(*mapper_arguments):
+            executor = CodeExecutor(dict(zip(traces_used, mapper_arguments)), self.parameters)
+            return executor.walk(node.right)
+
+        # We can't be overwriting parameters
+        assert primary_name not in self.parameters
+
+        if primary_variable.argument_count > 0:
+            self.parameters[primary_name] = jax.vmap(mapper)(*traced_values)
+        else:
+            self.parameters[primary_name] = mapper(*traced_values)
+
+
+@dataclass
+class EvaluateDensityWalker(walker.RatWalker):
+    variable_table: VariableTable
+    trace_table: TraceTable
+    parameters: Dict[str, Any]
+
+    def walk_Program(self, node: ast.Program):
+        target = 0.0
+        for statement in node.statements:
+            target += self.walk(statement)
+        return target
+
+    def walk_Statement(self, node: ast.Statement):
+        if node.op != "~":
+            return 0.0
+
+        primary_node = compiler.get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+
+        dependency_finder = CodeExecutorDependencyFinder(self.trace_table)
+        dependency_finder.walk(node)
+        traces_used = dependency_finder.traces_used
+
+        traced_values = tuple(self.trace_table[traced_node].array for traced_node in traces_used)
+
+        def mapper(*mapper_arguments):
+            executor = CodeExecutor(dict(zip(traces_used, mapper_arguments)), self.parameters)
+            return executor.walk(node)
+
+        if primary_variable.argument_count > 0:
+            return jax.numpy.sum(jax.vmap(mapper)(*traced_values))
+        else:
+            return mapper(*traced_values)
+
+
+@dataclass
+class ConstraintFinder(walker.RatWalker):
+    variable_table: VariableTable
+    trace_table: TraceTable
+    constraints: Dict[str, Union[float, numpy.ndarray]] = field(default_factory=dict)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.constraints:
+            assert node.name not in self.constraints
+
+            variable = self.variable_table[node.name]
+
+            node_constraints = {}
+
+            if node.constraints.left:
+                left_name = node.constraints.left.name
+                values = self.trace_table[node.constraints.left.value].array
+                node_constraints[left_name] = values if variable.argument_count > 0 else values[0]
+
+            if node.constraints.right:
+                right_name = node.constraints.right.name
+                values = self.trace_table[node.constraints.right.value].array
+                node_constraints[right_name] = values if variable.argument_count > 0 else values[0]
+
+            self.constraints[node.name] = node_constraints
 
 
 class Model:
-    log_density_jax: Callable[[numpy.array], float]
-    log_density_jax_no_jac: Callable[[numpy.array], float]
-    size: int
     base_df_dict: Dict[str, pandas.DataFrame]
-    device_data: Dict[str, jax.numpy.array]
-    device_subscript_indices: Dict[str, jax.numpy.array]
-    device_first_in_group_indicators: Dict[str, jax.numpy.array]
-    compiled_model: types.ModuleType
+    program: ast.Program
+    variable_table: VariableTable
+    trace_table: TraceTable
 
-    def _constrain_and_transform_parameters(self, unconstrained_parameter_vector, pad=True):
-        jacobian_adjustment, parameters = self.compiled_model.constrain_parameters(unconstrained_parameter_vector, pad)
-        return jacobian_adjustment, self.compiled_model.transform_parameters(
-            self.device_data, self.device_subscript_indices, self.device_first_in_group_indicators, parameters
-        )
+    @property
+    def size(self):
+        return self.variable_table.unconstrained_parameter_size
 
-    def _log_density(self, include_jacobian, unconstrained_parameter_vector):
-        # Evaluate model log density given model, data, subscripts and unconstrained parameters
-        jacobian_adjustment, parameters = self._constrain_and_transform_parameters(unconstrained_parameter_vector, pad=True)
-        target = self.compiled_model.evaluate_densities(self.device_data, self.device_subscript_indices, parameters)
-        return target + (jacobian_adjustment if include_jacobian else 0.0)
+    @partial(jax.jit, static_argnums=(0,))
+    def constrain(self, unconstrained_parameter_vector: numpy.ndarray):
+        constraint_finder = ConstraintFinder(self.variable_table, self.trace_table)
+        constraint_finder.walk(self.program)
+        jacobian_adjustments = 0.0
+        parameters = {}
+        used = 0
+
+        for name in self.variable_table:
+            record = self.variable_table[name]
+
+            if not isinstance(record, SampledVariableRecord):
+                continue
+
+            # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
+            if len(record.subscripts) > 0:
+                unconstrained = unconstrained_parameter_vector[used : used + len(record)]
+                used += len(record)
+            else:
+                unconstrained = unconstrained_parameter_vector[used]
+                used += 1
+
+            if name in constraint_finder.constraints:
+                variable_constraints = constraint_finder.constraints[name]
+
+                if "lower" in variable_constraints and "upper" not in variable_constraints:
+                    constrained, jacobian_adjustment = constraints.lower(unconstrained, variable_constraints["lower"])
+                elif "lower" not in variable_constraints and "upper" in variable_constraints:
+                    constrained, jacobian_adjustment = constraints.upper(unconstrained, variable_constraints["upper"])
+                else:  # "lower" in constraints and "upper" in constraints:
+                    constrained, jacobian_adjustment = constraints.finite(
+                        unconstrained, variable_constraints["lower"], variable_constraints["upper"]
+                    )
+
+                jacobian_adjustments += jax.numpy.sum(jacobian_adjustment)
+            else:
+                constrained = unconstrained
+
+            parameters[name] = constrained
+
+        return jacobian_adjustments, parameters
+
+    @partial(jax.jit, static_argnums=(0,))
+    def constrain_and_transform(self, unconstrained_parameter_vector: numpy.ndarray):
+        jacobian, parameters = self.constrain(unconstrained_parameter_vector)
+
+        transform = TransformedParametersFunctionGenerator(self.variable_table, self.trace_table, parameters)
+        transform.walk(self.program)
+
+        return jacobian, parameters
+
+    @partial(jax.jit, static_argnums=(0, 2))
+    def log_density(self, unconstrained_parameter_vector: numpy.ndarray, include_jacobian: bool = True):
+        jacobian, parameters = self.constrain(unconstrained_parameter_vector)
+
+        # Modify parameters in place
+        transform = TransformedParametersFunctionGenerator(self.variable_table, self.trace_table, parameters)
+        transform.walk(self.program)
+
+        likelihood = EvaluateDensityWalker(self.variable_table, self.trace_table, parameters)
+        target = likelihood.walk(self.program)
+
+        return target + (jacobian if include_jacobian else 0.0)
+
+    def log_density_no_jac(self, unconstrained_parameter_vector: numpy.ndarray):
+        return self.log_density(unconstrained_parameter_vector, False)
 
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
-        unconstrained_draws = numpy.array(device_unconstrained_draws)
-        num_draws = unconstrained_draws.shape[0]
-        num_chains = unconstrained_draws.shape[1]
-        constrained_draws = {}
+        constrain_and_transform_jax = jax.jit(jax.vmap(jax.vmap(lambda x: self.constrain_and_transform(x))))
 
-        constrain_and_transform_parameters_no_pad_jax = jax.jit(lambda x: self._constrain_and_transform_parameters(x, pad=False))
-        for draw in range(num_draws):
-            for chain in range(num_chains):
-                jacobian_adjustment, device_constrained_variables = constrain_and_transform_parameters_no_pad_jax(
-                    unconstrained_draws[draw, chain]
-                )
+        _, constrained_draws = constrain_and_transform_jax(device_unconstrained_draws)
 
-                for name, device_constrained_variable in device_constrained_variables.items():
-                    if name not in constrained_draws:
-                        constrained_draws[name] = numpy.zeros((num_draws, num_chains) + device_constrained_variable.shape)
-                    constrained_draws[name][draw, chain] = numpy.array(device_constrained_variable)
+        # # Copy back to numpy arrays
+        return {name: numpy.array(draws) for name, draws in constrained_draws.items()}, self.base_df_dict
 
-        # Copy back to numpy arrays
-        return constrained_draws, self.base_df_dict
-
-    def __init__(
-        self,
-        data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
-        model_string: str = None,
-        parsed_lines: List[ast.Expr] = None,
-        compile_path: str = None,
-        overwrite: bool = False,
-    ):
+    def __init__(self, model_string: str, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]], max_trace_iterations: int = 50):
         """
         Create a model from some data (`data`) and a model (specified as a string, `model_string`).
 
@@ -82,191 +300,47 @@ class Model:
 
         The parsed_lines argument is for creating a model from an intermediate representation -- likely
         deprecated soon.
+
+        max_trace_iterations determines how many tracing iterations the program will do to resolve
+        parameter domains
         """
+        data_dict = {}
+
         match data:
             case pandas.DataFrame():
-                data_names = data.columns
+                data_dict["__default"] = data.reset_index().copy()
             case dict():
-                data_names = set()
                 for key, value in data.items():
-                    if not isinstance(key, str):
-                        raise Exception(f"Keys of dictionary form of data must be of type `str`, found {type(key)}")
-
-                    match value:
-                        case pandas.DataFrame():
-                            for column in value.columns:
-                                data_names.add(column)
-                        case _:
-                            raise Exception(f"Values of dictionary form of data must be pandas DataFrames, found {type(value)}")
+                    data_dict[key] = value.reset_index().copy()
             case _:
-                raise Exception("Data must be a pandas DataFrame or a dictionary")
+                raise Exception("Data must either be pandas data frames or a dict of pandas dataframes")
 
-        if model_string is not None:
-            if parsed_lines is not None:
-                raise Exception("Only one of model_string and parsed_lines can be non-None")
+        # Parse the model to get AST
+        semantics = ModelBuilderSemantics()
+        parser = RatParser(semantics=semantics)
+        # TODO: This lambda is just here to make sure pylance formatting works -- should work
+        # without it as well
+        self.program = (lambda: parser.parse(model_string))()
 
-            parsed_lines = []
-            scanned_lines = Scanner(model_string).scan()
-            for scanned_line in scanned_lines:
-                parsed_lines.append(Parser(scanned_line, data_names, model_string).statement())
-        else:
-            if parsed_lines is None:
-                raise Exception("At least one of model_string or parsed_lines must be non-None")
+        # Compile the model
+        rat_compiler = RatCompiler(data_dict, self.program, max_trace_iterations=max_trace_iterations)
+        self.variable_table = rat_compiler.variable_table
+        self.trace_table = rat_compiler.trace_table
 
-        (
-            data_dict,
-            base_df_dict,
-            subscript_indices_dict,
-            first_in_group_indicators,
-            model_source_string,
-        ) = compiler.Compiler(data, parsed_lines, model_string).compile()
+        self.base_df_dict = {}
 
-        if compile_path is None:
-            self.working_dir = tempfile.TemporaryDirectory(prefix="rat.")
+        for variable_name in self.variable_table:
+            record = self.variable_table[variable_name]
+            # The base_dfs are used for putting together the output
+            if isinstance(record, DynamicVariableRecord):
+                rows = list(record.itertuples())
+                self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns=record.subscripts)
 
-            # Write model source to file and compile and import it
-            model_source_file = os.path.join(self.working_dir.name, "model_source.py")
-        else:
-            self.working_dir = os.path.dirname(compile_path)
-            if self.working_dir != "":
-                os.makedirs(self.working_dir, exist_ok=True)
-
-            if os.path.exists(compile_path) and not overwrite:
-                raise FileExistsError(f"Compile path {compile_path} already exists and will not be overwritten")
-
-            model_source_file = compile_path
-
-        with open(model_source_file, "w") as f:
-            f.write(model_source_string)
-
-        spec = importlib.util.spec_from_file_location("compiled_model", model_source_file)
-        compiled_model = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(compiled_model)
-        self.compiled_model = compiled_model
-
-        self.base_df_dict = base_df_dict
-
-        # Copy data to jax device
-        self.device_data = {}
-        for name, data in data_dict.items():
-            self.device_data[name] = jax.device_put(data)
-
-        # Copy subscript indices to jax device
-        self.device_subscript_indices = {}
-        for name, index_arr in subscript_indices_dict.items():
-            self.device_subscript_indices[name] = jax.device_put(index_arr)
-
-        # Copy first in group indicators to jax device
-        self.device_first_in_group_indicators = {}
-        for name, first_in_group_indicator in first_in_group_indicators.items():
-            self.device_first_in_group_indicators[name] = jax.device_put(first_in_group_indicator)
-
-        self.log_density_jax = jax.jit(functools.partial(self._log_density, True))
-        self.log_density_jax_no_jac = jax.jit(functools.partial(self._log_density, False))
-        self.size = self.compiled_model.unconstrained_parameter_size
-
-    def optimize(self, init=2, chains=4, retries=5, tolerance=1e-2):
-        """
-        Maximize the log density. `chains` difference optimizations are initialized.
-
-        An error is thrown if the different solutions are not all within tolerance of the
-        median solution for each parameter. If only one chain is used, the tolerance is
-        ignored.
-
-        If any optimization fails, retry up to `retries` number of times.
-
-        Initialize parameters in unconstrained space uniformly [-2, 2].
-        """
-
-        def negative_log_density(x):
-            return -self.log_density_jax_no_jac(x.astype(numpy.float32))
-
-        grad = jax.jit(jax.grad(negative_log_density))
-
-        def grad_double(x):
-            grad_device_array = grad(x)
-            return numpy.array(grad_device_array).astype(numpy.float64)
-
-        unconstrained_draws = numpy.zeros((1, chains, self.size))
-        for chain in range(chains):
-            for retry in range(retries):
-                params = 2 * init * numpy.random.uniform(size=self.size) - init
-
-                solution = scipy.optimize.minimize(negative_log_density, params, jac=grad_double, method="L-BFGS-B", tol=1e-9)
-
-                if solution.success:
-                    unconstrained_draws[0, chain] = solution.x
-                    break
-            else:
-                raise Exception(f"Optimization failed on chain {chain} with message: {solution.message}")
-
-        constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
-        return fit.OptimizationFit._from_constrained_variables(constrained_draws, base_dfs, tolerance=tolerance)
-
-    def sample(self, num_draws=200, num_warmup=1000, chains=4, init=2, thin=1, target_acceptance_rate=0.85):
-        """
-        Sample the target log density using NUTS.
-
-        Sample using `chains` different chains with parameters initialized in unconstrained
-        space [-2, 2]. Use `num_warmup` draws to warmup and collect `num_draws` draws in each
-        chain after warmup.
-
-        If `thin` is greater than 1, then compute internally `num_draws * thin` draws and
-        output only every `thin` draws (so the output is size `num_draws`).
-
-        `target_acceptance_rate` is the target acceptance rate for adaptation. Should be less
-        than one and greater than zero.
-        """
-        # Currently only doing warmup on one chain
-        initial_position = 2 * init * numpy.random.uniform(size=(self.size)) - init
-
-        assert target_acceptance_rate < 1.0 and target_acceptance_rate > 0.0
-        assert num_warmup > 200
-
-        def negative_log_density(q):
-            return -self.log_density_jax(q)
-
-        potential = nuts.Potential(negative_log_density, chains, self.size)
-        rng = numpy.random.default_rng()
-
-        # Ordered as (draws, chains, param)
-        unconstrained_draws = numpy.zeros((num_draws, chains, self.size))
-        leapfrog_steps = numpy.zeros((num_draws, chains), dtype=int)
-        divergences = numpy.zeros((num_draws, chains), dtype=bool)
-
-        def generate_draws():
-            stage_1_size = 100
-            stage_3_size = 50
-            stage_2_size = num_warmup - stage_1_size - stage_3_size
-
-            initial_draw, stepsize, diagonal_inverse_metric = nuts.warmup(
-                potential,
-                rng,
-                initial_position,
-                target_accept_stat=target_acceptance_rate,
-                stage_1_size=stage_1_size,
-                stage_2_size=stage_2_size,
-                stage_3_size=stage_3_size,
-            )
-
-            return nuts.sample(potential, rng, initial_draw, stepsize, diagonal_inverse_metric, num_draws, thin)
-
-        with ThreadPoolExecutor(max_workers=chains) as e:
-            results = []
-            for chain in range(chains):
-                results.append(e.submit(generate_draws))
-
-            for chain, result in enumerate(results):
-                unconstrained_draws[:, chain, :], leapfrog_steps[:, chain], divergences[:, chain] = result.result()
-
-        constrained_draws, base_dfs = self._prepare_draws_and_dfs(unconstrained_draws)
-        computational_diagnostic_variables = {"__leapfrog_steps": leapfrog_steps, "__divergences": divergences}
-
-        for name, values in computational_diagnostic_variables.items():
-            if name in constrained_draws:
-                print(f"{name} already exists in sampler output, not writing diagnostic variable")
-            else:
-                constrained_draws[name] = values
-                base_dfs[name] = pandas.DataFrame()
-
-        return fit.SampleFit._from_constrained_variables(constrained_draws, base_dfs, computational_diagnostic_variables.keys())
+    @staticmethod
+    def from_file(
+        filename: str,
+        data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]],
+        max_trace_iterations: int = 50,
+    ):
+        with open(filename) as f:
+            return Model(f.read(), data, max_trace_iterations)

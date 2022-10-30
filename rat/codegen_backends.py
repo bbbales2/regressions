@@ -1,357 +1,238 @@
-from typing import Tuple
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Set, List, Dict, Any, TypeVar, Generic, Union
+
+from tatsu.model import NodeWalker
 
 from . import ast
+from . import math
 from .exceptions import CompileError
 from .variable_table import VariableTable
 
 
-class IndentedString:
-    def __init__(self, indent_level=0):
-        self.prefix = " " * indent_level
-        self.string = self.prefix
+@dataclass
+class IndentWriter:
+    string: str = ""
+    indent_spacing: int = 4
+    indent_level: int = 0
 
-    def __iadd__(self, other: str):
-        self.string += other.replace("\n", f"\n{self.prefix}")
-        return self
+    def writeline(self, string: str = ""):
+        indent_string = self.indent_level * self.indent_spacing * " " if len(string) > 0 else ""
+        self.string += f"{indent_string}{string}\n"
+
+    @contextmanager
+    def indent(self):
+        try:
+            self.indent_level += 1
+            yield self
+        finally:
+            self.indent_level -= 1
 
     def __str__(self):
         return self.string
 
 
-class BaseCodeGenerator:
-    def __init__(self, variable_table: VariableTable, primary_variable=None, indent=0):
-        self.expression_string = IndentedString(indent_level=indent)
+T = TypeVar("T")
+
+
+@dataclass
+class ContextStack(Generic[T]):
+    stack: List[T]
+
+    def __init__(self, first: T):
+        self.stack = [first]
+
+    def peek(self) -> T:
+        return self.stack[-1]
+
+    @contextmanager
+    def push(self, value: T):
+        try:
+            self.stack.append(value)
+            yield self
+        finally:
+            self.stack.pop()
+
+
+class OpportunisticExecutor(NodeWalker):
+    """
+    Execute as much of the code as possible
+    """
+
+    variable_table: VariableTable
+    leaves: Dict[str, Any]
+    trace_by_reference: Set[ast.ModelBase]
+    left_side_of_sampling: Union[None, ast.ModelBase]
+    values: Dict[ast.ModelBase, Union[int, float, str]]
+
+    def __init__(self, variable_table: VariableTable, leaves: Dict[str, Union[int, float, str]], trace_by_reference: Set[ast.ModelBase]):
         self.variable_table = variable_table
-        self.primary_variable = primary_variable
-        self.indent = indent
+        self.leaves = leaves
+        self.trace_by_reference = trace_by_reference
+        self.left_side_of_sampling = None
+        self.values = {}
 
-    def get_expression_string(self):
-        return self.expression_string.string
-
-    def generate(self, ast_node: ast.Expr):
-        match ast_node:
-            case ast.IntegerConstant():
-                self.expression_string += str(ast_node.value)
-            case ast.RealConstant():
-                if ast_node.value == float("inf"):
-                    self.expression_string += "float('inf')"
-                elif ast_node.value == float("-inf"):
-                    self.expression_string += "float('-inf')"
-                else:
-                    self.expression_string += str(ast_node.value)
-            case ast.Normal():
-                self.expression_string += "jax.scipy.stats.norm.logpdf("
-                self.generate(ast_node.variate)
-                self.expression_string += ", "
-                self.generate(ast_node.mean)
-                self.expression_string += ", "
-                self.generate(ast_node.std)
-                self.expression_string += ")"
-            case ast.BernoulliLogit():
-                self.expression_string += "rat.math.bernoulli_logit("
-                self.generate(ast_node.variate)
-                self.expression_string += ", "
-                self.generate(ast_node.logit_p)
-                self.expression_string += ")"
-            case ast.LogNormal():
-                self.expression_string += "rat.math.log_normal("
-                self.generate(ast_node.variate)
-                self.expression_string += ", "
-                self.generate(ast_node.mean)
-                self.expression_string += ", "
-                self.generate(ast_node.std)
-                self.expression_string += ")"
-            case ast.Cauchy():
-                self.expression_string += "jax.scipy.stats.cauchy.logpdf("
-                self.generate(ast_node.variate)
-                self.expression_string += ", "
-                self.generate(ast_node.location)
-                self.expression_string += ", "
-                self.generate(ast_node.scale)
-                self.expression_string += ")"
-            case ast.Exponential():
-                self.expression_string += "jax.scipy.stats.expon.logpdf("
-                self.generate(ast_node.variate)
-                self.expression_string += ", loc=0, scale="
-                self.generate(ast_node.scale)
-                self.expression_string += ")"
-
-            case ast.Diff():
-                self.generate(ast_node.left)
-                self.expression_string += " - "
-                self.generate(ast_node.right)
-            case ast.Sum():
-                self.generate(ast_node.left)
-                self.expression_string += " + "
-                self.generate(ast_node.right)
-            case ast.Mul():
-                self.generate(ast_node.left)
-                self.expression_string += " * "
-                self.generate(ast_node.right)
-            case ast.Pow():
-                self.generate(ast_node.left)
-                self.expression_string += " ** "
-                self.generate(ast_node.right)
-            case ast.Div():
-                self.generate(ast_node.left)
-                self.expression_string += " / "
-                self.generate(ast_node.right)
-            case ast.Mod():
-                self.generate(ast_node.left)
-                self.expression_string += " % "
-                self.generate(ast_node.right)
-            case ast.PrefixNegation():
-                self.expression_string += "-"
-                self.generate(ast_node.subexpr)
-            case ast.LessThan():
-                self.generate(ast_node.left)
-                self.expression_string += " < "
-                self.generate(ast_node.right)
-            case ast.GreaterThan():
-                self.generate(ast_node.left)
-                self.expression_string += " > "
-                self.generate(ast_node.right)
-            case ast.LessThanOrEq():
-                self.generate(ast_node.left)
-                self.expression_string += " <= "
-                self.generate(ast_node.right)
-            case ast.GreaterThanOrEq():
-                self.generate(ast_node.left)
-                self.expression_string += " >= "
-                self.generate(ast_node.right)
-            case ast.EqualTo():
-                self.generate(ast_node.left)
-                self.expression_string += " == "
-                self.generate(ast_node.right)
-            case ast.NotEqualTo():
-                self.generate(ast_node.left)
-                self.expression_string += " != "
-                self.generate(ast_node.right)
-
-            case ast.Sqrt():
-                self.expression_string += "jax.numpy.sqrt("
-                self.generate(ast.subexpr)
-                self.expression_string += ")"
-            case ast.Log():
-                self.expression_string += "jax.numpy.log("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Exp():
-                self.expression_string += "jax.numpy.exp("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Abs():
-                self.expression_string += "jax.numpy.abs("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Floor():
-                self.expression_string += "jax.numpy.floor("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Ceil():
-                self.expression_string += "jax.numpy.ceil("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Real():
-                self.expression_string += "jax.numpy.array("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ", dtype = 'float')"
-            case ast.Round():
-                self.expression_string += "jax.numpy.round("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Sin():
-                self.expression_string += "jax.numpy.sin("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Cos():
-                self.expression_string += "jax.numpy.cos("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Tan():
-                self.expression_string += "jax.numpy.tan("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Arcsin():
-                self.expression_string += "jax.numpy.arcsin("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Arccos():
-                self.expression_string += "jax.numpy.arccos("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Arctan():
-                self.expression_string += "jax.numpy.arctan("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.Logit():
-                self.expression_string += "jax.scipy.special.logit("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-            case ast.InverseLogit():
-                self.expression_string += "jax.scipy.special.expit("
-                self.generate(ast_node.subexpr)
-                self.expression_string += ")"
-
-            case _:
-                raise NotImplementedError()
-
-
-class EvaluateDensityCodeGenerator(BaseCodeGenerator):
-    variable_name: str = None  # This is an internal attribute that's used to pass variable name when generating subscripts
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.primary_variable_name = self.primary_variable.name
-        if self.primary_variable.subscript:
-            self.primary_variable_subscript_names = tuple(
-                [subscript_column.name for subscript_column in self.primary_variable.subscript.names]
-            )
+    def walk_Statement(self, node: ast.Statement):
+        # Let's just say an assignment evaluates to the right hand side?
+        if node.op == "=":
+            self.walk(node.left)
+            output = self.walk(node.right)
         else:
-            self.primary_variable_subscript_names = tuple()
+            self.left_side_of_sampling = node.left
+            output = self.walk(node.right)
 
-    def generate(self, ast_node: ast.Expr):
-        match ast_node:
-            case ast.Param():
-                self.expression_string += f"parameters['{ast_node.name}']"
-                if ast_node.subscript:
-                    self.expression_string += "["
-                    self.variable_name = ast_node.name
-                    self.generate(ast_node.subscript)
-                    self.variable_name = None
-                    self.expression_string += "]"
-            case ast.Data():
-                self.expression_string += f"data['{ast_node.name}']"
-                if ast_node.name != self.primary_variable_name and ast_node.subscript:
-                    self.expression_string += "["
-                    self.variable_name = ast_node.name
-                    self.generate(ast_node.subscript)
-                    self.variable_name = None
-                    self.expression_string += "]"
-            case ast.Subscript():
-                if not self.variable_name:
-                    raise Exception("Internal compiler error -- Variable name must be passed for subscript codegen!")
-                subscript_names = tuple(column.name for column in ast_node.names)
-                subscript_shifts = tuple(x.value for x in ast_node.shifts)
-                subscript_key = self.variable_table.get_subscript_key(
-                    self.primary_variable_name, self.variable_name, subscript_names, subscript_shifts
-                )
-                self.expression_string += f"subscripts['{subscript_key}']"
+        if output is not None:
+            self.values[node] = output
+        return output
 
-            case ast.IfElse():
-                primary = self.primary_variable.name
-                self.expression_string += "rat.math.lax_select_scalar("
-                self.generate(ast_node.condition)
-                self.expression_string += ", "
-                self.generate(ast_node.true_expr)
-                self.expression_string += ", "
-                self.generate(ast_node.false_expr)
-                self.expression_string += ")"
+    def walk_Binary(self, node: ast.Binary):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        if left is not None and right is not None:
+            output = eval(f"left {node.op} right")
+        else:
+            output = None
 
-            case _:
-                super().generate(ast_node)
+        if output is not None:
+            self.values[node] = output
+        return output
 
+    def walk_IfElse(self, node: ast.IfElse):
+        predicate = self.walk(node.predicate)
 
-class TransformedParametersCodeGenerator(EvaluateDensityCodeGenerator):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.lhs_used_in_rhs = False
-        self.lhs_key = ""
-        self.at_rhs_of_scan = False
-        # at_rhs_of_scan is used to indicate whether we are generating code for the RHS of a jax.lax.scan().
-        # scan() differ fron normal array operations because we're working elementwise on the parameter array.
-        # this means we can't just do data["a"] + parameter["b"], but instead need to index them one by one, depending
-        # on the LHS parameter's index. We do that by appending [index] to RHS variables, so that we're indexing an
-        # array. (ex. parameters["b"][1], where index = 1)
+        if predicate is None:
+            msg = f"Unable to evaluate predicate at compile time. Ensure there are no parameter dependencies here"
+            raise CompileError(msg, node)
 
-    def generate(self, ast_node: ast.Expr):
-        match ast_node:
-            case ast.Subscript():
-                super().generate(ast_node)
-                if self.at_rhs_of_scan:
-                    # This means parameters need to be treated elementwise
-                    self.expression_string += "[index]"
-            case ast.Data():
-                super().generate(ast_node)
-                if self.at_rhs_of_scan:
-                    # This means parameters need to be treated elementwise
-                    self.expression_string += "[index]"
-            case ast.Param():
-                param_key = ast_node.get_key()
+        output = self.walk(node.left) if predicate else self.walk(node.right)
 
-                if ast_node.subscript:
-                    if param_key == self.lhs_key:
-                        if self.at_rhs_of_scan:
-                            # scan function
-                            subscript = ast_node.subscript
+        if output is not None:
+            self.values[node] = output
+        return output
 
-                            subscript_names = tuple(column.name for column in subscript.names)
-                            subscript_shifts = tuple(x.value for x in subscript.shifts)
-                            self.variable_table.get_subscript_key(param_key, param_key, subscript_names, subscript_shifts)
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        if self.left_side_of_sampling:
+            initial_arglist = (self.walk(self.left_side_of_sampling),)
+            self.left_side_of_sampling = None
+        else:
+            initial_arglist = ()
 
-                            carry_shift = next(shift for shift in subscript_shifts if shift != 0)
-                            self.expression_string += f"carry{carry_shift}"
-                        else:
-                            self.expression_string += f"parameters['{param_key}']"
-                    elif param_key != self.lhs_key:
-                        self.expression_string += f"parameters['{param_key}']"
-                        self.expression_string += "["
-                        self.variable_name = param_key
-                        self.generate(ast_node.subscript)
-                        self.variable_name = None
-                        self.expression_string += "]"
+        if node.arglist:
+            arglist = initial_arglist + tuple(self.walk(arg) for arg in node.arglist)
+        else:
+            arglist = initial_arglist
+
+        if all(arg is not None for arg in arglist):
+            output = getattr(math, node.name)(*arglist)
+        else:
+            output = None
+
+        if output is not None:
+            self.values[node] = output
+        return output
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.name in self.leaves:
+            output = self.leaves[node.name]
+        else:
+            if node.constraints:
+                constraint_msg = f"Unable to evaluate constraint at compile time. Ensure there are no parameter dependencies here"
+                if node.constraints.left:
+                    left_constraint_value = self.walk(node.constraints.left.value)
+                    if left_constraint_value is None:
+                        raise CompileError(constraint_msg, node.constraints.left)
+
+                if node.constraints.right:
+                    right_constraint_value = self.walk(node.constraints.right.value)
+                    if right_constraint_value is None:
+                        raise CompileError(constraint_msg, node.constraints.right)
+
+            if node.arglist:
+                arglist = tuple(self.walk(arg) for arg in node.arglist)
+            else:
+                arglist = ()
+
+            if all(arg is not None for arg in arglist):
+                if node in self.trace_by_reference:
+                    if len(arglist) > 0:
+                        output = self.variable_table[node.name].get_index(arglist)
+                    else:
+                        output = None
                 else:
-                    self.expression_string += f"parameters['{param_key}']"
-            case ast.Assignment():
-                lhs = ast_node.lhs
-                self.lhs_key = lhs.get_key()
-                rhs = ast_node.rhs
+                    output = self.variable_table[node.name].get_value(arglist)
+            else:
+                output = None
 
-                carry_size = 0
+        if output is not None:
+            self.values[node] = output
 
-                need_first_in_group_indicator = False
-                for symbol in ast.search_tree(rhs, ast.Param):
-                    if symbol.get_key() == self.lhs_key:
-                        self.lhs_used_in_rhs = True
+        # This is tricky -- only return a value if we actually have one
+        # For variables where we trace by reference we don't have anything
+        # to return
+        if node not in self.trace_by_reference:
+            return output
 
-                        shifts = symbol.subscript.shifts
+    def walk_Literal(self, node: ast.Literal):
+        output = node.value
+        self.values[node] = output
+        return output
 
-                        if len(shifts) > 1:
-                            need_first_in_group_indicator = True
-                        carry_size = max(carry_size, *[shift.value for shift in shifts])
 
-                self.expression_string += f"# Assigned param: {self.lhs_key}\n"
-                if self.lhs_used_in_rhs:
-                    lhs_record = self.variable_table[self.lhs_key]
-                    lhs_size = lhs_record.base_df.shape[0]
+class TraceExecutor(NodeWalker):
+    """
+    As long as shunt is true, values of expressions aren't returned but
+    instead shunted off into tuples
+    """
 
-                    zero_tuple_string = f"({','.join(['0.0'] * carry_size)})"
-                    carry_strings = [f"carry{n}" for n in range(1, carry_size + 1)]
-                    carry_tuple_string = f"({','.join(carry_strings)})"  # (carry0, carry1, ...)
-                    next_carry_tuple_string = f"({','.join(['next_value'] + carry_strings[:-1])})"
-                    scan_function_name = f"scan_function_{self.variable_table.get_unique_number()}"
+    variable_table: VariableTable
+    leaves: Dict[str, Any]
+    shunt: ContextStack[bool]
 
-                    self.expression_string += f"def {scan_function_name}(carry, index):\n"
-                    if need_first_in_group_indicator:
-                        self.expression_string += f"    carry = jax.lax.cond(first_in_group_indicators['{self.lhs_key}'][index], lambda : {zero_tuple_string}, lambda : carry)\n"
-                    self.expression_string += f"    {carry_tuple_string} = carry\n"
-                    self.expression_string += f"    next_value = "
-                    self.at_rhs_of_scan = True
-                    self.generate(rhs)
-                    self.at_rhs_of_scan = False
-                    self.expression_string += "\n"
-                    self.expression_string += f"    return {next_carry_tuple_string}, next_value\n\n"
+    def __init__(self, variable_table: VariableTable, leaves: Dict[str, Any]):
+        self.variable_table = variable_table
+        self.leaves = leaves
+        self.shunt = ContextStack(True)
 
-                    self.expression_string += "_, "
-                    self.generate(lhs)
-                    self.expression_string += f" = jax.lax.scan({scan_function_name}, {zero_tuple_string}, jax.numpy.arange({lhs_size}))"
-                    self.expression_string += "\n"
+    def walk_Statement(self, node: ast.Statement):
+        self.walk(node.left)
+        self.walk(node.right)
 
+    def walk_Binary(self, node: ast.Binary):
+        left = self.walk(node.left)
+        right = self.walk(node.right)
+        if not self.shunt.peek():
+            return eval(f"left {node.op} right")
+
+    def walk_IfElse(self, node: ast.IfElse):
+        with self.shunt.push(False):
+            predicate = self.walk(node.predicate)
+
+        return self.walk(node.left) if predicate else self.walk(node.right)
+
+    def walk_FunctionCall(self, node: ast.FunctionCall):
+        if node.arglist:
+            arglist = tuple(self.walk(arg) for arg in node.arglist)
+        else:
+            arglist = ()
+
+        if not self.shunt.peek():
+            return getattr(math, node.name)(*arglist)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.name in self.leaves:
+            return self.leaves[node.name]
+        else:
+            with self.shunt.push(False):
+                if node.arglist:
+                    arglist = tuple(self.walk(arg) for arg in node.arglist)
                 else:
-                    self.generate(lhs)
-                    self.expression_string += " = "
-                    self.generate(rhs)
-                    self.expression_string += "\n"
+                    arglist = ()
 
-            case _:
-                super().generate(ast_node)
+            variable = self.variable_table[node.name]
+            if len(variable.subscripts) != len(arglist):
+                msg = f"{node.name} should have {len(variable.subscripts)} subscript(s), found {len(arglist)}"
+                raise CompileError(msg, node)
+            return variable(*arglist)
+
+    def walk_Literal(self, node: ast.Literal):
+        return node.value
