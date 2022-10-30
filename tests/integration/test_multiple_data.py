@@ -5,10 +5,9 @@ import pathlib
 import pandas
 import pytest
 
-from rat import ast
 from rat.model import Model
 from rat import optimize
-
+from rat.exceptions import CompileError
 test_dir = pathlib.Path(__file__).parent
 
 
@@ -115,14 +114,20 @@ def test_multiple_dataframes_eight_schools_error_to_many_to_few_rows():
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    with pytest.raises(Exception, match="Multiple rows matching school = 1"):
+    # https://stackoverflow.com/questions/70499076/how-to-check-exception-cause-using-pytest-raises
+    # https://github.com/pytest-dev/pytest/issues/6694
+    # TODO: better exception testing for __cause__
+    # We're trying to test the cause of the compile error, but this won't work because the contextmanager didn't exit
+    with pytest.raises(CompileError) as exc_info:
         Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
+        # assert "Multiple rows matching school = 1" in str(exc_info.value.__cause__)
+        # assert isinstance(exc_info.value.__cause__, Exception)
 
-    sigma_data_df = data_df[["school", "sigma"]].iloc[
-        :1,
-    ]
+    # with pytest.raises(Exception, match="Multiple rows matching school = 1"):
+    #     Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
-    with pytest.raises(Exception, match="not found in data tracer"):
+    sigma_data_df = data_df[["school", "sigma"]].iloc[:1,]
+    with pytest.raises(KeyError, match="Argument \(2,\) not found in values placeholder"):
         Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
 
@@ -140,16 +145,22 @@ def test_multiple_dataframes_eight_schools_subscript_errors():
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    with pytest.raises(Exception, match="subscript y not found"):
+    # with pytest.raises(Exception, match="subscript y not found"):
+    #     Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
+
+    # Again, we can't match nested exception messages :(
+    with pytest.raises(CompileError, match="Irrecoverable error binding sigma to data"):
         Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
     model_string = """
-    y' ~ normal(theta[school], sigma[school, rabbit]);
+    y[school]' ~ normal(theta[school], sigma[school, rabbit]);
     theta' = mu + z[school] * tau;
     z ~ normal(0, 1);
     mu ~ normal(0, 5);
     tau<lower = 0.0> ~ log_normal(0, 1);
     """
 
-    with pytest.raises(Exception, match="subscript rabbit not found"):
+    # with pytest.raises(Exception, match="subscript rabbit not found"):
+    #     Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
+    with pytest.raises(Exception, match="Irrecoverable error binding sigma to data"):
         Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})

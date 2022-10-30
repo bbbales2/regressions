@@ -9,6 +9,7 @@ import rat
 test_dir = pathlib.Path(__file__).parent
 
 
+@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series.csv"))
 
@@ -37,6 +38,7 @@ def test_optimize_time_series():
     assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
 
+@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_non_center():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series.csv"))
 
@@ -66,6 +68,7 @@ def test_optimize_time_series_non_center():
     assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
 
+@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_2():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
@@ -106,6 +109,7 @@ def test_optimize_time_series_2():
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
 
+@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_2_non_center():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
@@ -148,6 +152,7 @@ def test_optimize_time_series_2_non_center():
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
 
+@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_2_non_center_infer_tau():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
@@ -163,6 +168,7 @@ def test_optimize_time_series_2_non_center_infer_tau():
     fit = rat.optimize(model, init=0.1, chains=1)
 
 
+@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_2_error():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 

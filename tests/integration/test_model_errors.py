@@ -29,7 +29,8 @@ def test_subscripts_not_specified():
     mu2 ~ normal(-0.5, 0.3);
     """
 
-    with pytest.raises(Exception, match="mu should have 1 subscript(s)"):
+    # remember it's regex, so we need to escape parentheses
+    with pytest.raises(Exception, match="mu should have 1 subscript\(s\)"):
         model = Model(model_string=model_string, data=data_df)
 
 

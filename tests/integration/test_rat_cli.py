@@ -16,7 +16,7 @@ def test_cli_optimize():
     model_filename = os.path.join(test_dir, "eight_schools.rat")
     data_filename = os.path.join(test_dir, "eight_schools.csv")
 
-    cmd_defaults = f"{sys.executable} {rat_path} {model_filename} {{output_folder}} {data_filename} --compile_path={{output_folder}}/model.py --method=optimize --chains=1"
+    cmd_defaults = f"{sys.executable} {rat_path} {model_filename} {{output_folder}} {data_filename} --method=optimize --chains=1"
     cmd_specific = cmd_defaults + f" --init=0.1 --retries=5 --tolerance=1e-1 --overwrite"
 
     for cmd in [cmd_defaults, cmd_specific]:
@@ -33,8 +33,6 @@ def test_cli_optimize():
                 print("Stderr: ")
                 print(result.stderr.decode("utf-8"))
                 raise e
-
-            assert os.path.exists(os.path.join(output_folder, "model.py"))
 
 
 def test_cli_sample():
@@ -58,7 +56,7 @@ def test_cli_multiple_files():
     y_data_filename = os.path.join(test_dir, "eight_schools_y.csv")
     sigma_data_filename = os.path.join(test_dir, "eight_schools_sigma.csv")
 
-    cmd = f"{sys.executable} {rat_path} {model_filename} {{output_folder}} y_data={y_data_filename} sigma_data={sigma_data_filename} --compile_path={{output_folder}}/model.py --method=optimize --chains=1"
+    cmd = f"{sys.executable} {rat_path} {model_filename} {{output_folder}} y_data={y_data_filename} sigma_data={sigma_data_filename} --method=optimize --chains=1"
     with tempfile.TemporaryDirectory() as output_folder:
         output_folder = os.path.join(output_folder, "output")
 
@@ -72,8 +70,6 @@ def test_cli_multiple_files():
             print("Stderr: ")
             print(result.stderr.decode("utf-8"))
             raise e
-
-        assert os.path.exists(os.path.join(output_folder, "model.py"))
 
 
 if __name__ == "__main__":
