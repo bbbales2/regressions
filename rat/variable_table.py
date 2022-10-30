@@ -8,21 +8,47 @@ K = TypeVar("K")
 V = TypeVar("V")
 
 
-def get_dataframe_name_by_column_name(column_name: str, data: Dict[str, pandas.DataFrame]):
+def get_dataframe_name_by_variable_and_column_name(data: Dict[str, pandas.DataFrame], variable_name: str = None, subscript_name: str = None):
     """
-    Look up the dataframe associated with a given variable name
+    Look up the dataframe associated with a given variable and/or subscript name. variable_name and column_name
+    should both be within the same one and only one dataframe.
 
     Exactly one dataframe must be found or a KeyError will be thrown
     """
     matching_dfs = []
     for key, data_df in data.items():
-        if column_name in data_df:
+        variable_found = subscript_found = False
+        if variable_name in data_df:
+            variable_found = True
+        if subscript_name in data_df:
+            subscript_found = True
+
+        if (variable_name and variable_found) and (subscript_found and subscript_name):
+            # If both variable and subscript names are given, both must exist
+            matching_dfs.append(key)
+        elif (variable_name and variable_found) or (subscript_name and subscript_found):
+            # Just either one supplied means only check for that one
             matching_dfs.append(key)
 
     if len(matching_dfs) == 0:
-        raise KeyError(f"Variable {column_name} not found")
+        if subscript_name and variable_name:
+            raise KeyError(f"Subscript '{subscript_name}' for data variable '{variable_name}' not found")
+        elif subscript_name:
+            raise KeyError(f"Subscript '{subscript_name}' not found")
+        elif variable_name:
+            raise KeyError(f"Data variable '{variable_name}' not found")
+
     elif len(matching_dfs) > 1:
-        raise Exception(f"Variable {column_name} is ambiguous; it is found in dataframes {matching_dfs}")
+        # If we have multiple dataframes containing a subscript, raise an error if the variable isn't a data column
+        # and the variable is present in multiple dataframes.
+        if subscript_name and variable_name:
+            raise KeyError(f"Subscript '{subscript_name}' for data variable '{variable_name}' is ambiguous; it is found in dataframes {matching_dfs}")
+        elif variable_name:
+            raise KeyError(f"Data variable '{variable_name}' is ambiguous; it is found in dataframes {matching_dfs}")
+        elif subscript_name:
+            raise KeyError(f"Subscript '{subscript_name}' is ambiguous; it is found in dataframes {matching_dfs}")
+
+
 
     return matching_dfs[0]
 
@@ -178,7 +204,7 @@ class ConstantVariableRecord(VariableRecord):
         """
         # Find if there's a dataframe that supplies the requested values
         try:
-            data_name = get_dataframe_name_by_column_name(self.name, data)
+            data_name = get_dataframe_name_by_variable_and_column_name(data, subscript_name=self.name)
         except KeyError as e:
             raise KeyError(f"{self.name} not found in the input data") from e
 

@@ -16,7 +16,7 @@ from .variable_table import (
     SampledVariableRecord,
     ConstantVariableRecord,
     DynamicVariableRecord,
-    get_dataframe_name_by_column_name,
+    get_dataframe_name_by_variable_and_column_name,
 )
 from .walker import RatWalker, NodeWalker
 
@@ -148,7 +148,7 @@ class AugmentDataVariableSubscriptsWalker(RatWalker):
 
         # We only augment data variables if the primary variable is a data, and has no subscripts.
         try:
-            get_dataframe_name_by_column_name(self.primary_node.name, self.data_dict)
+            get_dataframe_name_by_variable_and_column_name(self.data_dict, variable_name=self.primary_node.name)
         except KeyError:
             self.primary_variable_is_data = False
             return
@@ -164,7 +164,7 @@ class AugmentDataVariableSubscriptsWalker(RatWalker):
 
     def walk_Variable(self, node: ast.Variable):
         try:
-            get_dataframe_name_by_column_name(node.name, self.data_dict)
+            get_dataframe_name_by_variable_and_column_name(self.data_dict, subscript_name=node.name)
         except KeyError:
             if node.arglist:
                 for subscript in node.arglist:
