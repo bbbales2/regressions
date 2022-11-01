@@ -5,7 +5,14 @@
 
 start::Program = { statements+:statement }+ $;
 
-statement::Statement = left:factor ~ op:('~' | '=') ~ right:expression ';';
+statement =
+    | sample_statement
+    | assignment_statement
+;
+
+sample_statement::Statement = left:factor op:("~") ~ right:expression ';';
+
+assignment_statement::Statement = left:variable op:('=') ~ right:expression ';';
 
 expression =
     | logical
@@ -28,11 +35,11 @@ multiplication_expression =
 
 multiplication::Binary = left:factor op:('*' | '/') ~ right:multiplication_expression;
 
-factor
-    =
+factor =
     | ifelse
     | function_call
     | subexpression
+    | expression
     | variable
     | literal
 ;
