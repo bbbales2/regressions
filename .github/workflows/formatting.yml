@@ -1,4 +1,4 @@
-name: Update docs and formatting for merge to main branch
+name: Apply formatting for merge to main branch
 
 on: [push]
 
@@ -14,11 +14,10 @@ jobs:
     - name: Upgrade pip & install pdoc & the package
       run: |
         python -m pip install --upgrade pip
-        pip install pdoc black .
-    - name: Run pdoc and black and commit
+        pip install black .
+    - name: Run black and commit
       run: |
         black --line-length 140 .
-        pdoc --math --logo logo.jpg -o docs rat
     - uses: EndBug/add-and-commit@v7
       with:
         default_author: github_actions
