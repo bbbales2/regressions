@@ -123,7 +123,12 @@ class OpportunisticExecutor(NodeWalker):
             arglist = initial_arglist
 
         if all(arg is not None for arg in arglist):
-            output = getattr(math, node.name)(*arglist)
+            try:
+                python_function = getattr(math, node.name)
+            except AttributeError:
+                msg = f"Error calling unknown function {node.name}"
+                raise CompileError(msg, node)
+            output = python_function(*arglist)
         else:
             output = None
 

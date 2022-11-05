@@ -9,6 +9,25 @@ from rat import optimize
 test_dir = pathlib.Path(__file__).parent
 issue_data_dir = test_dir / "issue_data"
 
+# https://github.com/bbbales2/regressions/issues/84
+def test_unkown_unary_function_issue_84():
+    data_df = pandas.DataFrame({
+        "school" : [1, 2, 3, 4],
+        "offset" : [10.0, 0.0, 0.0, 0.0]
+    })
+
+    model_string = """
+    offset' ~ normal(mu[school], 1000.0);
+    mu[school]' ~ normal(
+        reasfdsdaaltasdfsadasfdfsd(0.7) + 1.0,
+        0.1
+    );
+    """
+
+    with pytest.raises(Exception, match="Error calling unknown function reasfdsdaaltasdfsadasfdfsd"):
+        Model(model_string, data_df)
+
+
 # https://github.com/bbbales2/regressions/issues/90
 def test_ifelse_issue_90():
     data_df = pandas.read_csv(issue_data_dir / "90.csv")
