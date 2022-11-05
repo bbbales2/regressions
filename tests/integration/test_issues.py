@@ -9,6 +9,7 @@ from rat import optimize
 test_dir = pathlib.Path(__file__).parent
 issue_data_dir = test_dir / "issue_data"
 
+
 # https://github.com/bbbales2/regressions/issues/84
 def test_unkown_unary_function_issue_84():
     data_df = pandas.DataFrame({
