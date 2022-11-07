@@ -65,6 +65,7 @@ class RatParser(Parser):
         super().__init__(config=config)
 
     @tatsumasu("Program")
+    @nomemo
     def _start_(self):  # noqa
         def block0():
             self._statement_()
@@ -75,18 +76,37 @@ class RatParser(Parser):
 
         self._define([], ["statements"])
 
-    @tatsumasu("Statement")
+    @tatsumasu()
+    @nomemo
     def _statement_(self):  # noqa
+        with self._choice():
+            with self._option():
+                self._sample_statement_()
+            with self._option():
+                self._assignment_statement_()
+            self._error("expecting one of: " "<assignment_statement> <factor>" "<sample_statement> <variable>")
+
+    @tatsumasu("Statement")
+    @nomemo
+    def _sample_statement_(self):  # noqa
         self._factor_()
         self.name_last_node("left")
-        self._cut()
         with self._group():
-            with self._choice():
-                with self._option():
-                    self._token("~")
-                with self._option():
-                    self._token("=")
-                self._error("expecting one of: " "'=' '~'")
+            self._token("~")
+        self.name_last_node("op")
+        self._cut()
+        self._expression_()
+        self.name_last_node("right")
+        self._token(";")
+
+        self._define(["left", "op", "right"], [])
+
+    @tatsumasu("Statement")
+    def _assignment_statement_(self):  # noqa
+        self._variable_()
+        self.name_last_node("left")
+        with self._group():
+            self._token("=")
         self.name_last_node("op")
         self._cut()
         self._expression_()
@@ -96,6 +116,7 @@ class RatParser(Parser):
         self._define(["left", "op", "right"], [])
 
     @tatsumasu()
+    @nomemo
     def _expression_(self):  # noqa
         with self._choice():
             with self._option():
@@ -105,6 +126,7 @@ class RatParser(Parser):
             self._error("expecting one of: " "<addition> <addition_expression>" "<logical> <multiplication_expression>")
 
     @tatsumasu("Binary")
+    @nomemo
     def _logical_(self):  # noqa
         self._addition_expression_()
         self.name_last_node("left")
@@ -129,6 +151,7 @@ class RatParser(Parser):
         self._define(["left", "op", "right"], [])
 
     @tatsumasu()
+    @nomemo
     def _addition_expression_(self):  # noqa
         with self._choice():
             with self._option():
@@ -138,6 +161,7 @@ class RatParser(Parser):
             self._error("expecting one of: " "<addition> <factor> <multiplication>" "<multiplication_expression>")
 
     @tatsumasu("Binary")
+    @nomemo
     def _addition_(self):  # noqa
         self._multiplication_expression_()
         self.name_last_node("left")
@@ -156,15 +180,23 @@ class RatParser(Parser):
         self._define(["left", "op", "right"], [])
 
     @tatsumasu()
+    @nomemo
     def _multiplication_expression_(self):  # noqa
         with self._choice():
             with self._option():
                 self._multiplication_()
             with self._option():
                 self._factor_()
-            self._error("expecting one of: " "<factor> <function_call> <ifelse>" "<literal> <multiplication>" "<subexpression> <variable>")
+            self._error(
+                "expecting one of: "
+                "<addition_expression> <expression>"
+                "<factor> <function_call> <ifelse>"
+                "<literal> <logical> <multiplication>"
+                "<subexpression> <variable>"
+            )
 
     @tatsumasu("Binary")
+    @nomemo
     def _multiplication_(self):  # noqa
         self._factor_()
         self.name_last_node("left")
@@ -183,6 +215,7 @@ class RatParser(Parser):
         self._define(["left", "op", "right"], [])
 
     @tatsumasu()
+    @leftrec
     def _factor_(self):  # noqa
         with self._choice():
             with self._option():
@@ -192,11 +225,19 @@ class RatParser(Parser):
             with self._option():
                 self._subexpression_()
             with self._option():
+                self._expression_()
+            with self._option():
                 self._variable_()
             with self._option():
                 self._literal_()
             self._error(
-                "expecting one of: " "'(' 'ifelse' <function_call>" "<identifier> <integer> <literal> <real>" "<subexpression> <variable>"
+                "expecting one of: "
+                "'(' 'ifelse' <addition>"
+                "<addition_expression> <expression>"
+                "<function_call> <identifier> <integer>"
+                "<literal> <logical>"
+                "<multiplication_expression> <real>"
+                "<subexpression> <variable>"
             )
 
     @tatsumasu("IfElse")
@@ -338,6 +379,12 @@ class RatSemantics:
         return ast
 
     def statement(self, ast):  # noqa
+        return ast
+
+    def sample_statement(self, ast):  # noqa
+        return ast
+
+    def assignment_statement(self, ast):  # noqa
         return ast
 
     def expression(self, ast):  # noqa

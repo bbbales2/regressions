@@ -70,3 +70,108 @@ def test_primed_variable_does_not_exist_issue_89():
 
     with pytest.raises(Exception, match="group is in control flow/subscripts and must be a primary variable subscript, but it is not"):
         model = Model(model_string=model_string, data=data_df)
+
+
+a = {
+    "statements": [
+        {
+            "left": {
+                "left": {
+                    "value": "2.0",
+                    "parseinfo": {"tokenizer": None, "rule": "literal", "pos": 5, "endpos": 8, "line": 1, "endline": 1, "alerts": []},
+                },
+                "op": "*",
+                "right": {
+                    "left": {
+                        "prime": "'",
+                        "arglist": None,
+                        "constraints": None,
+                        "name": "y",
+                        "parseinfo": {
+                            "tokenizer": None,
+                            "rule": "variable",
+                            "pos": 11,
+                            "endpos": 13,
+                            "line": 1,
+                            "endline": 1,
+                            "alerts": [],
+                        },
+                    },
+                    "op": "-",
+                    "right": {
+                        "prime": None,
+                        "arglist": None,
+                        "constraints": None,
+                        "name": "y",
+                        "parseinfo": {
+                            "tokenizer": None,
+                            "rule": "variable",
+                            "pos": 16,
+                            "endpos": 17,
+                            "line": 1,
+                            "endline": 1,
+                            "alerts": [],
+                        },
+                    },
+                    "parseinfo": {"tokenizer": None, "rule": "addition", "pos": 11, "endpos": 17, "line": 1, "endline": 1, "alerts": []},
+                },
+                "parseinfo": {"tokenizer": None, "rule": "multiplication", "pos": 5, "endpos": 17, "line": 1, "endline": 1, "alerts": []},
+            },
+            "op": "~",
+            "right": {
+                "arglist": [
+                    {
+                        "prime": None,
+                        "arglist": [
+                            {
+                                "prime": None,
+                                "arglist": None,
+                                "constraints": None,
+                                "name": "school",
+                                "parseinfo": {
+                                    "tokenizer": None,
+                                    "rule": "variable",
+                                    "pos": 33,
+                                    "endpos": 39,
+                                    "line": 1,
+                                    "endline": 1,
+                                    "alerts": [],
+                                },
+                            }
+                        ],
+                        "constraints": None,
+                        "name": "theta",
+                        "parseinfo": {
+                            "tokenizer": None,
+                            "rule": "variable",
+                            "pos": 27,
+                            "endpos": 40,
+                            "line": 1,
+                            "endline": 1,
+                            "alerts": [],
+                        },
+                    },
+                    {
+                        "prime": None,
+                        "arglist": None,
+                        "constraints": None,
+                        "name": "sigma",
+                        "parseinfo": {
+                            "tokenizer": None,
+                            "rule": "variable",
+                            "pos": 42,
+                            "endpos": 47,
+                            "line": 1,
+                            "endline": 1,
+                            "alerts": [],
+                        },
+                    },
+                ],
+                "name": "normal",
+                "parseinfo": {"tokenizer": None, "rule": "function_call", "pos": 20, "endpos": 48, "line": 1, "endline": 1, "alerts": []},
+            },
+            "parseinfo": {"tokenizer": None, "rule": "sample_statement", "pos": 5, "endpos": 49, "line": 1, "endline": 1, "alerts": []},
+        },
+    ],
+    "parseinfo": {"tokenizer": None, "rule": "start", "pos": 0, "endpos": 191, "line": 0, "endline": 7, "alerts": []},
+}
