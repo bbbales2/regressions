@@ -1,7 +1,6 @@
 from collections import namedtuple
 from typing import Any, Dict, List, Tuple, Iterable, Union, TypeVar, NamedTuple, Iterator
 
-import jax.numpy
 import pandas
 from sortedcontainers import SortedDict, SortedSet
 
@@ -116,12 +115,6 @@ class VariableRecord:
 
     def get_value(self, args):
         raise Exception("Internal error: Use a subclass instead")
-
-    def swap_and_clear_write_buffer(self):
-        raise Exception("Internal error: Use a dynamic subclass instead")
-
-    def buffers_are_different(self):
-        raise Exception("Internal error: Use a dynamic subclass instead")
 
     def itertuples(self) -> Iterable[NamedTuple]:
         raise Exception("Internal error: Use a subclass instead")
@@ -289,6 +282,3 @@ class VariableTable:
                 size += len(record)
 
         return size
-
-    def transform(self, x: jax.numpy.ndarray) -> float:
-        return sum(jax.numpy.sum(variable.evaluate()) for variable in self.variable_components)
