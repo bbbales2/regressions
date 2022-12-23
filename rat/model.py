@@ -1,226 +1,32 @@
-from dataclasses import dataclass, field
 from functools import partial
 import jax
 import jax.experimental.host_callback
 import numpy
 import pandas
-from typing import Dict, Union, List, Any, Set, Tuple
+import tatsu
+from typing import Dict, Union, List
 from tatsu.model import ModelBuilderSemantics
-from tatsu.walkers import NodeWalker
 
-from .compiler import RatCompiler
-from .exceptions import AstException
-from .parser import RatParser
-from .trace_table import TraceTable, TraceRecord
-from .variable_table import VariableTable, SampledVariableRecord, DynamicVariableRecord
-from . import ast
-from . import compiler
-from . import constraints
-from . import math
-from . import walker
-
-
-class ExecuteException(AstException):
-    def __init__(self, message: str, node: ast.ModelBase):
-        super().__init__("evaluating log density", message, node)
-
-
-@dataclass
-class CodeExecutorDependencyFinder(NodeWalker):
-    trace_table: TraceTable
-    traces_used: List[ast.ModelBase] = field(default_factory=list)
-
-    def walk_Statement(self, node: ast.Statement):
-        self.walk(node.left)
-        self.walk(node.right)
-
-    def walk_Binary(self, node: ast.Binary):
-        left = self.walk(node.left)
-        right = self.walk(node.right)
-
-    def walk_IfElse(self, node: ast.IfElse):
-        self.traces_used.append(node.predicate)
-        self.walk(node.left)
-        self.walk(node.right)
-
-    def walk_FunctionCall(self, node: ast.FunctionCall):
-        for arg in node.arglist:
-            self.walk(arg)
-
-    def walk_Variable(self, node: ast.Variable):
-        if node in self.trace_table:
-            self.traces_used.append(node)
-
-
-@dataclass
-class CodeExecutor(NodeWalker):
-    traced_values: Dict[ast.ModelBase, Any]
-    parameters: Dict[str, Any]
-    left_side_of_sampling: Union[None, ast.ModelBase] = field(default=None)
-
-    def walk_Statement(self, node: ast.Statement):
-        if node.op == "~":
-            self.left_side_of_sampling = node.left
-            return_value = self.walk(node.right)
-            self.left_side_of_sampling = None
-            return return_value
-        else:
-            raise ExecuteException(f"{node.op} operator not supported in {type(self)}", node)
-
-    def walk_Binary(self, node: ast.Binary):
-        left = self.walk(node.left)
-        right = self.walk(node.right)
-        return eval(f"left {node.op} right")
-
-    def walk_IfElse(self, node: ast.IfElse):
-        predicate = self.traced_values[node.predicate]
-        return jax.lax.cond(predicate, lambda: self.walk(node.left), lambda: self.walk(node.right))
-
-    def walk_FunctionCall(self, node: ast.FunctionCall):
-        argument_list = []
-
-        if self.left_side_of_sampling:
-            argument_list += [self.walk(self.left_side_of_sampling)]
-
-        if node.arglist:
-            argument_list += [self.walk(arg) for arg in node.arglist]
-
-        return getattr(math, node.name)(*argument_list)
-
-    def walk_Variable(self, node: ast.Variable):
-        if node in self.traced_values:
-            if node.name in self.parameters:
-                trace = self.traced_values[node]
-                return self.parameters[node.name][trace]
-            else:
-                return self.traced_values[node]
-        else:
-            return self.parameters[node.name]
-
-    def walk_Literal(self, node: ast.Literal):
-        return node.value
-
-
-@dataclass
-class TransformedParametersFunctionGenerator(walker.RatWalker):
-    variable_table: VariableTable
-    trace_table: TraceTable
-    parameters: Dict[str, Any]
-
-    def walk_Program(self, node: ast.Program):
-        # TODO -- there is some order required here!
-        for statement in node.statements:
-            self.walk(statement)
-
-    def walk_Statement(self, node: ast.Statement):
-        if node.op != "=":
-            return
-
-        primary_node = compiler.get_primary_ast_variable(node)
-        primary_name = primary_node.name
-        primary_variable = self.variable_table[primary_name]
-
-        if node.left.name != primary_name:
-            msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
-            raise AstException("computing transformed parameters", msg, node)
-
-        dependency_finder = CodeExecutorDependencyFinder(self.trace_table)
-        dependency_finder.walk(node)
-        traces_used = dependency_finder.traces_used
-
-        traced_values = tuple(self.trace_table[traced_node].array for traced_node in traces_used)
-
-        def mapper(*mapper_arguments):
-            executor = CodeExecutor(dict(zip(traces_used, mapper_arguments)), self.parameters)
-            return executor.walk(node.right)
-
-        # We can't be overwriting parameters
-        assert primary_name not in self.parameters
-
-        if primary_variable.argument_count > 0:
-            self.parameters[primary_name] = jax.vmap(mapper)(*traced_values)
-        else:
-            self.parameters[primary_name] = mapper(*traced_values)
-
-
-@dataclass
-class EvaluateDensityWalker(walker.RatWalker):
-    variable_table: VariableTable
-    trace_table: TraceTable
-    parameters: Dict[str, Any]
-
-    def walk_Program(self, node: ast.Program):
-        target = 0.0
-        for statement in node.statements:
-            target += self.walk(statement)
-        return target
-
-    def walk_Statement(self, node: ast.Statement):
-        if node.op != "~":
-            return 0.0
-
-        primary_node = compiler.get_primary_ast_variable(node)
-        primary_name = primary_node.name
-        primary_variable = self.variable_table[primary_name]
-
-        dependency_finder = CodeExecutorDependencyFinder(self.trace_table)
-        dependency_finder.walk(node)
-        traces_used = dependency_finder.traces_used
-
-        traced_values = tuple(self.trace_table[traced_node].array for traced_node in traces_used)
-
-        def mapper(*mapper_arguments):
-            executor = CodeExecutor(dict(zip(traces_used, mapper_arguments)), self.parameters)
-            return executor.walk(node)
-
-        if primary_variable.argument_count > 0:
-            return jax.numpy.sum(jax.vmap(mapper)(*traced_values))
-        else:
-            return mapper(*traced_values)
-
-
-@dataclass
-class ConstraintFinder(walker.RatWalker):
-    variable_table: VariableTable
-    trace_table: TraceTable
-    constraints: Dict[str, Union[float, numpy.ndarray]] = field(default_factory=dict)
-
-    def walk_Variable(self, node: ast.Variable):
-        if node.constraints:
-            assert node.name not in self.constraints
-
-            variable = self.variable_table[node.name]
-
-            node_constraints = {}
-
-            if node.constraints.left:
-                left_name = node.constraints.left.name
-                values = self.trace_table[node.constraints.left.value].array
-                node_constraints[left_name] = values if variable.argument_count > 0 else values[0]
-
-            if node.constraints.right:
-                right_name = node.constraints.right.name
-                values = self.trace_table[node.constraints.right.value].array
-                node_constraints[right_name] = values if variable.argument_count > 0 else values[0]
-
-            self.constraints[node.name] = node_constraints
-
+from rat.compiler import StatementComponent
+from rat.parser import RatParser
+from rat.trace_table import TraceTable
+from rat.variable_table import VariableTable, SampledVariableRecord, DynamicVariableRecord
+from rat import ast
+from rat.walker import flatten_ast
 
 class Model:
     base_df_dict: Dict[str, pandas.DataFrame]
     program: ast.Program
     variable_table: VariableTable
     trace_table: TraceTable
+    statement_components: List[StatementComponent]
 
     @property
     def size(self):
         return self.variable_table.unconstrained_parameter_size
 
     @partial(jax.jit, static_argnums=(0,))
-    def constrain(self, unconstrained_parameter_vector: numpy.ndarray):
-        constraint_finder = ConstraintFinder(self.variable_table, self.trace_table)
-        constraint_finder.walk(self.program)
-        jacobian_adjustments = 0.0
+    def temporary_parameters(self, unconstrained_parameter_vector: numpy.ndarray):
         parameters = {}
         used = 0
 
@@ -232,61 +38,45 @@ class Model:
 
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             if len(record.subscripts) > 0:
-                unconstrained = unconstrained_parameter_vector[used : used + len(record)]
+                unconstrained = unconstrained_parameter_vector[used: used + len(record)]
                 used += len(record)
             else:
                 unconstrained = unconstrained_parameter_vector[used]
                 used += 1
 
-            if name in constraint_finder.constraints:
-                variable_constraints = constraint_finder.constraints[name]
+            parameters[name] = unconstrained
 
-                if "lower" in variable_constraints and "upper" not in variable_constraints:
-                    constrained, jacobian_adjustment = constraints.lower(unconstrained, variable_constraints["lower"])
-                elif "lower" not in variable_constraints and "upper" in variable_constraints:
-                    constrained, jacobian_adjustment = constraints.upper(unconstrained, variable_constraints["upper"])
-                else:  # "lower" in constraints and "upper" in constraints:
-                    constrained, jacobian_adjustment = constraints.finite(
-                        unconstrained, variable_constraints["lower"], variable_constraints["upper"]
-                    )
-
-                jacobian_adjustments += jax.numpy.sum(jacobian_adjustment)
-            else:
-                constrained = unconstrained
-
-            parameters[name] = constrained
-
-        return jacobian_adjustments, parameters
-
-    @partial(jax.jit, static_argnums=(0,))
-    def constrain_and_transform(self, unconstrained_parameter_vector: numpy.ndarray):
-        jacobian, parameters = self.constrain(unconstrained_parameter_vector)
-
-        transform = TransformedParametersFunctionGenerator(self.variable_table, self.trace_table, parameters)
-        transform.walk(self.program)
-
-        return jacobian, parameters
+        return parameters
 
     @partial(jax.jit, static_argnums=(0, 2))
-    def log_density(self, unconstrained_parameter_vector: numpy.ndarray, include_jacobian: bool = True):
-        jacobian, parameters = self.constrain(unconstrained_parameter_vector)
+    def compute_parameters(self, x: numpy.ndarray):
+        #log_jacobian = self.variable_table.transform(x)
+        parameters = self.temporary_parameters(x)
 
-        # Modify parameters in place
-        transform = TransformedParametersFunctionGenerator(self.variable_table, self.trace_table, parameters)
-        transform.walk(self.program)
+        for statement_component in reversed(self.statement_components):
+            target_increment, parameters = statement_component.evaluate(parameters, False)
 
-        likelihood = EvaluateDensityWalker(self.variable_table, self.trace_table, parameters)
-        target = likelihood.walk(self.program)
+        return parameters
 
-        return target + (jacobian if include_jacobian else 0.0)
+    @partial(jax.jit, static_argnums=(0, 2))
+    def log_density(self, x: numpy.ndarray, include_jacobian=True):
+        #log_jacobian = self.variable_table.transform(x)
+        parameters = self.temporary_parameters(x)
+
+        target = 0.0
+        for statement_component in reversed(self.statement_components):
+            target_increment, parameters = statement_component.evaluate(parameters, include_jacobian)
+            target += jax.numpy.sum(target_increment)
+
+        return target
 
     def log_density_no_jac(self, unconstrained_parameter_vector: numpy.ndarray):
         return self.log_density(unconstrained_parameter_vector, False)
 
     def _prepare_draws_and_dfs(self, device_unconstrained_draws):
-        constrain_and_transform_jax = jax.jit(jax.vmap(jax.vmap(lambda x: self.constrain_and_transform(x))))
+        compute_parameters_jax = jax.jit(jax.vmap(jax.vmap(self.compute_parameters)))
 
-        _, constrained_draws = constrain_and_transform_jax(device_unconstrained_draws)
+        constrained_draws = compute_parameters_jax(device_unconstrained_draws)
 
         # # Copy back to numpy arrays
         return {name: numpy.array(draws) for name, draws in constrained_draws.items()}, self.base_df_dict
@@ -316,16 +106,23 @@ class Model:
                 raise Exception("Data must either be pandas data frames or a dict of pandas dataframes")
 
         # Parse the model to get AST
-        semantics = ModelBuilderSemantics()
+        semantics = ModelBuilderSemantics(types=[])
         parser = RatParser(semantics=semantics)
         # TODO: This lambda is just here to make sure pylance formatting works -- should work
         # without it as well
-        self.program = (lambda: parser.parse(model_string))()
+        program = (lambda: parser.parse(model_string))()
 
         # Compile the model
-        rat_compiler = RatCompiler(data_dict, self.program, max_trace_iterations=max_trace_iterations)
-        self.variable_table = rat_compiler.variable_table
-        self.trace_table = rat_compiler.trace_table
+        variable_table = VariableTable()
+        statement_components = [
+            StatementComponent(node, variable_table, data_dict)
+            for node in flatten_ast(program)
+            if isinstance(node, tatsu.synth.Statement)
+        ]
+
+        self.program = program
+        self.variable_table = variable_table
+        self.statement_components = statement_components
 
         self.base_df_dict = {}
 

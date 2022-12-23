@@ -13,7 +13,7 @@ test_dir = pathlib.Path(__file__).parent
 def test_optimize_unknown_subscript():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
-    model_string = "y' ~ normal(theta[rabbit], sigma);"
+    model_string = "y[school]' ~ normal(theta[rabbit], sigma[school]);"
 
     with pytest.raises(Exception, match="rabbit is in control flow/subscripts and must be a primary variable subscript, but it is not"):
         model = Model(model_string, data_df)
@@ -23,7 +23,7 @@ def test_subscripts_not_specified():
     data_df = pandas.read_csv(os.path.join(test_dir, "bernoulli.csv"))
 
     model_string = """
-    y' ~ bernoulli_logit(mu[group]);
+    y[n]' ~ bernoulli_logit(mu[group[n]]);
     mu[group]' = mu2[group];
     mu ~ normal(-0.5, 0.3);
     mu2 ~ normal(-0.5, 0.3);

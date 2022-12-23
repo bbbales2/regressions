@@ -12,11 +12,9 @@ class TraceRecord:
 
 class TraceTable:
     subscript_dict: Dict[ast.ModelBase, TraceRecord]
-    record_count: int
 
     def __init__(self):
         self.subscript_dict = {}
-        self.record_count = 0
 
     def __contains__(self, node: ast.ModelBase) -> bool:
         return node in self.subscript_dict
@@ -25,9 +23,8 @@ class TraceTable:
         return self.subscript_dict[node]
 
     def insert(self, node: ast.ModelBase, array: numpy.ndarray):
-        record = TraceRecord(f"subscript_{self.record_count}", array)
+        record = TraceRecord(f"subscript_{len(self.subscript_dict)}", array)
         self.subscript_dict[node] = record
-        self.record_count += 1
         return record
 
     def __iter__(self) -> Iterator[ast.ModelBase]:

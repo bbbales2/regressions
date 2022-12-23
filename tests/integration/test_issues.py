@@ -17,7 +17,7 @@ def test_unkown_unary_function_issue_84():
     })
 
     model_string = """
-    offset' ~ normal(mu[school], 1000.0);
+    offset[school]' ~ normal(mu[school], 1000.0);
     mu[school]' ~ normal(
         reasfdsdaaltasdfsadasfdfsd(0.7) + 1.0,
         0.1
@@ -43,7 +43,7 @@ def test_distribution_lhs_expression_issue_88():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
     model_string = """
-    (2.0 * y' - y) ~ normal(theta[school], sigma);
+    (2.0 * y[school]' - y[school]) ~ normal(theta[school], sigma[school]);
     theta[school]' = mu + z[school] * tau;
     z[school] ~ normal(0, 1);
     mu ~ normal(0, 5);

@@ -1,6 +1,7 @@
 from collections import namedtuple
-from typing import Any, Dict, List, Tuple, Iterable, Union, TypeVar, NamedTuple
+from typing import Any, Dict, List, Tuple, Iterable, Union, TypeVar, NamedTuple, Iterator
 
+import jax.numpy
 import pandas
 from sortedcontainers import SortedDict, SortedSet
 
@@ -127,42 +128,30 @@ class VariableRecord:
 
 
 class DynamicVariableRecord(VariableRecord):
-    read_arguments_set: SortedSet
-    write_arguments_set: SortedSet
+    arguments_set: SortedSet
 
     def __init__(self, name: str, argument_count: int):
         super().__init__(name, argument_count)
-        self.read_arguments_set = SortedSet()
-        self.write_arguments_set = SortedSet()
+        self.arguments_set = SortedSet()
 
     def __len__(self):
-        return len(self.read_arguments_set)
+        return len(self.arguments_set)
 
     def __iter__(self):
-        for args in self.read_arguments_set:
+        for args in self.arguments_set:
             yield args
 
     def __call__(self, *args) -> V:
-        self.write_arguments_set.add(args)
+        self.arguments_set.add(args)
         return None
 
     def itertuples(self) -> Iterable[NamedTuple]:
         Type = namedtuple(f"{self.name}_domain", self.subscripts)
-        for arguments in self.read_arguments_set:
+        for arguments in self.arguments_set:
             yield Type(*arguments)
 
-    def swap_and_clear_write_buffer(self):
-        self.read_arguments_set = self.write_arguments_set
-        self.write_arguments_set = SortedSet()
-
-    def buffers_are_different(self) -> bool:
-        read_size = len(self.read_arguments_set)
-        write_size = len(self.write_arguments_set)
-        intersection_size = len(self.read_arguments_set.intersection(self.write_arguments_set))
-        return read_size != intersection_size or write_size != intersection_size
-
     def get_index(self, args):
-        return self.read_arguments_set.index(args)
+        return self.arguments_set.index(args)
 
     def get_value(self, args):
         raise TypeError("Internal error: cannot call get_value on a dynamic record")
@@ -176,6 +165,13 @@ class AssignedVariableRecord(DynamicVariableRecord):
 class SampledVariableRecord(DynamicVariableRecord):
     def __repr__(self) -> str:
         return f"{self.name}[{','.join(self.subscripts)}]@sampled"
+
+    def as_assigned_variable_record(self) -> AssignedVariableRecord:
+        assigned_variable_record = AssignedVariableRecord(self.name, self.argument_count)
+        if self.renamed:
+            assigned_variable_record.rename(self.subscripts)
+        assigned_variable_record.arguments_set = self.arguments_set
+        return assigned_variable_record
 
 
 class ConstantVariableRecord(VariableRecord):
@@ -252,7 +248,7 @@ class ConstantVariableRecord(VariableRecord):
     def get_value(self, args):
         return self.values[args]
 
-    def itertuples(self) -> Iterable[NamedTuple]:
+    def itertuples(self) -> Iterator[NamedTuple]:
         Type = namedtuple(f"{self.name}_value", (self.name, *self.subscripts))
         for arguments, value in self.values.items():
             yield Type(value, *arguments)
@@ -262,34 +258,37 @@ class ConstantVariableRecord(VariableRecord):
 
 
 class VariableTable:
-    variable_dict: SortedDict[str, VariableRecord]
+    variable_components: SortedDict[str, VariableRecord]
 
     def __init__(self):
-        self.variable_dict = SortedDict()
-
-    def __setitem__(self, variable_name: str, record: VariableRecord):
-        self.variable_dict[variable_name] = record
-
-    def __contains__(self, name: str) -> bool:
-        return name in self.variable_dict
+        self.variable_components = SortedDict()
 
     def __getitem__(self, variable_name: str) -> VariableRecord:
-        return self.variable_dict[variable_name]
+        return self.variable_components[variable_name]
 
-    def __iter__(self) -> Iterable[str]:
-        for name in self.variable_dict:
+    def __setitem__(self, variable_name: str, record: VariableRecord):
+        self.variable_components[variable_name] = record
+
+    def __contains__(self, name: str) -> bool:
+        return name in self.variable_components
+
+    def __iter__(self) -> Iterator[str]:
+        for name in self.variable_components:
             yield name
 
     def variables(self):
-        for variable in self.variable_dict.values():
+        for variable in self.variable_components.values():
             yield variable
 
     @property
     def unconstrained_parameter_size(self) -> int:
         size = 0
 
-        for variable_name, record in self.variable_dict.items():
+        for variable_name, record in self.variable_components.items():
             if isinstance(record, SampledVariableRecord):
                 size += len(record)
 
         return size
+
+    def transform(self, x: jax.numpy.ndarray) -> float:
+        return sum(jax.numpy.sum(variable.evaluate()) for variable in self.variable_components)

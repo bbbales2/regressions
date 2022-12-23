@@ -49,3 +49,8 @@ class AstException(Exception):
 class CompileError(AstException):
     def __init__(self, message: str, node: ast.ModelBase = None):
         super().__init__("compiling code", message, node)
+
+
+class ExecuteException(AstException):
+    def __init__(self, message: str, node: ast.ModelBase):
+        super().__init__("evaluating log density", message, node)
