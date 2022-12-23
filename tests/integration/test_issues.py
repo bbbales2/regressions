@@ -11,10 +11,7 @@ issue_data_dir = test_dir / "issue_data"
 
 # https://github.com/bbbales2/regressions/issues/84
 def test_unkown_unary_function_issue_84():
-    data_df = pandas.DataFrame({
-        "school" : [1, 2, 3, 4],
-        "offset" : [10.0, 0.0, 0.0, 0.0]
-    })
+    data_df = pandas.DataFrame({"school": [1, 2, 3, 4], "offset": [10.0, 0.0, 0.0, 0.0]})
 
     model_string = """
     offset[school]' ~ normal(mu[school], 1000.0);
