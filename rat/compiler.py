@@ -288,6 +288,7 @@ class RenameSubscriptWalker(RatWalker):
                 )
                 raise CompileError(msg, primary_ast_variable)
 
+
 @dataclass
 class CheckSubscriptNamesExistWalker(RatWalker):
     variable_table: VariableTable
@@ -523,7 +524,7 @@ class StatementComponent:
         primary_variable = self.variable_table[primary_name]
 
         target = 0.0
-        traced_keys = sorted(self.trace_table.subscript_dict, key = lambda node : node.text)
+        traced_keys = sorted(self.trace_table.subscript_dict, key=lambda node: node.text)
         traced_arrays = [self.trace_table.subscript_dict[key].array for key in traced_keys]
 
         def mapper(node, traced_value):
@@ -570,9 +571,8 @@ class StatementComponent:
                 parameters[primary_name] = constrained
 
             if primary_variable.argument_count > 0:
-                target = (
-                    jax.numpy.sum(jax.vmap(statement_mapper)(traced_arrays))
-                    + (jax.numpy.sum(jacobian_adjustment) if include_jacobian else 0.0)
+                target = jax.numpy.sum(jax.vmap(statement_mapper)(traced_arrays)) + (
+                    jax.numpy.sum(jacobian_adjustment) if include_jacobian else 0.0
                 )
             else:
                 target = statement_mapper(traced_arrays) + (jax.numpy.sum(jacobian_adjustment) if include_jacobian else 0.0)

@@ -14,6 +14,7 @@ from rat.variable_table import VariableTable, SampledVariableRecord, DynamicVari
 from rat import ast
 from rat.walker import flatten_ast
 
+
 class Model:
     base_df_dict: Dict[str, pandas.DataFrame]
     program: ast.Program
@@ -38,7 +39,7 @@ class Model:
 
             # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
             if len(record.subscripts) > 0:
-                unconstrained = unconstrained_parameter_vector[used: used + len(record)]
+                unconstrained = unconstrained_parameter_vector[used : used + len(record)]
                 used += len(record)
             else:
                 unconstrained = unconstrained_parameter_vector[used]
@@ -50,7 +51,7 @@ class Model:
 
     @partial(jax.jit, static_argnums=(0, 2))
     def compute_parameters(self, x: numpy.ndarray):
-        #log_jacobian = self.variable_table.transform(x)
+        # log_jacobian = self.variable_table.transform(x)
         parameters = self.temporary_parameters(x)
 
         for statement_component in reversed(self.statement_components):
@@ -60,7 +61,7 @@ class Model:
 
     @partial(jax.jit, static_argnums=(0, 2))
     def log_density(self, x: numpy.ndarray, include_jacobian=True):
-        #log_jacobian = self.variable_table.transform(x)
+        # log_jacobian = self.variable_table.transform(x)
         parameters = self.temporary_parameters(x)
 
         target = 0.0
@@ -115,9 +116,7 @@ class Model:
         # Compile the model
         variable_table = VariableTable()
         statement_components = [
-            StatementComponent(node, variable_table, data_dict)
-            for node in flatten_ast(program)
-            if isinstance(node, tatsu.synth.Statement)
+            StatementComponent(node, variable_table, data_dict) for node in flatten_ast(program) if isinstance(node, tatsu.synth.Statement)
         ]
 
         self.program = program
