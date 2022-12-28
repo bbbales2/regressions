@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Set, Union, Any, Tuple, Optional
 
 from rat import ast, constraints
-from rat.codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack, CodeExecutor
+from rat.codegen_backends import OpportunisticExecutor, DomainDiscoveryExecutor, ContextStack, CodeExecutor
 from rat.exceptions import CompileError, AstException
 from rat.trace_table import TraceTable
 from rat.variable_table import (
@@ -327,8 +327,8 @@ class DomainDiscoveryWalker(RatWalker):
         primary_ast_variable = get_primary_ast_variable(node)
         primary_variable = self.variable_table[primary_ast_variable.name]
 
-        for row in primary_variable.itertuples():
-            executor = TraceExecutor(self.variable_table, row._asdict())
+        for known_values_as_dict in primary_variable.opportunistic_dict_iterator():
+            executor = DomainDiscoveryExecutor(self.variable_table, known_values_as_dict)
             executor.walk(node)
 
 
@@ -345,8 +345,8 @@ class TraceTableWalker(RatWalker):
         self.walk(node.right)
 
         traces = defaultdict(lambda: [])
-        for row_number, row in enumerate(primary_variable.itertuples()):
-            executor = OpportunisticExecutor(self.variable_table, row._asdict())
+        for row_number, known_values_as_dict in enumerate(primary_variable.opportunistic_dict_iterator()):
+            executor = OpportunisticExecutor(self.variable_table, known_values_as_dict)
             executor.walk(node)
 
             for traced_node, value in executor.values.items():
@@ -359,6 +359,9 @@ class TraceTableWalker(RatWalker):
             numpy_idxs = numpy.array(idxs)
             numpy_values = numpy.array(values)
 
+            # The "dense" comes from the fact that not every part of an expression will be evaluated
+            #  for every element of the primary domain (there could be IfElses). To simplify things,
+            #  we pretend as if things are evaluated every time
             dense_values = numpy.zeros(dense_size, dtype=numpy_values.dtype)
             dense_values[numpy_idxs] = numpy_values
 

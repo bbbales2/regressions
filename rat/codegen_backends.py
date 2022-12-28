@@ -170,11 +170,11 @@ class OpportunisticExecutor(NodeWalker):
                 if all(arg is not None for arg in arglist):
                     if trace_by_reference:
                         if len(arglist) > 0:
-                            output = self.variable_table[node.name].get_index(arglist)
+                            output = self.variable_table[node.name].get_index(*arglist)
                         else:
                             output = None
                     else:
-                        output = self.variable_table[node.name].get_value(arglist)
+                        output = self.variable_table[node.name].get_value(*arglist)
                 else:
                     output = None
 
@@ -193,20 +193,19 @@ class OpportunisticExecutor(NodeWalker):
         return output
 
 
-class TraceExecutor(NodeWalker):
+class DomainDiscoveryExecutor(NodeWalker):
     """
-    As long as shunt is true, values of expressions aren't returned but
-    instead shunted off into tuples
+    As long as the top value of avoid_returning_values is true, values of expressions aren't returned
     """
 
     variable_table: VariableTable
     leaves: Dict[str, Any]
-    shunt: ContextStack[bool]
+    avoid_returning_values: ContextStack[bool]
 
     def __init__(self, variable_table: VariableTable, leaves: Dict[str, Any]):
         self.variable_table = variable_table
         self.leaves = leaves
-        self.shunt = ContextStack(True)
+        self.avoid_returning_values = ContextStack(True)
 
     def walk_Statement(self, node: ast.Statement):
         self.walk(node.left)
@@ -215,11 +214,11 @@ class TraceExecutor(NodeWalker):
     def walk_Binary(self, node: ast.Binary):
         left = self.walk(node.left)
         right = self.walk(node.right)
-        if not self.shunt.peek():
+        if not self.avoid_returning_values.peek():
             return eval(f"left {node.op} right")
 
     def walk_IfElse(self, node: ast.IfElse):
-        with self.shunt.push(False):
+        with self.avoid_returning_values.push(False):
             predicate = self.walk(node.predicate)
 
         return self.walk(node.left) if predicate else self.walk(node.right)
@@ -230,14 +229,14 @@ class TraceExecutor(NodeWalker):
         else:
             arglist = ()
 
-        if not self.shunt.peek():
+        if not self.avoid_returning_values.peek():
             return getattr(math, node.name)(*arglist)
 
     def walk_Variable(self, node: ast.Variable):
         if node.name in self.leaves:
             return self.leaves[node.name]
         else:
-            with self.shunt.push(False):
+            with self.avoid_returning_values.push(False):
                 if node.arglist:
                     arglist = tuple(self.walk(arg) for arg in node.arglist)
                 else:
@@ -247,7 +246,11 @@ class TraceExecutor(NodeWalker):
             if len(variable.subscripts) != len(arglist):
                 msg = f"{node.name} should have {len(variable.subscripts)} subscript(s), found {len(arglist)}"
                 raise CompileError(msg, node)
-            return variable(*arglist)
+
+            if isinstance(variable, DynamicVariableRecord):
+                variable.add(*arglist)
+            else:
+                return variable.get_value(*arglist)
 
     def walk_Literal(self, node: ast.Literal):
         return node.value

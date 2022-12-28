@@ -129,7 +129,7 @@ class Model:
             record = self.variable_table[variable_name]
             # The base_dfs are used for putting together the output
             if isinstance(record, DynamicVariableRecord):
-                rows = list(record.itertuples())
+                rows = list(record.opportunistic_dict_iterator())
                 self.base_df_dict[variable_name] = pandas.DataFrame.from_records(rows, columns=record.subscripts)
 
     @staticmethod

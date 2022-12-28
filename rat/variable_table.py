@@ -1,6 +1,9 @@
 from collections import namedtuple
+from enum import Enum
 from typing import Any, Dict, List, Tuple, Iterable, Union, TypeVar, NamedTuple, Iterator
 
+import jax
+import numpy
 import pandas
 from sortedcontainers import SortedDict, SortedSet
 
@@ -8,7 +11,7 @@ K = TypeVar("K")
 V = TypeVar("V")
 
 
-def get_dataframe_name_by_variable_and_column_name(
+def _get_dataframe_name_by_variable_and_column_name(
     data: Dict[str, pandas.DataFrame], variable_name: str = None, subscript_name: str = None
 ):
     """
@@ -56,109 +59,85 @@ def get_dataframe_name_by_variable_and_column_name(
 
 
 class VariableRecord:
-    """
-    A record within the VariableTable
-
-    name: Name of the variable
-    argument_count: Number of arguments
-    """
-
     name: str
     argument_count: int
 
-    _subscripts: Union[None, Tuple[str]]
+    _subscripts: Tuple[str]
     renamed: bool
+    arguments_set: SortedSet
+    values: jax.numpy.ndarray
 
     def __init__(self, name: str, argument_count: int):
         self.name = name
         self.argument_count = argument_count
         self._subscripts = None
         self.renamed = False
+        self.arguments_set = SortedSet()
+        self.values = None
 
     @property
     def subscripts(self):
-        if self._subscripts:
+        if self.renamed:
             return self._subscripts
         else:
             return tuple(f"arg{n}" for n in range(self.argument_count))
 
     def rename(self, subscript_names: Iterable[str]):
-        """
-        Set subscript names.
-
-        This function should only be called once, if it is called more
-        than that it will raise an AttributeError
-
-        This function will raise a ValueError if called after tracing has
-        been done (tracing uses the values here)
-        """
         if self.renamed:
             raise AttributeError("Internal compiler error: A variable cannot be renamed twice")
 
         self._subscripts = tuple(subscript_names)
         self.renamed = True
 
-    def suggest_names(self, subscript_names: List[str]):
-        if not self.renamed:
-            if self._subscripts is not None:
-                if len(self._subscripts) != len(subscript_names):
-                    raise AttributeError("Internal compiler error: Number of subscript names must match between uses")
-                if self._subscripts != subscript_names:
-                    raise AttributeError("Internal compiler error: If variable isn't renamed, then all uses must match")
-            self._subscripts = tuple(subscript_names)
-
-    def __len__(self):
-        raise Exception("Internal error: Use subclass instead")
-
-    def get_index(self, args):
-        raise Exception("Internal error: Use a subclass instead")
-
-    def get_value(self, args):
-        raise Exception("Internal error: Use a subclass instead")
-
-    def itertuples(self) -> Iterable[NamedTuple]:
-        raise Exception("Internal error: Use a subclass instead")
-
-
-class DynamicVariableRecord(VariableRecord):
-    arguments_set: SortedSet
-
-    def __init__(self, name: str, argument_count: int):
-        super().__init__(name, argument_count)
-        self.arguments_set = SortedSet()
+    def __iter__(self):
+        for args in self.arguments_set:
+            # TODO: I haven't been able to decide between consistently treating args as tuples
+            #  or treating the length 1 tuples like scalars
+            if len(args) == 1:
+                yield args[0]
+            else:
+                yield args
 
     def __len__(self):
         return len(self.arguments_set)
 
-    def __iter__(self):
-        for args in self.arguments_set:
-            yield args
-
-    def __call__(self, *args) -> V:
+    def add(self, *args):
         self.arguments_set.add(args)
-        return None
 
-    def itertuples(self) -> Iterable[NamedTuple]:
-        Type = namedtuple(f"{self.name}_domain", self.subscripts)
-        for arguments in self.arguments_set:
-            yield Type(*arguments)
+    def get_index(self, *args):
+        try:
+            return self.arguments_set.index(args)
+        except ValueError as e:
+            raise KeyError(f"{self.name}[{','.join(str(arg) for arg in args)}] not found")
 
-    def get_index(self, args):
-        return self.arguments_set.index(args)
+    def get_value(self, *args):
+        index = self.get_index(*args)
+        value = self.values[index]
+        return value
 
-    def get_value(self, args):
-        raise TypeError("Internal error: cannot call get_value on a dynamic record")
+    def opportunistic_dict_iterator(self) -> Iterator[Dict[str, Any]]:
+        keys_generator = (dict(zip(self.subscripts, keys)) for keys in self.arguments_set)
+        if self.values is not None:
+            for keys, value in zip(keys_generator, self.values):
+                yield { **keys, self.name: value }
+        else:
+            for keys in keys_generator:
+                yield keys
+
+    # TODO: This should probably be __str__
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.name}[{','.join(self.subscripts)}], {len(self.arguments_set)})"
+
+
+class DynamicVariableRecord(VariableRecord):
+    pass
 
 
 class AssignedVariableRecord(DynamicVariableRecord):
-    def __repr__(self) -> str:
-        return f"{self.name}[{','.join(self.subscripts)}]@transformed"
+    pass
 
 
 class SampledVariableRecord(DynamicVariableRecord):
-    def __repr__(self) -> str:
-        return f"{self.name}[{','.join(self.subscripts)}]@sampled"
-
     def as_assigned_variable_record(self) -> AssignedVariableRecord:
         assigned_variable_record = AssignedVariableRecord(self.name, self.argument_count)
         if self.renamed:
@@ -168,34 +147,13 @@ class SampledVariableRecord(DynamicVariableRecord):
 
 
 class ConstantVariableRecord(VariableRecord):
-    values: SortedDict
-    value_type: Any
-
-    def __init__(self, name: str, argument_count: int):
-        super().__init__(name, argument_count)
-        self.values = SortedDict()
-        self.value_type = None
-
-    def __len__(self) -> int:
-        return len(self.values)
-
-    def __iter__(self) -> Iterable[K]:
-        for args in self.values:
-            yield args
-
-    def __call__(self, *args: K):
-        try:
-            return self.values[args]
-        except KeyError:
-            raise KeyError(f"Argument {args} not found in values placeholder")
-
     def bind(self, data_subscripts: List[str], data: Dict[str, pandas.DataFrame]):
         """
         Bind function to data
         """
         # Find if there's a dataframe that supplies the requested values
         try:
-            data_name = get_dataframe_name_by_variable_and_column_name(data, subscript_name=self.name)
+            data_name = _get_dataframe_name_by_variable_and_column_name(data, subscript_name=self.name)
         except KeyError as e:
             raise KeyError(f"{self.name} not found in the input data") from e
 
@@ -210,6 +168,8 @@ class ConstantVariableRecord(VariableRecord):
                 if subscript not in df.columns:
                     raise Exception(f"{self.name} found in {data_name}, but subscript {subscript} not found")
 
+        existing_values = SortedDict(zip(self.arguments_set, self.values)) if self.values else SortedDict()
+
         # Iterate over each row of the target dataframe
         row: NamedTuple
         for row in df.itertuples():  # row here is a namedtuple
@@ -218,36 +178,21 @@ class ConstantVariableRecord(VariableRecord):
             arguments = tuple(row_as_dict[subscript] for subscript in data_subscripts)
             return_value = row_as_dict[self.name]
 
-            if arguments in self.values:
-                existing_value = self.values[arguments]
+            if arguments in existing_values:
+                existing_value = existing_values[arguments]
                 if existing_value != return_value:
-                    arguments_string = ",".join(f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments))
+                    arguments_string = ",".join(
+                        f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments)
+                    )
                     raise Exception(
                         f"Error binding {self.name} to dataframe {data_name}. Multiple rows matching"
                         f" {arguments_string} with different values ({existing_value}, {return_value})"
                     )
 
-            if self.value_type is None:
-                self.value_type = type(return_value)
-            else:
-                if not isinstance(return_value, self.value_type):
-                    raise Exception("Value type inconsistent")
+            existing_values[arguments] = return_value
 
-            self.values[arguments] = return_value
-
-    def get_index(self, args):
-        return self.values.index(args)
-
-    def get_value(self, args):
-        return self.values[args]
-
-    def itertuples(self) -> Iterator[NamedTuple]:
-        Type = namedtuple(f"{self.name}_value", (self.name, *self.subscripts))
-        for arguments, value in self.values.items():
-            yield Type(value, *arguments)
-
-    def __repr__(self) -> str:
-        return f"{self.name}[{','.join(self.subscripts)}]@data"
+        self.arguments_set = SortedSet(existing_values.keys())
+        self.values = list(existing_values.values())
 
 
 class VariableTable:
