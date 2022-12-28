@@ -119,7 +119,7 @@ class VariableRecord:
         keys_generator = (dict(zip(self.subscripts, keys)) for keys in self.arguments_set)
         if self.values is not None:
             for keys, value in zip(keys_generator, self.values):
-                yield { **keys, self.name: value }
+                yield {**keys, self.name: value}
         else:
             for keys in keys_generator:
                 yield keys
@@ -181,9 +181,7 @@ class ConstantVariableRecord(VariableRecord):
             if arguments in existing_values:
                 existing_value = existing_values[arguments]
                 if existing_value != return_value:
-                    arguments_string = ",".join(
-                        f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments)
-                    )
+                    arguments_string = ",".join(f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments))
                     raise Exception(
                         f"Error binding {self.name} to dataframe {data_name}. Multiple rows matching"
                         f" {arguments_string} with different values ({existing_value}, {return_value})"
