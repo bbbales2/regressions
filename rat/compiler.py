@@ -1,24 +1,27 @@
 import functools
-from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Dict, List, Set, Union
-
+import jax
 import numpy
 import pandas
 
-from . import ast
-from .codegen_backends import OpportunisticExecutor, TraceExecutor, ContextStack
-from .exceptions import CompileError
-from .trace_table import TraceTable
-from .variable_table import (
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Dict, List, Set, Union, Any, Tuple, Optional
+
+import tatsu
+
+from rat import ast, constraints
+from rat.codegen_backends import OpportunisticExecutor, DomainDiscoveryExecutor, ContextStack, CodeExecutor
+from rat.exceptions import CompileError, AstException
+from rat.trace_table import TraceTable
+from rat.variable_table import (
     VariableTable,
     AssignedVariableRecord,
     SampledVariableRecord,
     ConstantVariableRecord,
     DynamicVariableRecord,
-    get_dataframe_name_by_variable_and_column_name,
+    RecurrentVariableRecord,
 )
-from .walker import RatWalker, NodeWalker
+from rat.walker import RatWalker, NodeWalker, flatten_ast
 
 
 class NameWalker(RatWalker):
@@ -120,61 +123,6 @@ def get_primary_ast_variable(statement: ast.Statement) -> ast.Variable:
         raise CompileError(msg, statement)
 
 
-@dataclass
-class AugmentDataVariableSubscriptsWalker(RatWalker):
-    data_dict: Dict[str, pandas.DataFrame]
-    primary_node: ast.Variable = None
-    primary_variable_is_data: bool = False
-
-    """
-    This class adds an "index" subscript to data variables that don't have any subscripts.
-    For example, consider we have a input dataframe with columns ("y", "sigma") like in eightschools.
-    We'd naturally write the following rat code:
-    
-    y' ~ normal(mu, sigma);
-    
-    But in order to create the variable table, we have to add a subscript to y and sigma indicating that we want to
-    vectorize over the dataframe rows:
-
-    y[index]' ~ normal(mu, sigma[index]);
-
-    So if a statement has a primary variable that's from data and that primary data variable doesn't have subscripts:
-    we augment all data variables that doesn't have subscripts with the "index" subscript, effectively telling the 
-    compiler to vectorize over the dataframe rows. This operation is done inplace on the existing AST.
-    """
-
-    def walk_Statement(self, node: ast.Statement):
-        self.primary_node = get_primary_ast_variable(node)
-
-        # We only augment data variables if the primary variable is a data, and has no subscripts.
-        try:
-            get_dataframe_name_by_variable_and_column_name(self.data_dict, variable_name=self.primary_node.name)
-        except KeyError:
-            self.primary_variable_is_data = False
-            return
-        else:
-            self.primary_variable_is_data = True
-
-        if self.primary_node.arglist:
-            return
-
-        if node.op == "~":
-            self.walk(node.left)
-            self.walk(node.right)
-
-    def walk_Variable(self, node: ast.Variable):
-        try:
-            get_dataframe_name_by_variable_and_column_name(self.data_dict, subscript_name=node.name)
-        except KeyError:
-            if node.arglist:
-                for subscript in node.arglist:
-                    self.walk(subscript)
-        else:
-            # If it's a data variable and has no subscripts, add dataframe Index to subscript.
-            if not node.arglist:
-                node.arglist = [ast.Variable(name="index")]
-
-
 # 1. If the variable on the left appears also on the right, mark this
 #   statement to be code-generated with a scan and also make sure that
 #   the right hand side is shifted appropriately
@@ -188,28 +136,77 @@ class CreateAssignedVariablesWalker(RatWalker):
             if not assigned_name:
                 msg = "The left hand side of an assignment must be a variable"
                 raise CompileError(msg, node.left)
-            return assigned_name
+            variables_on_right = [node for node in flatten_ast(node.right) if isinstance(node, tatsu.synth.Variable)]
+            if any([node.name == assigned_name for node in variables_on_right]):
+                self.variable_table[assigned_name] = RecurrentVariableRecord(**self.variable_table[assigned_name].__dict__)
 
     def walk_Variable(self, node: ast.Variable):
-        self.variable_table[node.name] = AssignedVariableRecord(node.name, len(node.arglist) if node.arglist else 0)
+        if node.name in self.variable_table:
+            variable = self.variable_table[node.name]
+            if isinstance(variable, SampledVariableRecord):
+                self.variable_table[node.name] = AssignedVariableRecord(**self.variable_table[node.name].__dict__)
+            elif isinstance(variable, ConstantVariableRecord):
+                msg = f"Attempting to assign {variable.name} which is data"
+                raise CompileError(msg, node)
+            elif isinstance(variable, AssignedVariableRecord):
+                msg = f"Attempting to re-assign {variable.name}. Variables can only be assigned once"
+                raise CompileError(msg, node)
+        else:
+            self.variable_table[node.name] = AssignedVariableRecord(node.name, len(node.arglist) if node.arglist else 0)
+        return node.name
+
+
+# Check that only the last subscript of primary variable uses on the right hand side of a recurrence relation
+#  have expressions
+@dataclass
+class CheckRightHandSideRecurrenceRelationWalker(RatWalker):
+    variable_table: VariableTable
+    primary_name: str = None
+    in_primary_arglist: ContextStack[bool] = field(default_factory=lambda: ContextStack(False))
+
+    def walk_Statement(self, node: ast.Statement):
+        primary_node = get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+        self.primary_name = primary_name
+        if isinstance(primary_variable, RecurrentVariableRecord):
+            self.walk(node.right)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.arglist is not None:
+            if self.in_primary_arglist.peek():
+                for arg in node.arglist[:-1]:
+                    if not self.walk(arg):
+                        raise CompileError()
+            elif node.name == self.primary_name:
+                with self.in_primary_arglist.push(True):
+                    for arg in node.arglist:
+                        self.walk(arg)
         return True
 
 
 # Check that subscripts of primary variables don't include expressions
 @dataclass
-class CheckPrimaryVariableSubscriptWalker(NodeWalker):
+class CheckPrimaryVariableSubscriptWalker(RatWalker):
+    primary_name: str = None
+    in_primary_arglist: ContextStack[bool] = field(default_factory=lambda: ContextStack(False))
     msg: str = "Primary variables cannot have expressions in their subscripts"
 
     def walk_Statement(self, node: ast.Statement):
-        if node.op == "~":
-            if not self.walk(node.right):
-                raise CompileError(self.msg, node.right)
+        self.primary_name = get_primary_ast_variable(node).name
+        self.walk(node.left)
 
     def walk_Variable(self, node: ast.Variable):
         if node.arglist:
-            for arg in node.arglist:
-                if not self.walk(arg):
-                    raise CompileError(self.msg, node)
+            if self.in_primary_arglist.peek():
+                for arg in node.arglist:
+                    if not self.walk(arg):
+                        raise CompileError(self.msg, node)
+            else:
+                if node.name == self.primary_name:
+                    with self.in_primary_arglist.push(True):
+                        for arg in node.arglist:
+                            self.walk(arg)
         return True
 
 
@@ -321,63 +318,51 @@ class RenameSubscriptWalker(RatWalker):
             except AttributeError:
                 msg = (
                     f"Attempting to rename subscripts to {primary_subscript_names} but they have already"
-                    " been renamed to {primary_variable.subscripts}"
+                    f" been renamed to {primary_variable.subscripts}"
                 )
                 raise CompileError(msg, primary_ast_variable)
 
 
-# Do a sweep to infer subscript names for subscripts not renamed
 @dataclass
-class InferSubscriptNameWalker(RatWalker):
+class CheckSubscriptNamesExistWalker(RatWalker):
     variable_table: VariableTable
-    primary_name: str = None
+    primary_node_and_subscript_names: Set[str] = field(default_factory=set)
 
     def walk_Statement(self, node: ast.Statement):
-        primary_variable = get_primary_ast_variable(node)
-        self.primary_name = primary_variable.name
+        primary_node = get_primary_ast_variable(node)
+        self.primary_node_and_subscript_names = (
+            {primary_node.name} | {node.name for node in primary_node.arglist} if primary_node.arglist else {}
+        )
 
     def walk_Variable(self, node: ast.Variable):
-        if node.name != self.primary_name:
-            if node.arglist:
-                variable = self.variable_table[node.name]
-                subscript_names = _get_subscript_names(node)
+        if node.name in self.primary_node_and_subscript_names:
+            return
 
-                if isinstance(variable, DynamicVariableRecord) and not variable.renamed and subscript_names is not None:
-                    try:
-                        variable.suggest_names(subscript_names)
-                    except AttributeError:
-                        msg = (
-                            f"Attempting to reference subscript of {node.name} as {subscript_names}, but"
-                            " they have already been referenced as {variable.subscripts}. The subscripts"
-                            " must be renamed"
-                        )
-                        raise CompileError(msg, node)
+        variable = self.variable_table[node.name]
+
+        if variable._subscripts is None:
+            msg = (
+                f"No subscript names found for {node.name}. Variables must either be assigned or inferred. In either"
+                "case the subscript names should be specified there"
+            )
+            raise CompileError(msg, node)
 
         if node.arglist:
             for arg in node.arglist:
                 self.walk(arg)
 
 
+@dataclass
 class DomainDiscoveryWalker(RatWalker):
     variable_table: VariableTable
-
-    def __init__(self, variable_table: VariableTable):
-        super().__init__()
-
-        self.variable_table = variable_table
-
-        for name in self.variable_table:
-            variable = self.variable_table[name]
-            if isinstance(variable, DynamicVariableRecord):
-                variable.swap_and_clear_write_buffer()
 
     def walk_Statement(self, node: ast.Statement):
         # Find the primary variable
         primary_ast_variable = get_primary_ast_variable(node)
         primary_variable = self.variable_table[primary_ast_variable.name]
 
-        for row in primary_variable.itertuples():
-            executor = TraceExecutor(self.variable_table, row._asdict())
+        for known_values_as_dict in primary_variable.opportunistic_dict_iterator():
+            executor = DomainDiscoveryExecutor(self.variable_table, known_values_as_dict)
             executor.walk(node)
 
 
@@ -385,22 +370,18 @@ class DomainDiscoveryWalker(RatWalker):
 class TraceTableWalker(RatWalker):
     variable_table: VariableTable
     trace_table: TraceTable = field(default_factory=TraceTable)
-    trace_by_reference: Set[ast.Variable] = field(default_factory=set)
 
     def walk_Statement(self, node: ast.Statement):
         primary_node = get_primary_ast_variable(node)
         primary_variable = self.variable_table[primary_node.name]
-
-        # Identify variables we won't know the value of yet -- don't try to
-        # trace the values of those but trace any indexing into them
-        self.trace_by_reference = set()
+        recurrent_variable_name = primary_variable.name if isinstance(primary_variable, RecurrentVariableRecord) else None
 
         self.walk(node.left)
         self.walk(node.right)
 
         traces = defaultdict(lambda: [])
-        for row_number, row in enumerate(primary_variable.itertuples()):
-            executor = OpportunisticExecutor(self.variable_table, row._asdict(), self.trace_by_reference)
+        for row_number, known_values_as_dict in enumerate(primary_variable.opportunistic_dict_iterator()):
+            executor = OpportunisticExecutor(self.variable_table, known_values_as_dict, row_number, recurrent_variable_name)
             executor.walk(node)
 
             for traced_node, value in executor.values.items():
@@ -413,16 +394,13 @@ class TraceTableWalker(RatWalker):
             numpy_idxs = numpy.array(idxs)
             numpy_values = numpy.array(values)
 
+            # The "dense" comes from the fact that not every part of an expression will be evaluated
+            #  for every element of the primary domain (there could be IfElses). To simplify things,
+            #  we pretend as if things are evaluated every time
             dense_values = numpy.zeros(dense_size, dtype=numpy_values.dtype)
             dense_values[numpy_idxs] = numpy_values
 
             self.trace_table.insert(traced_node, numpy.array(dense_values))
-
-    def walk_Variable(self, node: ast.Variable):
-        if node.name in self.variable_table:
-            node_variable = self.variable_table[node.name]
-            if isinstance(node_variable, DynamicVariableRecord):
-                self.trace_by_reference.add(node)
 
 
 # Apply constraints to parameters
@@ -491,81 +469,199 @@ class ControlFlowParameterCheckWalker(RatWalker):
                         self.walk(arg)
 
 
-# 4. Parameters cannot be assigned after they are referenced
-@dataclass
-class CheckTransformedParameterOrder(RatWalker):
-    referenced: Set[str] = field(default_factory=set)
+# TODO: This check would need to happen at the model level now
+# # 4. Parameters cannot be assigned after they are referenced
+# @dataclass
+# class CheckTransformedParameterOrder(RatWalker):
+#     referenced: Set[str] = field(default_factory=set)
+#
+#     def walk_Statement(self, node: ast.Statement):
+#         if node.op == "=":
+#             node_name = self.walk(node.left)
+#             if node_name is not None:
+#                 if node_name in self.referenced:
+#                     msg = f"Variable {node_name} cannot be assigned after it is used"
+#                     raise CompileError(msg, node.left)
+#
+#                 self.referenced.add(node_name)
+#
+#     def walk_Variable(self, node: ast.Variable):
+#         return node.name
 
-    def walk_Statement(self, node: ast.Statement):
-        if node.op == "=":
-            node_name = self.walk(node.left)
-            if node_name is not None:
-                if node_name in self.referenced:
-                    msg = f"Variable {node_name} cannot be assigned after it is used"
-                    raise CompileError(msg, node.left)
 
-                self.referenced.add(node_name)
-
-    def walk_Variable(self, node: ast.Variable):
-        return node.name
-
-
-class RatCompiler:
+class StatementComponent:
+    statement: ast.Statement
     variable_table: VariableTable
     trace_table: TraceTable
+    lower_constraint_node: Optional[ast.ModelBase]
+    upper_constraint_node: Optional[ast.ModelBase]
 
-    def __init__(self, data: Dict[str, pandas.DataFrame], program: ast.Program, max_trace_iterations: int):
-        self.variable_table = VariableTable()
-
+    def __init__(self, statement: ast.Statement, variable_table: VariableTable, data: Union[pandas.DataFrame, Dict[str, pandas.DataFrame]]):
         walker = CheckPrimaryVariableSubscriptWalker()
-        walker.walk(program)
+        walker.walk(statement)
 
-        walker = AugmentDataVariableSubscriptsWalker(data)
-        walker.walk(program)
+        walker = CreateAssignedVariablesWalker(variable_table)
+        walker.walk(statement)
 
-        walker = CreateAssignedVariablesWalker(self.variable_table)
-        walker.walk(program)
+        walker = CreateVariableWalker(variable_table, data)
+        walker.walk(statement)
 
-        walker = CreateVariableWalker(self.variable_table, data)
-        walker.walk(program)
+        walker = RenameSubscriptWalker(variable_table)
+        walker.walk(statement)
 
-        # Do a sweep to rename the primary variables as necessary
-        walker = RenameSubscriptWalker(self.variable_table)
-        walker.walk(program)
+        walker = CheckSubscriptNamesExistWalker(variable_table)
+        walker.walk(statement)
 
-        walker = InferSubscriptNameWalker(self.variable_table)
-        walker.walk(program)
-
-        # bind_data_to_functions_walker = BindDataToFunctionsWalker(self.variable_table, data)
-        # bind_data_to_functions_walker.walk(program)
+        walker = CheckRightHandSideRecurrenceRelationWalker(variable_table)
+        walker.walk(statement)
 
         # Trace the program to determine parameter domains and check data domains
-        for _ in range(max_trace_iterations):
-            walker = DomainDiscoveryWalker(self.variable_table)
-            walker.walk(program)
+        walker = DomainDiscoveryWalker(variable_table)
+        walker.walk(statement)
 
-            any_domain_changed = False
-            for variable in self.variable_table.variables():
-                if isinstance(variable, DynamicVariableRecord):
-                    any_domain_changed |= variable.buffers_are_different()
+        walker = SingleConstraintCheckWalker(variable_table)
+        walker.walk(statement)
 
-            if not any_domain_changed:
-                break
+        primary_node = get_primary_ast_variable(statement)
+        self.lower_constraint_node = None
+        self.upper_constraint_node = None
+        if primary_node.constraints:
+            left_node = primary_node.constraints.left
+            right_node = primary_node.constraints.right
+
+            left_name = left_node.name
+            if right_node:
+                right_name = right_node.name
+            else:
+                right_name = None
+
+            if left_name == "lower" and right_name is None:
+                self.lower_constraint_node = left_node.value
+                self.upper_constraint_node = None
+            elif left_name == "upper" and right_name is None:
+                self.lower_constraint_node = None
+                self.upper_constraint_node = left_node.value
+            elif left_name == "lower" and right_name == "upper":
+                self.lower_constraint_node = left_node.value
+                self.upper_constraint_node = right_node.value
+
+        walker = TraceTableWalker(variable_table)
+        walker.walk(statement)
+        trace_table = walker.trace_table
+
+        walker = CheckSamplingFunctionWalker(variable_table)
+        walker.walk(statement)
+
+        walker = ControlFlowParameterCheckWalker(variable_table)
+        walker.walk(statement)
+
+        self.statement = statement
+        self.variable_table = variable_table
+        self.trace_table = trace_table
+
+    def evaluate(self, parameters: Dict[str, jax.numpy.ndarray], include_jacobian=False) -> Tuple[Dict[str, jax.numpy.ndarray], float]:
+        primary_node = get_primary_ast_variable(self.statement)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+
+        target = 0.0
+        traced_keys = sorted(self.trace_table.subscript_dict, key=lambda node: node.text)
+        traced_arrays = [self.trace_table.subscript_dict[key].array for key in traced_keys]
+
+        def mapper(node, traced_value):
+            executor = CodeExecutor(dict(zip(traced_keys, traced_value)), parameters)
+            return executor.walk(node)
+
+        if self.statement.op == "=":
+            if self.statement.left.name != primary_name:
+                msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
+                raise AstException("computing transformed parameters", msg, self.statement)
+
+            if isinstance(primary_variable, RecurrentVariableRecord):
+                primary_variable_nodes_on_right = [
+                    node
+                    for node in flatten_ast(self.statement.right)
+                    if isinstance(node, tatsu.synth.Variable) and node.name == primary_name
+                ]
+
+                right_hand_side_traces = {
+                    node: self.trace_table[node] for node in primary_variable_nodes_on_right if node in self.trace_table
+                }
+
+                if len(right_hand_side_traces) == 0:
+                    msg = (
+                        "Internal compiler error: Statement compiled as recurrence relation but no primary variable"
+                        " references found on right hand side"
+                    )
+                    raise CompileError(msg, self.statement)
+
+                simplified_traces = {}
+                for node, trace in right_hand_side_traces.items():
+                    simplified_trace_elements = set(trace.array[trace.array != 0])
+
+                    if len(simplified_trace_elements) == 0:
+                        msg = "Internal error: Traced array has zero elements"
+                        raise CompileError(msg, node)
+                    elif len(simplified_trace_elements) > 1:
+                        msg = (
+                            "There can only be one offset value for a node on the right hand side of a recurrence"
+                            f" found {simplified_trace_elements}"
+                        )
+                        raise CompileError(msg, node)
+
+                    simplified_traces[node] = simplified_trace_elements.pop()
+                carry_size = max(abs(trace) for trace in simplified_traces.values())
+
+                def scanner(carry, traced_value):
+                    traced_dict = {**dict(zip(traced_keys, traced_value)), **simplified_traces}
+                    executor = CodeExecutor(traced_dict, parameters, primary_name, carry)
+                    next_value = executor.walk(self.statement.right)
+                    return (next_value,) + carry[: len(carry) - 1], next_value
+
+                _, scanned = jax.lax.scan(scanner, carry_size * (0.0,), traced_arrays)
+                parameters[primary_variable.name] = scanned
+            else:
+                assignment_mapper = functools.partial(mapper, self.statement.right)
+
+                assert primary_variable.name not in parameters
+
+                if primary_variable.argument_count > 0:
+                    parameters[primary_variable.name] = jax.vmap(assignment_mapper)(traced_arrays)
+                else:
+                    parameters[primary_variable.name] = assignment_mapper(traced_arrays)
+        elif self.statement.op == "~":
+            lower_mapper = functools.partial(mapper, self.lower_constraint_node)
+            upper_mapper = functools.partial(mapper, self.upper_constraint_node)
+            statement_mapper = functools.partial(mapper, self.statement)
+
+            if primary_variable.argument_count > 0:
+                upper = jax.vmap(upper_mapper)(traced_arrays) if self.upper_constraint_node else None
+                lower = jax.vmap(lower_mapper)(traced_arrays) if self.lower_constraint_node else None
+            else:
+                upper = upper_mapper(traced_arrays) if self.upper_constraint_node else None
+                lower = lower_mapper(traced_arrays) if self.lower_constraint_node else None
+
+            jacobian_adjustment = 0.0
+            if lower is not None or upper is not None:
+                unconstrained = parameters[primary_variable.name]
+
+                if lower is not None and upper is None:
+                    constrained, jacobian_adjustment = constraints.lower(unconstrained, lower)
+                elif lower is None and upper is not None:
+                    constrained, jacobian_adjustment = constraints.upper(unconstrained, upper)
+                elif lower is not None and upper is not None:  # "lower" in constraints and "upper" in constraints:
+                    constrained, jacobian_adjustment = constraints.finite(unconstrained, lower, upper)
+
+                parameters[primary_variable.name] = constrained
+
+            if primary_variable.argument_count > 0:
+                target = jax.numpy.sum(jax.vmap(statement_mapper)(traced_arrays)) + (
+                    jax.numpy.sum(jacobian_adjustment) if include_jacobian else 0.0
+                )
+            else:
+                target = statement_mapper(traced_arrays) + (jax.numpy.sum(jacobian_adjustment) if include_jacobian else 0.0)
         else:
-            raise CompileError(f"Unable to resolve subscripts after {max_trace_iterations} trace iterations")
+            msg = f"Unrecognized statement operator {self.statement.op}"
+            raise CompileError(msg, self.statement)
 
-        walker = SingleConstraintCheckWalker(self.variable_table)
-        walker.walk(program)
-
-        walker = TraceTableWalker(self.variable_table)
-        walker.walk(program)
-        self.trace_table = walker.trace_table
-
-        walker = CheckSamplingFunctionWalker(self.variable_table)
-        walker.walk(program)
-
-        walker = CheckTransformedParameterOrder()
-        walker.walk(program)
-
-        walker = ControlFlowParameterCheckWalker(self.variable_table)
-        walker.walk(program)
+        return parameters, target

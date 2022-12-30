@@ -17,7 +17,7 @@ def test_model_compile_path():
     data_df = pandas.read_csv(os.path.join(test_dir, "../integration/normal.csv"))
 
     model_string = """
-    y ~ normal(mu, 1.5);
+    y[n]' ~ normal(mu, 1.5);
     mu ~ normal(-0.5, 0.3);
     """
 
