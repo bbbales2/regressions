@@ -127,6 +127,7 @@ def test_multiple_dataframes_eight_schools_error_to_many_rows():
     # with pytest.raises(Exception, match="Multiple rows matching school = 1"):
     #     Model(model_string=model_string, data={"y_data": y_data_df, "sigma_data": sigma_data_df})
 
+
 def test_multiple_dataframes_eight_schools_error_to_few_rows():
     data_df = pandas.read_csv(os.path.join(test_dir, "eight_schools.csv"))
 
