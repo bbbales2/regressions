@@ -5,17 +5,17 @@ import pandas
 import pytest
 
 import rat
+from rat.exceptions import CompileError
 
 test_dir = pathlib.Path(__file__).parent
 
 
-@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series.csv"))
 
     model_string = """
-    y' ~ normal(mu[i], 0.1);
-    mu[i]' ~ normal(ifelse(i == 1, 0.0, real(mu[shift(i, 1)])), 0.3);
+    y[i]' ~ normal(mu[i], 0.1);
+    mu[i]' ~ normal(ifelse(i == 1, 0.0, mu[i - 1]), 0.3);
     """
 
     model = rat.Model(model_string=model_string, data=data_df)
@@ -38,13 +38,12 @@ def test_optimize_time_series():
     assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
 
-@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_non_center():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series.csv"))
 
     model_string = """
-    y' ~ normal(mu[i], 0.1);
-    mu[i]' = ifelse(i == 1, 0.0, real(mu[shift(i, 1)])) + epsilon[i];
+    y[i]' ~ normal(mu[i], 0.1);
+    mu[i]' = ifelse(i == 1, 0.0, mu[i - 1]) + epsilon[i];
     epsilon[i] ~ normal(0, 0.3);
     """
 
@@ -68,13 +67,12 @@ def test_optimize_time_series_non_center():
     assert mu_df["mu"].to_list() == pytest.approx(mu_ref, rel=1e-2)
 
 
-@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_2():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
     model_string = """
-    score_diff' ~ normal(skills[year, team1] - skills[year, team2], sigma);
-    skills[year, team]' ~ normal(ifelse(year == 1, 0.0, real(skills[shift(year, 1), team])), 0.5);
+    score_diff[i]' ~ normal(skills[year[i], team1[i]] - skills[year[i], team2[i]], sigma);
+    skills[year, team]' ~ normal(ifelse(year == 1, 0.0, skills[year - 1, team]), 0.5);
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
@@ -109,13 +107,12 @@ def test_optimize_time_series_2():
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
 
-@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_2_non_center():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
     model_string = """
-    score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
-    skills[team, year]' = ifelse(year == 1, 0.0, real(skills[team, shift(year, 1)])) + epsilon[team, year] * tau;
+    score_diff[i]' ~ normal(skills[team1[i], year[i]] - skills[team2[i], year[i]], sigma);
+    skills[team, year]' = ifelse(year == 1, 0.0, skills[team, year - 1]) + epsilon[team, year] * tau;
     epsilon[team, year] ~ normal(0.0, 1.0);
     tau = 0.5;
     sigma<lower = 0.0> ~ normal(0, 1.0);
@@ -152,13 +149,12 @@ def test_optimize_time_series_2_non_center():
     assert joined_df["skills"].to_list() == pytest.approx(joined_df["skills_ref"].to_list(), abs=1e-1)
 
 
-@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_2_non_center_infer_tau():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
     model_string = """
-    score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
-    skills[team, year]' = ifelse(year == 1, 0.0, real(skills[team, shift(year, 1)])) + epsilon[team, year] * tau;
+    score_diff[i]' ~ normal(skills[team1[i], year[i]] - skills[team2[i], year[i]], sigma);
+    skills[team, year]' = ifelse(year == 1, 0.0, skills[team, year - 1]) + epsilon[team, year] * tau;
     epsilon[team, year] ~ normal(0.0, 1.0);
     tau<lower = 0.0> ~ normal(0.0, 0.5);
     sigma<lower = 0.0> ~ normal(0, 1.0);
@@ -168,17 +164,16 @@ def test_optimize_time_series_2_non_center_infer_tau():
     fit = rat.optimize(model, init=0.1, chains=1)
 
 
-@pytest.mark.skip("support for shift postponed for now")
 def test_optimize_time_series_2_error():
     data_df = pandas.read_csv(os.path.join(test_dir, "time_series_2.csv"))
 
     model_string = """
-    score_diff' ~ normal(skills[team1, year] - skills[team2, year], sigma);
-    skills' ~ normal(skills[team, shift(year, 1)], 0.5);
+    score_diff[i]' ~ normal(skills[team1[i], year[i]] - skills[team2[i], year[i]], sigma);
+    skills' ~ normal(skills[team, year - 1], 0.5);
     sigma<lower = 0.0> ~ normal(0, 1.0);
     """
 
-    with pytest.raises(CompileError, match="The subscripts must be renamed"):
+    with pytest.raises(CompileError, match="must be a primary variable subscript, but it is not"):
         model = rat.Model(model_string=model_string, data=data_df)
 
 

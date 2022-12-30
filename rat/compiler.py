@@ -7,6 +7,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Set, Union, Any, Tuple, Optional
 
+import tatsu
+
 from rat import ast, constraints
 from rat.codegen_backends import OpportunisticExecutor, DomainDiscoveryExecutor, ContextStack, CodeExecutor
 from rat.exceptions import CompileError, AstException
@@ -16,9 +18,9 @@ from rat.variable_table import (
     AssignedVariableRecord,
     SampledVariableRecord,
     ConstantVariableRecord,
-    DynamicVariableRecord,
+    DynamicVariableRecord, RecurrentVariableRecord,
 )
-from rat.walker import RatWalker, NodeWalker
+from rat.walker import RatWalker, NodeWalker, flatten_ast
 
 
 class NameWalker(RatWalker):
@@ -133,7 +135,9 @@ class CreateAssignedVariablesWalker(RatWalker):
             if not assigned_name:
                 msg = "The left hand side of an assignment must be a variable"
                 raise CompileError(msg, node.left)
-            return assigned_name
+            variables_on_right = [node for node in flatten_ast(node.right) if isinstance(node, tatsu.synth.Variable)]
+            if any([node.name == assigned_name for node in variables_on_right]):
+                self.variable_table[assigned_name] = RecurrentVariableRecord(**self.variable_table[assigned_name].__dict__)
 
     def walk_Variable(self, node: ast.Variable):
         if node.name in self.variable_table:
@@ -148,6 +152,35 @@ class CreateAssignedVariablesWalker(RatWalker):
                 raise CompileError(msg, node)
         else:
             self.variable_table[node.name] = AssignedVariableRecord(node.name, len(node.arglist) if node.arglist else 0)
+        return node.name
+
+
+# Check that only the last subscript of primary variable uses on the right hand side of a recurrence relation
+#  have expressions
+@dataclass
+class CheckRightHandSideRecurrenceRelationWalker(RatWalker):
+    variable_table: VariableTable
+    primary_name: str = None
+    in_primary_arglist: ContextStack[bool] = field(default_factory=lambda: ContextStack(False))
+
+    def walk_Statement(self, node: ast.Statement):
+        primary_node = get_primary_ast_variable(node)
+        primary_name = primary_node.name
+        primary_variable = self.variable_table[primary_name]
+        self.primary_name = primary_name
+        if isinstance(primary_variable, RecurrentVariableRecord):
+            self.walk(node.right)
+
+    def walk_Variable(self, node: ast.Variable):
+        if node.arglist is not None:
+            if self.in_primary_arglist.peek():
+                for arg in node.arglist[:-1]:
+                    if not self.walk(arg):
+                        raise CompileError()
+            elif node.name == self.primary_name:
+                with self.in_primary_arglist.push(True):
+                    for arg in node.arglist:
+                        self.walk(arg)
         return True
 
 
@@ -159,7 +192,7 @@ class CheckPrimaryVariableSubscriptWalker(RatWalker):
     msg: str = "Primary variables cannot have expressions in their subscripts"
 
     def walk_Statement(self, node: ast.Statement):
-        self.primary_name = get_primary_ast_variable(node)
+        self.primary_name = get_primary_ast_variable(node).name
         self.walk(node.left)
 
     def walk_Variable(self, node: ast.Variable):
@@ -287,6 +320,9 @@ class RenameSubscriptWalker(RatWalker):
                     f" been renamed to {primary_variable.subscripts}"
                 )
                 raise CompileError(msg, primary_ast_variable)
+        else:
+            msg = "Subscripts on primary variable must be named"
+            raise CompileError(msg, primary_ast_variable)
 
 
 @dataclass
@@ -340,13 +376,14 @@ class TraceTableWalker(RatWalker):
     def walk_Statement(self, node: ast.Statement):
         primary_node = get_primary_ast_variable(node)
         primary_variable = self.variable_table[primary_node.name]
+        recurrent_variable_name = primary_variable.name if isinstance(primary_variable, RecurrentVariableRecord) else None
 
         self.walk(node.left)
         self.walk(node.right)
 
         traces = defaultdict(lambda: [])
         for row_number, known_values_as_dict in enumerate(primary_variable.opportunistic_dict_iterator()):
-            executor = OpportunisticExecutor(self.variable_table, known_values_as_dict)
+            executor = OpportunisticExecutor(self.variable_table, known_values_as_dict, row_number, recurrent_variable_name)
             executor.walk(node)
 
             for traced_node, value in executor.values.items():
@@ -477,6 +514,9 @@ class StatementComponent:
         walker = CheckSubscriptNamesExistWalker(variable_table)
         walker.walk(statement)
 
+        walker = CheckRightHandSideRecurrenceRelationWalker(variable_table)
+        walker.walk(statement)
+
         # Trace the program to determine parameter domains and check data domains
         walker = DomainDiscoveryWalker(variable_table)
         walker.walk(statement)
@@ -539,14 +579,58 @@ class StatementComponent:
                 msg = f"Not Implemented Error: The left hand side of assignment must be the primary variable for now"
                 raise AstException("computing transformed parameters", msg, self.statement)
 
-            assignment_mapper = functools.partial(mapper, self.statement.right)
+            if isinstance(primary_variable, RecurrentVariableRecord):
+                primary_variable_nodes_on_right = [
+                    node for node in flatten_ast(self.statement.right)
+                    if isinstance(node, tatsu.synth.Variable) and node.name == primary_name
+                ]
 
-            assert primary_variable.name not in parameters
+                right_hand_side_traces = {
+                    node: self.trace_table[node] for node in primary_variable_nodes_on_right
+                    if node in self.trace_table
+                }
 
-            if primary_variable.argument_count > 0:
-                parameters[primary_variable.name] = jax.vmap(assignment_mapper)(traced_arrays)
+                if len(right_hand_side_traces) == 0:
+                    msg = (
+                        "Internal compiler error: Statement compiled as recurrence relation but no primary variable"
+                        " references found on right hand side"
+                    )
+                    raise CompileError(msg, self.statement)
+
+                simplified_traces = {}
+                for node, trace in right_hand_side_traces.items():
+                    simplified_trace_elements = set(trace.array[trace.array != 0])
+
+                    if len(simplified_trace_elements) == 0:
+                        msg = "Internal error: Traced array has zero elements"
+                        raise CompileError(msg, node)
+                    elif len(simplified_trace_elements) > 1:
+                        msg = (
+                            "There can only be one offset value for a node on the right hand side of a recurrence"
+                            f" found {simplified_trace_elements}"
+                        )
+                        raise CompileError(msg, node)
+
+                    simplified_traces[node] = simplified_trace_elements.pop()
+                carry_size = max(abs(trace) for trace in simplified_traces.values())
+
+                def scanner(carry, traced_value):
+                    traced_dict = { **dict(zip(traced_keys, traced_value)), **simplified_traces }
+                    executor = CodeExecutor(traced_dict, parameters, primary_name, carry)
+                    next_value = executor.walk(self.statement.right)
+                    return (next_value,) + carry[:len(carry) - 1], next_value
+
+                _, scanned = jax.lax.scan(scanner, carry_size * (0.0,), traced_arrays)
+                parameters[primary_variable.name] = scanned
             else:
-                parameters[primary_variable.name] = assignment_mapper(traced_arrays)
+                assignment_mapper = functools.partial(mapper, self.statement.right)
+
+                assert primary_variable.name not in parameters
+
+                if primary_variable.argument_count > 0:
+                    parameters[primary_variable.name] = jax.vmap(assignment_mapper)(traced_arrays)
+                else:
+                    parameters[primary_variable.name] = assignment_mapper(traced_arrays)
         elif self.statement.op == "~":
             lower_mapper = functools.partial(mapper, self.lower_constraint_node)
             upper_mapper = functools.partial(mapper, self.upper_constraint_node)

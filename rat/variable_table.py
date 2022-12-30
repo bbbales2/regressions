@@ -130,6 +130,10 @@ class AssignedVariableRecord(DynamicVariableRecord):
     pass
 
 
+class RecurrentVariableRecord(AssignedVariableRecord):
+    pass
+
+
 class SampledVariableRecord(DynamicVariableRecord):
     pass
 

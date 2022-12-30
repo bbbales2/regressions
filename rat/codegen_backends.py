@@ -2,14 +2,14 @@ import jax
 
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, TypeVar, Generic, Union
+from typing import List, Dict, Any, TypeVar, Generic, Union, Tuple, Optional
 
 from tatsu.model import NodeWalker
 
 from rat import ast
 from rat import math
 from rat.exceptions import CompileError, ExecuteException
-from rat.variable_table import VariableTable, DynamicVariableRecord
+from rat.variable_table import VariableTable, DynamicVariableRecord, RecurrentVariableRecord
 
 
 @dataclass
@@ -63,13 +63,23 @@ class OpportunisticExecutor(NodeWalker):
 
     variable_table: VariableTable
     leaves: Dict[str, Any]
+    base_index: int
+    recurrent_variable_name: Optional[str]
     left_side_of_sampling: Union[None, ast.ModelBase]
     collecting_traces: ContextStack[bool]
     values: Dict[ast.ModelBase, Union[int, float, str]]
 
-    def __init__(self, variable_table: VariableTable, leaves: Dict[str, Union[int, float, str]]):
+    def __init__(
+            self,
+            variable_table: VariableTable,
+            leaves: Dict[str, Union[int, float, str]],
+            base_index: int,
+            recurrent_variable_name: Optional[str] = None
+    ):
         self.variable_table = variable_table
         self.leaves = leaves
+        self.base_index = base_index
+        self.recurrent_variable_name = recurrent_variable_name
         self.left_side_of_sampling = None
         self.collecting_traces = ContextStack(True)
         self.values = {}
@@ -77,7 +87,8 @@ class OpportunisticExecutor(NodeWalker):
     def walk_Statement(self, node: ast.Statement):
         # Let's just say an assignment evaluates to the right hand side?
         if node.op == "=":
-            self.walk(node.left)
+            # Don't walk the left hand side cuz we're assuming the subscripts of the left hand side are not expressions
+            #self.walk(node.left)
             output = self.walk(node.right)
         else:
             self.left_side_of_sampling = node.left
@@ -170,11 +181,22 @@ class OpportunisticExecutor(NodeWalker):
                 if all(arg is not None for arg in arglist):
                     if trace_by_reference:
                         if len(arglist) > 0:
-                            output = self.variable_table[node.name].get_index(*arglist)
+                            if node.name == self.recurrent_variable_name:
+                                output = node_variable.get_index(*arglist) - self.base_index
+
+                                if output >= 0:
+                                    msg = (
+                                        "All references to the primary variable on the right hand side of a recurrence"
+                                        " relation must have negative offsets relative to the left hand side. Found"
+                                        f" offset {output}"
+                                    )
+                                    raise CompileError(msg, node)
+                            else:
+                                output = node_variable.get_index(*arglist)
                         else:
                             output = None
                     else:
-                        output = self.variable_table[node.name].get_value(*arglist)
+                        output = node_variable.get_value(*arglist)
                 else:
                     output = None
 
@@ -260,6 +282,8 @@ class DomainDiscoveryExecutor(NodeWalker):
 class CodeExecutor(NodeWalker):
     traced_values: Dict[ast.ModelBase, Any]
     parameters: Dict[str, Any]
+    recurrent_variable_name: Optional[str] = None
+    carry: Optional[Tuple] = None
     left_side_of_sampling: Union[None, ast.ModelBase] = field(default=None)
 
     def walk_Statement(self, node: ast.Statement):
@@ -293,7 +317,10 @@ class CodeExecutor(NodeWalker):
 
     def walk_Variable(self, node: ast.Variable):
         if node in self.traced_values:
-            if node.name in self.parameters:
+            if node.name == self.recurrent_variable_name:
+                trace = self.traced_values[node]
+                return self.carry[trace + 1]
+            elif node.name in self.parameters:
                 trace = self.traced_values[node]
                 return self.parameters[node.name][trace]
             else:
