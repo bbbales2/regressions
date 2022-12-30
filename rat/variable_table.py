@@ -208,7 +208,7 @@ class VariableTable:
         expected_shape = (unconstrained_parameter_size,)
 
         if unconstrained_parameter_vector.shape != expected_shape:
-            raise ValueError(f"Unconstrained variable must be of shape {expected_shape}, found {x.shape}")
+            raise ValueError(f"Unconstrained variable must be of shape {expected_shape}, found {unconstrained_parameter_vector.shape}")
 
         used = 0
         parameters = {}

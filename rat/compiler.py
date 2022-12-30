@@ -320,9 +320,6 @@ class RenameSubscriptWalker(RatWalker):
                     f" been renamed to {primary_variable.subscripts}"
                 )
                 raise CompileError(msg, primary_ast_variable)
-        else:
-            msg = "Subscripts on primary variable must be named"
-            raise CompileError(msg, primary_ast_variable)
 
 
 @dataclass
