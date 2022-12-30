@@ -18,7 +18,8 @@ from rat.variable_table import (
     AssignedVariableRecord,
     SampledVariableRecord,
     ConstantVariableRecord,
-    DynamicVariableRecord, RecurrentVariableRecord,
+    DynamicVariableRecord,
+    RecurrentVariableRecord,
 )
 from rat.walker import RatWalker, NodeWalker, flatten_ast
 
@@ -581,13 +582,13 @@ class StatementComponent:
 
             if isinstance(primary_variable, RecurrentVariableRecord):
                 primary_variable_nodes_on_right = [
-                    node for node in flatten_ast(self.statement.right)
+                    node
+                    for node in flatten_ast(self.statement.right)
                     if isinstance(node, tatsu.synth.Variable) and node.name == primary_name
                 ]
 
                 right_hand_side_traces = {
-                    node: self.trace_table[node] for node in primary_variable_nodes_on_right
-                    if node in self.trace_table
+                    node: self.trace_table[node] for node in primary_variable_nodes_on_right if node in self.trace_table
                 }
 
                 if len(right_hand_side_traces) == 0:
@@ -615,10 +616,10 @@ class StatementComponent:
                 carry_size = max(abs(trace) for trace in simplified_traces.values())
 
                 def scanner(carry, traced_value):
-                    traced_dict = { **dict(zip(traced_keys, traced_value)), **simplified_traces }
+                    traced_dict = {**dict(zip(traced_keys, traced_value)), **simplified_traces}
                     executor = CodeExecutor(traced_dict, parameters, primary_name, carry)
                     next_value = executor.walk(self.statement.right)
-                    return (next_value,) + carry[:len(carry) - 1], next_value
+                    return (next_value,) + carry[: len(carry) - 1], next_value
 
                 _, scanned = jax.lax.scan(scanner, carry_size * (0.0,), traced_arrays)
                 parameters[primary_variable.name] = scanned
