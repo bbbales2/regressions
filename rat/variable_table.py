@@ -113,7 +113,7 @@ class VariableRecord:
         for keys, value in self.mapping.items():
             keys_with_names = dict(zip(self.subscripts, keys))
             if value is not None:
-                yield { **keys_with_names, self.name: value }
+                yield {**keys_with_names, self.name: value}
             else:
                 yield keys_with_names
 
@@ -214,7 +214,7 @@ class VariableTable:
 
             if len(variable.subscripts) > 0:
                 size = len(variable)
-                parameters[variable.name] = unconstrained_parameter_vector[used: used + size]
+                parameters[variable.name] = unconstrained_parameter_vector[used : used + size]
                 used += size
             else:
                 parameters[variable.name] = unconstrained_parameter_vector[used]
