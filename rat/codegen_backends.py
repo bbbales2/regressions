@@ -70,11 +70,11 @@ class OpportunisticExecutor(NodeWalker):
     values: Dict[ast.ModelBase, Union[int, float, str]]
 
     def __init__(
-            self,
-            variable_table: VariableTable,
-            leaves: Dict[str, Union[int, float, str]],
-            base_index: int,
-            recurrent_variable_name: Optional[str] = None
+        self,
+        variable_table: VariableTable,
+        leaves: Dict[str, Union[int, float, str]],
+        base_index: int,
+        recurrent_variable_name: Optional[str] = None,
     ):
         self.variable_table = variable_table
         self.leaves = leaves
@@ -88,7 +88,7 @@ class OpportunisticExecutor(NodeWalker):
         # Let's just say an assignment evaluates to the right hand side?
         if node.op == "=":
             # Don't walk the left hand side cuz we're assuming the subscripts of the left hand side are not expressions
-            #self.walk(node.left)
+            # self.walk(node.left)
             output = self.walk(node.right)
         else:
             self.left_side_of_sampling = node.left
