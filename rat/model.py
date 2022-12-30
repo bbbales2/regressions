@@ -26,47 +26,22 @@ class Model:
     def size(self):
         return self.variable_table.unconstrained_parameter_size
 
-    @partial(jax.jit, static_argnums=(0,))
-    def temporary_parameters(self, unconstrained_parameter_vector: numpy.ndarray):
-        parameters = {}
-        used = 0
-
-        for name in self.variable_table:
-            record = self.variable_table[name]
-
-            if not isinstance(record, SampledVariableRecord):
-                continue
-
-            # This assumes that unconstrained parameter indices for a parameter is allocated in a contiguous fashion.
-            if len(record.subscripts) > 0:
-                unconstrained = unconstrained_parameter_vector[used : used + len(record)]
-                used += len(record)
-            else:
-                unconstrained = unconstrained_parameter_vector[used]
-                used += 1
-
-            parameters[name] = unconstrained
-
-        return parameters
-
     @partial(jax.jit, static_argnums=(0, 2))
     def compute_parameters(self, x: numpy.ndarray):
-        # log_jacobian = self.variable_table.transform(x)
-        parameters = self.temporary_parameters(x)
+        parameters = self.variable_table.get_unconstrained_parameters(x)
 
         for statement_component in reversed(self.statement_components):
-            target_increment, parameters = statement_component.evaluate(parameters, False)
+            parameters, target_increment = statement_component.evaluate(parameters, False)
 
         return parameters
 
     @partial(jax.jit, static_argnums=(0, 2))
     def log_density(self, x: numpy.ndarray, include_jacobian=True):
-        # log_jacobian = self.variable_table.transform(x)
-        parameters = self.temporary_parameters(x)
+        parameters = self.variable_table.get_unconstrained_parameters(x)
 
         target = 0.0
         for statement_component in reversed(self.statement_components):
-            target_increment, parameters = statement_component.evaluate(parameters, include_jacobian)
+            parameters, target_increment = statement_component.evaluate(parameters, include_jacobian)
             target += jax.numpy.sum(target_increment)
 
         return target

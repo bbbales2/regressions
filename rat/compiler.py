@@ -139,7 +139,7 @@ class CreateAssignedVariablesWalker(RatWalker):
         if node.name in self.variable_table:
             variable = self.variable_table[node.name]
             if isinstance(variable, SampledVariableRecord):
-                self.variable_table[node.name] = self.variable_table[node.name].as_assigned_variable_record()
+                self.variable_table[node.name] = AssignedVariableRecord(**self.variable_table[node.name].__dict__)
             elif isinstance(variable, ConstantVariableRecord):
                 msg = f"Attempting to assign {variable.name} which is data"
                 raise CompileError(msg, node)
@@ -521,7 +521,7 @@ class StatementComponent:
         self.variable_table = variable_table
         self.trace_table = trace_table
 
-    def evaluate(self, parameters, include_jacobian=False) -> Tuple[float, Dict]:
+    def evaluate(self, parameters: Dict[str, jax.numpy.ndarray], include_jacobian=False) -> Tuple[Dict[str, jax.numpy.ndarray], float]:
         primary_node = get_primary_ast_variable(self.statement)
         primary_name = primary_node.name
         primary_variable = self.variable_table[primary_name]
@@ -541,13 +541,12 @@ class StatementComponent:
 
             assignment_mapper = functools.partial(mapper, self.statement.right)
 
-            # We can't be overwriting parameters
-            assert primary_name not in parameters
+            assert primary_variable.name not in parameters
 
             if primary_variable.argument_count > 0:
-                parameters[primary_name] = jax.vmap(assignment_mapper)(traced_arrays)
+                parameters[primary_variable.name] = jax.vmap(assignment_mapper)(traced_arrays)
             else:
-                parameters[primary_name] = assignment_mapper(traced_arrays)
+                parameters[primary_variable.name] = assignment_mapper(traced_arrays)
         elif self.statement.op == "~":
             lower_mapper = functools.partial(mapper, self.lower_constraint_node)
             upper_mapper = functools.partial(mapper, self.upper_constraint_node)
@@ -562,7 +561,7 @@ class StatementComponent:
 
             jacobian_adjustment = 0.0
             if lower is not None or upper is not None:
-                unconstrained = parameters[primary_name]
+                unconstrained = parameters[primary_variable.name]
 
                 if lower is not None and upper is None:
                     constrained, jacobian_adjustment = constraints.lower(unconstrained, lower)
@@ -571,7 +570,7 @@ class StatementComponent:
                 elif lower is not None and upper is not None:  # "lower" in constraints and "upper" in constraints:
                     constrained, jacobian_adjustment = constraints.finite(unconstrained, lower, upper)
 
-                parameters[primary_name] = constrained
+                parameters[primary_variable.name] = constrained
 
             if primary_variable.argument_count > 0:
                 target = jax.numpy.sum(jax.vmap(statement_mapper)(traced_arrays)) + (
@@ -583,4 +582,4 @@ class StatementComponent:
             msg = f"Unrecognized statement operator {self.statement.op}"
             raise CompileError(msg, self.statement)
 
-        return target, parameters
+        return parameters, target

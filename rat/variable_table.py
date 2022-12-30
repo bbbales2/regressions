@@ -1,6 +1,7 @@
 from collections import namedtuple
 from enum import Enum
-from typing import Any, Dict, List, Tuple, Iterable, Union, TypeVar, NamedTuple, Iterator
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Tuple, Iterable, Union, TypeVar, NamedTuple, Iterator, Optional
 
 import jax
 import numpy
@@ -58,22 +59,14 @@ def _get_dataframe_name_by_variable_and_column_name(
     return matching_dfs[0]
 
 
+@dataclass
 class VariableRecord:
     name: str
     argument_count: int
 
-    _subscripts: Tuple[str]
-    renamed: bool
-    arguments_set: SortedSet
-    values: jax.numpy.ndarray
-
-    def __init__(self, name: str, argument_count: int):
-        self.name = name
-        self.argument_count = argument_count
-        self._subscripts = None
-        self.renamed = False
-        self.arguments_set = SortedSet()
-        self.values = None
+    _subscripts: Optional[Tuple[str]] = None
+    renamed: bool = False
+    mapping: SortedDict = field(default_factory=SortedDict)
 
     @property
     def subscripts(self):
@@ -90,7 +83,7 @@ class VariableRecord:
         self.renamed = True
 
     def __iter__(self):
-        for args in self.arguments_set:
+        for args in self.mapping:
             # TODO: I haven't been able to decide between consistently treating args as tuples
             #  or treating the length 1 tuples like scalars
             if len(args) == 1:
@@ -99,34 +92,34 @@ class VariableRecord:
                 yield args
 
     def __len__(self):
-        return len(self.arguments_set)
+        return len(self.mapping)
 
     def add(self, *args):
-        self.arguments_set.add(args)
+        self.mapping[args] = None
 
     def get_index(self, *args):
         try:
-            return self.arguments_set.index(args)
-        except ValueError as e:
+            return self.mapping.index(args)
+        except ValueError:
             raise KeyError(f"{self.name}[{','.join(str(arg) for arg in args)}] not found")
 
     def get_value(self, *args):
-        index = self.get_index(*args)
-        value = self.values[index]
-        return value
+        try:
+            return self.mapping[args]
+        except KeyError:
+            raise KeyError(f"{self.name}[{','.join(str(arg) for arg in args)}] not found")
 
     def opportunistic_dict_iterator(self) -> Iterator[Dict[str, Any]]:
-        keys_generator = (dict(zip(self.subscripts, keys)) for keys in self.arguments_set)
-        if self.values is not None:
-            for keys, value in zip(keys_generator, self.values):
-                yield { **keys, self.name: value }
-        else:
-            for keys in keys_generator:
-                yield keys
+        for keys, value in self.mapping.items():
+            keys_with_names = dict(zip(self.subscripts, keys))
+            if value is not None:
+                yield { **keys_with_names, self.name: value }
+            else:
+                yield keys_with_names
 
     # TODO: This should probably be __str__
     def __repr__(self) -> str:
-        return f"{type(self).__name__}({self.name}[{','.join(self.subscripts)}], {len(self.arguments_set)})"
+        return f"{type(self).__name__}({self.name}[{','.join(self.subscripts)}], {len(self.mapping)})"
 
 
 class DynamicVariableRecord(VariableRecord):
@@ -138,12 +131,7 @@ class AssignedVariableRecord(DynamicVariableRecord):
 
 
 class SampledVariableRecord(DynamicVariableRecord):
-    def as_assigned_variable_record(self) -> AssignedVariableRecord:
-        assigned_variable_record = AssignedVariableRecord(self.name, self.argument_count)
-        if self.renamed:
-            assigned_variable_record.rename(self.subscripts)
-        assigned_variable_record.arguments_set = self.arguments_set
-        return assigned_variable_record
+    pass
 
 
 class ConstantVariableRecord(VariableRecord):
@@ -168,8 +156,6 @@ class ConstantVariableRecord(VariableRecord):
                 if subscript not in df.columns:
                     raise Exception(f"{self.name} found in {data_name}, but subscript {subscript} not found")
 
-        existing_values = SortedDict(zip(self.arguments_set, self.values)) if self.values else SortedDict()
-
         # Iterate over each row of the target dataframe
         row: NamedTuple
         for row in df.itertuples():  # row here is a namedtuple
@@ -178,8 +164,8 @@ class ConstantVariableRecord(VariableRecord):
             arguments = tuple(row_as_dict[subscript] for subscript in data_subscripts)
             return_value = row_as_dict[self.name]
 
-            if arguments in existing_values:
-                existing_value = existing_values[arguments]
+            if arguments in self.mapping:
+                existing_value = self.mapping[arguments]
                 if existing_value != return_value:
                     arguments_string = ",".join(
                         f"{subscript} = {arg}" for subscript, arg in zip(data_subscripts, arguments)
@@ -189,10 +175,7 @@ class ConstantVariableRecord(VariableRecord):
                         f" {arguments_string} with different values ({existing_value}, {return_value})"
                     )
 
-            existing_values[arguments] = return_value
-
-        self.arguments_set = SortedSet(existing_values.keys())
-        self.values = list(existing_values.values())
+            self.mapping[arguments] = return_value
 
 
 class VariableTable:
@@ -217,6 +200,28 @@ class VariableTable:
     def variables(self):
         for variable in self.variable_components.values():
             yield variable
+
+    def get_unconstrained_parameters(self, unconstrained_parameter_vector: jax.numpy.ndarray) -> Dict[str, jax.numpy.ndarray]:
+        unconstrained_parameter_size = self.unconstrained_parameter_size
+        expected_shape = (unconstrained_parameter_size,)
+
+        if unconstrained_parameter_vector.shape != expected_shape:
+            raise ValueError(f"Unconstrained variable must be of shape {expected_shape}, found {x.shape}")
+
+        used = 0
+        parameters = {}
+        for variable in self.variables():
+            if not isinstance(variable, SampledVariableRecord):
+                continue
+
+            if len(variable.subscripts) > 0:
+                size = len(variable)
+                parameters[variable.name] = unconstrained_parameter_vector[used: used + size]
+                used += size
+            else:
+                parameters[variable.name] = unconstrained_parameter_vector[used]
+                used += 1
+        return parameters
 
     @property
     def unconstrained_parameter_size(self) -> int:
